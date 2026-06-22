@@ -1,0 +1,15 @@
+import { contextBridge, ipcRenderer, webUtils } from "electron";
+
+contextBridge.exposeInMainWorld("superNote", {
+  loadWorkspace: () => ipcRenderer.invoke("workspace:load"),
+  saveWorkspace: (workspace: unknown) => ipcRenderer.invoke("workspace:save", workspace),
+  openFile: () => ipcRenderer.invoke("dialog:openFile"),
+  saveFile: (payload: unknown) => ipcRenderer.invoke("file:save", payload),
+  setAlwaysOnTop: (enabled: boolean) => ipcRenderer.invoke("window:setAlwaysOnTop", enabled),
+  minimizeWindow: () => ipcRenderer.invoke("window:minimize"),
+  toggleMaximizeWindow: () => ipcRenderer.invoke("window:toggleMaximize"),
+  closeWindow: () => ipcRenderer.invoke("window:close"),
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
+  readClipboardText: () => ipcRenderer.invoke("clipboard:readText"),
+  getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
+});
