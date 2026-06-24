@@ -1,4 +1,6 @@
-import { contextBridge, ipcRenderer, webUtils } from "electron";
+import * as electron from "electron";
+
+const { contextBridge, ipcRenderer } = electron;
 
 contextBridge.exposeInMainWorld("superNote", {
   loadWorkspace: () => ipcRenderer.invoke("workspace:load"),
@@ -9,7 +11,8 @@ contextBridge.exposeInMainWorld("superNote", {
   minimizeWindow: () => ipcRenderer.invoke("window:minimize"),
   toggleMaximizeWindow: () => ipcRenderer.invoke("window:toggleMaximize"),
   closeWindow: () => ipcRenderer.invoke("window:close"),
-  getPathForFile: (file: File) => webUtils.getPathForFile(file),
+  getPathForFile: (file: File) =>
+    electron.webUtils?.getPathForFile(file) || (file as File & { path?: string }).path || "",
   readClipboardText: () => ipcRenderer.invoke("clipboard:readText"),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
 });

@@ -1,0 +1,26 @@
+{
+  "appId": "com.supernote.desktop",
+  "productName": "Super Note",
+  "electronVersion": "22.3.27",
+  "artifactName": "Super.Note.Setup.${version}.Win7-8.${ext}",
+  "directories": {
+    "output": "release-win7-8"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*",
+    "assets/**/*"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64",
+          "ia32"
+        ]
+      }
+    ],
+    "icon": "assets/app-icon.ico"
+  }
+}

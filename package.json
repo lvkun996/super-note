@@ -10,7 +10,8 @@
     "build": "tsc -p tsconfig.electron.json && vite build",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "dist:win7-8": "npm run build && electron-builder --config electron-builder.win7-8.json --publish never"
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
