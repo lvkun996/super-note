@@ -45,6 +45,7 @@ const HISTORY_LIMIT = 80;
 const LONG_PRESS_MS = 160;
 const STORAGE_KEY = "super-note-workspace";
 const DEFAULT_TEXT_FONT_SIZE = 18;
+const DEFAULT_FILE_FONT_SIZE = 13;
 const INITIAL_PANE_ID = "pane-main";
 
 type PaneKey = string;
@@ -102,6 +103,7 @@ type FileTab = {
   fileName: string;
   filePath?: string;
   content: string;
+  fontSize?: number;
   themeIndex: number;
   dirty: boolean;
 };
@@ -123,7 +125,21 @@ type CanvasViewState = {
   itemOverrides: Record<string, CanvasItemOverride>;
 };
 
-type ShortcutAction = "save" | "search" | "undo" | "redo" | "redoAlt" | "paste" | "deleteSelected" | "splitLeft" | "splitRight";
+type ShortcutAction =
+  | "newCanvas"
+  | "newText"
+  | "closeTab"
+  | "fileFontIncrease"
+  | "fileFontDecrease"
+  | "save"
+  | "search"
+  | "undo"
+  | "redo"
+  | "redoAlt"
+  | "paste"
+  | "deleteSelected"
+  | "splitLeft"
+  | "splitRight";
 type ShortcutConfig = Record<ShortcutAction, string>;
 
 type AppSettings = {
@@ -232,7 +248,39 @@ const canvasThemes: CanvasTheme[] = [
   { accent: "#52c41a" },
 ];
 
+const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.4",
+    date: "2026.06.30",
+    title: "文本模块字号与滚动空间",
+    description: "新增文本模块字号放大、缩小快捷键设置，并把文本编辑区底部空白扩展到约 22 行。",
+  },
+  {
+    version: "v0.1.3",
+    date: "2026.06.24",
+    title: "更多 Windows 版本支持",
+    description: "新增 Windows 7 / 8 安装包，同时保留 Windows 10 / 11 独立下载入口。",
+  },
+  {
+    version: "v0.1.2",
+    date: "2026.06.23",
+    title: "项目网站与直接下载",
+    description: "重构项目页面视觉与响应式布局，安装包可从网站直接下载。",
+  },
+  {
+    version: "v0.1.1",
+    date: "2026.06.22",
+    title: "多栏工作区",
+    description: "加入自由画板、动态分栏、全局搜索与本地工作区保存。",
+  },
+];
+
 const DEFAULT_SHORTCUTS: ShortcutConfig = {
+  newCanvas: "Ctrl+D",
+  newText: "Ctrl+T",
+  closeTab: "Ctrl+Q",
+  fileFontIncrease: "Ctrl++",
+  fileFontDecrease: "Ctrl+-",
   save: "Ctrl+S",
   search: "Ctrl+F",
   undo: "Ctrl+Z",
@@ -253,10 +301,15 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; desc: string }> = [
+  { action: "newCanvas", label: "新建画板模块", desc: "直接创建一个空白画板" },
+  { action: "newText", label: "新建文本模块", desc: "直接创建一个纯文本编辑模块" },
+  { action: "closeTab", label: "关闭当前标签", desc: "关闭当前画板或文本模块" },
+  { action: "fileFontIncrease", label: "放大文本模块字号", desc: "仅调整当前文本模块的编辑字号" },
+  { action: "fileFontDecrease", label: "缩小文本模块字号", desc: "仅调整当前文本模块的编辑字号" },
   { action: "save", label: "保存当前标签", desc: "保存当前文件或画板" },
   { action: "search", label: "全局搜索", desc: "打开全局搜索面板" },
-  { action: "undo", label: "撤销", desc: "撤销画板变更" },
-  { action: "redo", label: "重做", desc: "重做画板变更" },
+  { action: "undo", label: "撤销", desc: "撤销当前模块变更" },
+  { action: "redo", label: "重做", desc: "重做当前模块变更" },
   { action: "redoAlt", label: "重做备用", desc: "兼容常见编辑器快捷键" },
   { action: "paste", label: "粘贴", desc: "粘贴文字或图片" },
   { action: "deleteSelected", label: "删除选中元素", desc: "删除画板中选中的元素" },
@@ -326,8 +379,22 @@ function createFileTab(file: OpenedFile, themeIndex: number): FileTab {
     fileName: file.name,
     filePath: file.path,
     content: file.content,
+    fontSize: DEFAULT_FILE_FONT_SIZE,
     themeIndex,
     dirty: false,
+  };
+}
+
+function createTextTab(themeIndex: number): FileTab {
+  return {
+    id: makeId(),
+    kind: "file",
+    title: "未命名文本",
+    fileName: "未命名文本.txt",
+    content: "",
+    fontSize: DEFAULT_FILE_FONT_SIZE,
+    themeIndex,
+    dirty: true,
   };
 }
 
@@ -349,6 +416,7 @@ function restoreTab(tab: PersistedTab): NoteTab {
   }
   return {
     ...tab,
+    fontSize: tab.fontSize ?? DEFAULT_FILE_FONT_SIZE,
     dirty: tab.dirty ?? false,
   };
 }
@@ -417,6 +485,36 @@ function getTextFontSize(item: TextCanvasItem) {
   return item.fontSize ?? DEFAULT_TEXT_FONT_SIZE;
 }
 
+function getFileFontSize(tab: FileTab) {
+  return tab.fontSize ?? DEFAULT_FILE_FONT_SIZE;
+}
+
+function estimateTextHeight(text: string, fontSize: number, width: number) {
+  const usableWidth = Math.max(40, width - 12);
+  const charactersPerLine = Math.max(1, Math.floor(usableWidth / (fontSize * 0.62)));
+  const visualLines = (text || " ")
+    .split("\n")
+    .reduce((total, line) => total + Math.max(1, Math.ceil(Math.max(1, line.length) / charactersPerLine)), 0);
+  return Math.max(48, Math.ceil(visualLines * fontSize * 1.45 + 12));
+}
+
+function estimateTextWidth(text: string, fontSize: number) {
+  const longestLineWidth = (text || " ")
+    .split("\n")
+    .reduce((longest, line) => {
+      const width = Array.from(line).reduce((sum, character) => sum + (character.charCodeAt(0) > 255 ? fontSize : fontSize * 0.62), 0);
+      return Math.max(longest, width);
+    }, 0);
+  return clamp(Math.ceil(longestLineWidth + 16), 260, 960);
+}
+
+function isTabEmpty(tab: NoteTab) {
+  if (tab.kind === "file") {
+    return tab.content.trim().length === 0;
+  }
+  return tab.items.every((item) => item.type === "text" && item.text.trim().length === 0);
+}
+
 function getItemLayout(item: CanvasItem, viewState: CanvasViewState) {
   const override = viewState.itemOverrides[item.id];
   if (item.type === "text") {
@@ -444,8 +542,8 @@ function getPointOnCanvas(clientX: number, clientY: number, surface: HTMLDivElem
   }
   const rect = surface.getBoundingClientRect();
   return {
-    x: Math.max(0, Math.round((clientX - rect.left) / scale)),
-    y: Math.max(0, Math.round((clientY - rect.top) / scale)),
+    x: Math.round((clientX - rect.left) / scale),
+    y: Math.round((clientY - rect.top) / scale),
   };
 }
 
@@ -462,17 +560,46 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function splitShortcutParts(value: string) {
+  const clean = value
+    .replace(/Command/gi, "Meta")
+    .replace(/Cmd/gi, "Meta");
+  const parts = clean
+    .split("+")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (clean.trim().endsWith("+")) {
+    parts.push("+");
+  }
+  return parts;
+}
+
+function normalizeShortcutKey(part: string) {
+  const lower = part.toLowerCase();
+  if (lower === "plus" || lower === "add" || lower === "numpadadd" || part === "+" || part === "=") {
+    return "+";
+  }
+  if (lower === "minus" || lower === "subtract" || lower === "numpadsubtract" || part === "-" || part === "_") {
+    return "-";
+  }
+  if (lower === "left" || lower === "arrowleft") {
+    return "Left";
+  }
+  if (lower === "right" || lower === "arrowright") {
+    return "Right";
+  }
+  if (part.length === 1) {
+    return part.toUpperCase();
+  }
+  return part[0].toUpperCase() + part.slice(1);
+}
+
 function normalizeShortcut(value: string) {
   const clean = value.trim();
   if (!clean) {
     return "";
   }
-  const rawParts = clean
-    .replace(/Command/gi, "Meta")
-    .replace(/Cmd/gi, "Meta")
-    .split("+")
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const rawParts = splitShortcutParts(clean);
   const modifiers = new Set<string>();
   let key = "";
   rawParts.forEach((part) => {
@@ -485,14 +612,8 @@ function normalizeShortcut(value: string) {
       modifiers.add("Alt");
     } else if (lower === "shift") {
       modifiers.add("Shift");
-    } else if (lower === "left" || lower === "arrowleft") {
-      key = "Left";
-    } else if (lower === "right" || lower === "arrowright") {
-      key = "Right";
-    } else if (part.length === 1) {
-      key = part.toUpperCase();
     } else {
-      key = part[0].toUpperCase() + part.slice(1);
+      key = normalizeShortcutKey(part);
     }
   });
   return ["Ctrl", "Meta", "Alt", "Shift"].filter((part) => modifiers.has(part)).concat(key ? [key] : []).join("+");
@@ -503,12 +624,26 @@ function shortcutFromEvent(event: KeyboardEvent | React.KeyboardEvent) {
   if (["Control", "Meta", "Alt", "Shift"].includes(key)) {
     return "";
   }
-  const normalizedKey = key === " " ? "Space" : key === "ArrowLeft" ? "Left" : key === "ArrowRight" ? "Right" : key.length === 1 ? key.toUpperCase() : key;
+  const normalizedKey =
+    event.code === "Equal" || event.code === "NumpadAdd" || key === "+" || key === "="
+      ? "+"
+      : event.code === "Minus" || event.code === "NumpadSubtract" || key === "-" || key === "_"
+        ? "-"
+        : key === " "
+          ? "Space"
+          : key === "ArrowLeft"
+            ? "Left"
+            : key === "ArrowRight"
+              ? "Right"
+              : key.length === 1
+                ? key.toUpperCase()
+                : key;
+  const includeShift = event.shiftKey && normalizedKey !== "+";
   return [
     event.ctrlKey ? "Ctrl" : "",
     event.metaKey ? "Meta" : "",
     event.altKey ? "Alt" : "",
-    event.shiftKey ? "Shift" : "",
+    includeShift ? "Shift" : "",
     normalizedKey,
   ]
     .filter(Boolean)
@@ -664,7 +799,7 @@ function AppShell() {
   const [activeSearchResultId, setActiveSearchResultId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.3",
+    version: "0.1.4",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
@@ -673,6 +808,8 @@ function AppShell() {
   const holdTimerRef = useRef<number | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
+  const fileUndoRef = useRef<Record<string, string[]>>({});
+  const fileRedoRef = useRef<Record<string, string[]>>({});
   const effectiveDarkMode = settings.followSystemTheme ? systemDarkMode : settings.darkMode;
 
   const closeSearch = useCallback(() => {
@@ -876,8 +1013,36 @@ function AppShell() {
   }, []);
 
   const updateFileContent = useCallback((tabId: string, content: string) => {
+    fileUndoRef.current[tabId] = [];
+    fileRedoRef.current[tabId] = [];
     setTabs((current) => current.map((tab) => (tab.id === tabId && tab.kind === "file" ? { ...tab, content, dirty: true } : tab)));
   }, []);
+
+  const updateFileFontSize = useCallback((tabId: string, updater: (fontSize: number) => number) => {
+    setTabs((current) =>
+      current.map((tab) =>
+        tab.id === tabId && tab.kind === "file"
+          ? {
+              ...tab,
+              fontSize: clamp(Math.round(updater(getFileFontSize(tab))), 10, 36),
+            }
+          : tab,
+      ),
+    );
+  }, []);
+
+  const commitFileTransformation = useCallback(
+    (tabId: string, content: string) => {
+      const tab = tabs.find((item): item is FileTab => item.id === tabId && item.kind === "file");
+      if (!tab || tab.content === content) {
+        return;
+      }
+      fileUndoRef.current[tabId] = [...(fileUndoRef.current[tabId] ?? []), tab.content].slice(-HISTORY_LIMIT);
+      fileRedoRef.current[tabId] = [];
+      setTabs((current) => current.map((item) => (item.id === tabId && item.kind === "file" ? { ...item, content, dirty: true } : item)));
+    },
+    [tabs],
+  );
 
   const commitCanvasItems = useCallback(
     (tabId: string, itemUpdater: (items: CanvasItem[]) => CanvasItem[]) => {
@@ -935,6 +1100,16 @@ function AppShell() {
     setTabPaneIds((current) => ({ ...current, [nextTab.id]: [targetPane] }));
     focusTabInPane(nextTab.id, targetPane);
     setSelectedItem(null);
+  }, [activePane, focusTabInPane, paneIds, tabs.length]);
+
+  const addTextTab = useCallback((targetPane?: PaneKey) => {
+    const nextTab = createTextTab(tabs.length);
+    const destination = targetPane && paneIds.includes(targetPane) ? targetPane : paneIds.includes(activePane) ? activePane : paneIds[0];
+    setTabs((current) => [...current, nextTab]);
+    setTabPaneIds((current) => ({ ...current, [nextTab.id]: [destination] }));
+    focusTabInPane(nextTab.id, destination);
+    setSelectedItem(null);
+    window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(`.file-view[data-tab-id="${nextTab.id}"] .file-editor`)?.focus(), 0);
   }, [activePane, focusTabInPane, paneIds, tabs.length]);
 
   const openFilesAsTabs = useCallback(
@@ -1079,6 +1254,8 @@ function AppShell() {
       }
 
       const doClose = () => {
+        delete fileUndoRef.current[targetId];
+        delete fileRedoRef.current[targetId];
         setTabs((current) => {
           if (current.length === 1) {
             const replacement = createCanvasTab(0);
@@ -1120,13 +1297,13 @@ function AppShell() {
         });
       };
 
-      if (!target.dirty) {
+      if (!target.dirty || isTabEmpty(target)) {
         doClose();
         return;
       }
 
       modal.confirm({
-        title: "当前文件还没有保存",
+        title: "当前标签还没有保存",
         content: "是否关闭？未保存的修改会丢失。",
         okText: "关闭",
         cancelText: "取消",
@@ -1136,6 +1313,12 @@ function AppShell() {
     },
     [activePane, getTabPanes, modal, paneIds, selectedItem, tabs],
   );
+
+  const closeCurrentTab = useCallback(() => {
+    if (activeTab) {
+      closeTab(activeTab.id, activePane);
+    }
+  }, [activePane, activeTab, closeTab]);
 
   const saveCurrentTab = useCallback(async () => {
     if (!activeTab) {
@@ -1216,6 +1399,20 @@ function AppShell() {
   }, [activeTab, message]);
 
   const undo = useCallback(() => {
+    if (activeTab?.kind === "file") {
+      const history = fileUndoRef.current[activeTab.id] ?? [];
+      if (history.length === 0) {
+        return;
+      }
+      const previousContent = history[history.length - 1];
+      fileUndoRef.current[activeTab.id] = history.slice(0, -1);
+      fileRedoRef.current[activeTab.id] = [...(fileRedoRef.current[activeTab.id] ?? []), activeTab.content].slice(-HISTORY_LIMIT);
+      setTabs((current) =>
+        current.map((tab) => (tab.id === activeTab.id && tab.kind === "file" ? { ...tab, content: previousContent, dirty: true } : tab)),
+      );
+      window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(`.file-view[data-tab-id="${activeTab.id}"] .file-editor`)?.focus(), 0);
+      return;
+    }
     if (activeTab?.kind !== "canvas") {
       return;
     }
@@ -1236,6 +1433,20 @@ function AppShell() {
   }, [activeTab, updateCanvasTab]);
 
   const redo = useCallback(() => {
+    if (activeTab?.kind === "file") {
+      const history = fileRedoRef.current[activeTab.id] ?? [];
+      if (history.length === 0) {
+        return;
+      }
+      const nextContent = history[history.length - 1];
+      fileRedoRef.current[activeTab.id] = history.slice(0, -1);
+      fileUndoRef.current[activeTab.id] = [...(fileUndoRef.current[activeTab.id] ?? []), activeTab.content].slice(-HISTORY_LIMIT);
+      setTabs((current) =>
+        current.map((tab) => (tab.id === activeTab.id && tab.kind === "file" ? { ...tab, content: nextContent, dirty: true } : tab)),
+      );
+      window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(`.file-view[data-tab-id="${activeTab.id}"] .file-editor`)?.focus(), 0);
+      return;
+    }
     if (activeTab?.kind !== "canvas") {
       return;
     }
@@ -1351,7 +1562,19 @@ function AppShell() {
           return;
         }
         const nextText = transformJsonText(item.text, action);
-        commitCanvasItems(tabId, (items) => items.map((canvasItem) => (canvasItem.id === itemId && canvasItem.type === "text" ? { ...canvasItem, text: nextText } : canvasItem)));
+        const nextWidth = estimateTextWidth(nextText, getTextFontSize(item));
+        commitCanvasItems(tabId, (items) =>
+          items.map((canvasItem) =>
+            canvasItem.id === itemId && canvasItem.type === "text"
+              ? {
+                  ...canvasItem,
+                  text: nextText,
+                  width: nextWidth,
+                  height: estimateTextHeight(nextText, getTextFontSize(canvasItem), nextWidth),
+                }
+              : canvasItem,
+          ),
+        );
       } catch (error) {
         message.error(`JSON 处理失败：${String(error)}`);
       }
@@ -1547,8 +1770,25 @@ function AppShell() {
 
       const activeElement = document.activeElement;
       const isTyping = activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLInputElement;
+      const canUndoFile = activeTab?.kind === "file" && (fileUndoRef.current[activeTab.id]?.length ?? 0) > 0;
+      const canRedoFile = activeTab?.kind === "file" && (fileRedoRef.current[activeTab.id]?.length ?? 0) > 0;
 
-      if (shortcutMatches(event, settings.shortcuts.save)) {
+      if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontIncrease)) {
+        event.preventDefault();
+        updateFileFontSize(activeTab.id, (fontSize) => fontSize + 1);
+      } else if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontDecrease)) {
+        event.preventDefault();
+        updateFileFontSize(activeTab.id, (fontSize) => fontSize - 1);
+      } else if (!searchOpen && shortcutMatches(event, settings.shortcuts.newCanvas)) {
+        event.preventDefault();
+        addCanvasTab();
+      } else if (!searchOpen && shortcutMatches(event, settings.shortcuts.newText)) {
+        event.preventDefault();
+        addTextTab();
+      } else if (!searchOpen && shortcutMatches(event, settings.shortcuts.closeTab)) {
+        event.preventDefault();
+        closeCurrentTab();
+      } else if (shortcutMatches(event, settings.shortcuts.save)) {
         event.preventDefault();
         saveCurrentTab();
       } else if (shortcutMatches(event, settings.shortcuts.search)) {
@@ -1569,15 +1809,32 @@ function AppShell() {
         if (selectedItem) {
           deleteCanvasItem(selectedItem.tabId, selectedItem.itemId);
         }
-      } else if (!isTyping && shortcutMatches(event, settings.shortcuts.undo)) {
+      } else if ((!isTyping || canUndoFile) && shortcutMatches(event, settings.shortcuts.undo)) {
         event.preventDefault();
         undo();
-      } else if (!isTyping && (shortcutMatches(event, settings.shortcuts.redo) || shortcutMatches(event, settings.shortcuts.redoAlt))) {
+      } else if ((!isTyping || canRedoFile) && (shortcutMatches(event, settings.shortcuts.redo) || shortcutMatches(event, settings.shortcuts.redoAlt))) {
         event.preventDefault();
         redo();
       }
     },
-    [autoSplitTab, closeSearch, deleteCanvasItem, pasteFromClipboard, redo, saveCurrentTab, searchOpen, selectedItem, settings.shortcuts, undo],
+    [
+      activeTab,
+      addCanvasTab,
+      addTextTab,
+      autoSplitTab,
+      closeCurrentTab,
+      closeSearch,
+      deleteCanvasItem,
+      pasteFromClipboard,
+      redo,
+      saveCurrentTab,
+      searchOpen,
+      selectedItem,
+      settings.shortcuts,
+      settingsOpen,
+      undo,
+      updateFileFontSize,
+    ],
   );
 
   const startItemDrag = useCallback(
@@ -1821,8 +2078,8 @@ function AppShell() {
       }
 
       const point = getPointOnCanvas(event.clientX, event.clientY, dragging.surface, dragging.scale);
-      const x = Math.max(0, Math.round(point.x - dragging.offsetX));
-      const y = Math.max(0, Math.round(point.y - dragging.offsetY));
+      const x = Math.round(point.x - dragging.offsetX);
+      const y = Math.round(point.y - dragging.offsetY);
       dragging.moved = true;
       dragging.currentX = x;
       dragging.currentY = y;
@@ -1986,12 +2243,29 @@ function AppShell() {
     [activePane, focusTabInPane, getTabPanes, setPaneViewState, tabs],
   );
 
+  const newModuleMenu: MenuProps = {
+    items: [
+      {
+        key: "canvas",
+        label: <span className="new-module-menu-label"><strong>画板模块</strong><small>自由放置文字与图片 · {settings.shortcuts.newCanvas}</small></span>,
+        icon: <BorderOutlined />,
+        onClick: addCanvasTab,
+      },
+      {
+        key: "text",
+        label: <span className="new-module-menu-label"><strong>文本模块</strong><small>纯文本与选区 JSON 工具 · {settings.shortcuts.newText}</small></span>,
+        icon: <FileTextOutlined />,
+        onClick: () => addTextTab(),
+      },
+    ],
+  };
+
   const fileMenu: MenuProps["items"] = [
     {
       key: "new",
-      label: "打开新的文件",
+      label: "新建模块",
       icon: <FileAddOutlined />,
-      onClick: addCanvasTab,
+      children: newModuleMenu.items,
     },
     {
       key: "open",
@@ -2009,6 +2283,25 @@ function AppShell() {
   ];
 
   const operationMenu: MenuProps["items"] = [
+    {
+      key: "new-canvas",
+      label: `新建画板模块 (${settings.shortcuts.newCanvas})`,
+      icon: <FileAddOutlined />,
+      onClick: addCanvasTab,
+    },
+    {
+      key: "new-text",
+      label: `新建文本模块 (${settings.shortcuts.newText})`,
+      icon: <FileTextOutlined />,
+      onClick: () => addTextTab(),
+    },
+    {
+      key: "close-tab",
+      label: `关闭当前标签 (${settings.shortcuts.closeTab})`,
+      icon: <CloseOutlined />,
+      onClick: closeCurrentTab,
+    },
+    { type: "divider" },
     {
       key: "search",
       label: `搜索 (${settings.shortcuts.search})`,
@@ -2079,6 +2372,34 @@ function AppShell() {
       label: "版本",
       icon: <InfoCircleOutlined />,
       onClick: () => modal.info({ title: "版本", content: appInfo.version }),
+    },
+    {
+      key: "updates",
+      label: "版本更新",
+      icon: <InfoCircleOutlined />,
+      onClick: () =>
+        modal.info({
+          title: "版本更新",
+          width: 680,
+          okText: "关闭",
+          content: (
+            <ol className="help-update-timeline">
+              {releaseTimeline.map((release) => (
+                <li key={release.version} className={release.upcoming ? "upcoming" : ""}>
+                  <span className="help-update-marker" aria-hidden />
+                  <article>
+                    <div className="help-update-meta">
+                      <strong>{release.version}</strong>
+                      <span>{release.date}</span>
+                    </div>
+                    <h4>{release.title}</h4>
+                    <p>{release.description}</p>
+                  </article>
+                </li>
+              ))}
+            </ol>
+          ),
+        }),
     },
     {
       key: "author",
@@ -2165,10 +2486,25 @@ function AppShell() {
     [closePane, closeTab, getTabPanes, paneActiveTabIds, splitTab, splitView],
   );
 
+  const handleTabZoneDoubleClick = useCallback(
+    (pane: PaneKey, event: React.MouseEvent<HTMLDivElement>) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      if (target.closest(".ant-tabs-tab, .ant-tabs-nav-more, .ant-tabs-nav-operations, .tab-close, button")) {
+        return;
+      }
+      addTextTab(pane);
+    },
+    [addTextTab],
+  );
+
   const renderTabZone = (pane: PaneKey, paneTabs: NoteTab[], activeKey?: string | null) => (
     <div
       key={pane}
       className="tab-pane-zone"
+      onDoubleClick={(event) => handleTabZoneDoubleClick(pane, event)}
       onDragOver={(event) => {
         if (splitView && event.dataTransfer.types.includes("text/super-note-tab")) {
           event.preventDefault();
@@ -2225,18 +2561,26 @@ function AppShell() {
           onTextChange={(itemId, text) =>
             updateCanvasItems(tab.id, (items) => items.map((item) => (item.id === itemId && item.type === "text" ? { ...item, text } : item)))
           }
-          onTextCommit={(item) => {
+          onTextCommit={(item, size) => {
             setEditingText(null);
             if (!item.text.trim()) {
               deleteCanvasItem(tab.id, item.id);
               return;
             }
-            updateCanvasTab(tab.id, (current) => ({
-              ...current,
-              title: deriveCanvasTitle(current, current.items),
-              dirty: true,
-              ...pushHistory(current, current.items),
-            }));
+            updateCanvasTab(tab.id, (current) => {
+              const nextItems = current.items.map((currentItem) =>
+                currentItem.id === item.id && currentItem.type === "text"
+                  ? { ...currentItem, width: size.width, height: size.height }
+                  : currentItem,
+              );
+              return {
+                ...current,
+                items: nextItems,
+                title: deriveCanvasTitle(current, nextItems),
+                dirty: true,
+                ...pushHistory(current, nextItems),
+              };
+            });
           }}
           onTextDoubleClick={(item, event) => {
             event.stopPropagation();
@@ -2259,7 +2603,14 @@ function AppShell() {
       );
     }
 
-    return <FileView tab={tab} searchValue={searchValue} onContentChange={(content) => updateFileContent(tab.id, content)} />;
+    return (
+      <FileView
+        tab={tab}
+        searchValue={searchValue}
+        onContentChange={(content) => updateFileContent(tab.id, content)}
+        onContentTransform={(content) => commitFileTransformation(tab.id, content)}
+      />
+    );
   };
 
   const renderSurface = (tab: NoteTab | null, pane: PaneKey) => (
@@ -2350,9 +2701,9 @@ function AppShell() {
               ]
             : []),
         ])}
-        <Tooltip title="新建">
-          <Button className="tabs-add-button" type="text" aria-label="新建" icon={<PlusOutlined />} onClick={addCanvasTab} />
-        </Tooltip>
+        <Dropdown menu={newModuleMenu} trigger={["click"]} placement="bottomRight">
+          <Button className="tabs-add-button" type="text" aria-label="新建" icon={<PlusOutlined />} />
+        </Dropdown>
       </div>
 
       <main className={splitView ? "workspace multi-pane" : "workspace"}>
@@ -2468,7 +2819,7 @@ function CanvasView({
   onSurfaceMouseDown: (tab: CanvasTab, pane: PaneKey, viewState: CanvasViewState, event: React.MouseEvent<HTMLDivElement>) => void;
   onPointChange: (point: { x: number; y: number }) => void;
   onTextChange: (itemId: string, text: string) => void;
-  onTextCommit: (item: TextCanvasItem) => void;
+  onTextCommit: (item: TextCanvasItem, size: { width: number; height: number }) => void;
   onTextDoubleClick: (item: TextCanvasItem, event: React.MouseEvent<HTMLDivElement>) => void;
   onItemMouseDown: (item: CanvasItem, event: React.MouseEvent<HTMLElement>) => void;
   onItemContextMenu: (item: CanvasItem) => void;
@@ -2579,6 +2930,8 @@ function CanvasView({
               const viewStyle = {
                 left: layout.x,
                 top: layout.y,
+                width: layout.width,
+                minHeight: layout.height,
                 fontSize,
                 zIndex,
               };
@@ -2593,9 +2946,24 @@ function CanvasView({
                     style={editorStyle}
                     value={item.text}
                     placeholder="输入文字"
+                    ref={(editor) => {
+                      if (editor) {
+                        editor.style.height = "0px";
+                        editor.style.height = `${Math.max(48, editor.scrollHeight + 2)}px`;
+                      }
+                    }}
                     onMouseDown={(event) => event.stopPropagation()}
-                    onChange={(event) => onTextChange(item.id, event.target.value)}
-                    onBlur={() => onTextCommit(item)}
+                    onChange={(event) => {
+                      event.currentTarget.style.height = "0px";
+                      event.currentTarget.style.height = `${Math.max(48, event.currentTarget.scrollHeight + 2)}px`;
+                      onTextChange(item.id, event.target.value);
+                    }}
+                    onBlur={(event) =>
+                      onTextCommit(item, {
+                        width: event.currentTarget.offsetWidth,
+                        height: Math.max(48, event.currentTarget.scrollHeight + 2),
+                      })
+                    }
                   />
                 );
               }
@@ -2651,29 +3019,92 @@ function FileView({
   tab,
   searchValue,
   onContentChange,
+  onContentTransform,
 }: {
   tab: FileTab;
   searchValue: string;
   onContentChange: (content: string) => void;
+  onContentTransform: (content: string) => void;
 }) {
+  const { message } = AntApp.useApp();
   const needle = searchValue.trim();
   const highlightRef = useRef<HTMLPreElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const matchCount = needle ? (tab.content.match(new RegExp(escapeRegExp(needle), "gi")) ?? []).length : 0;
+  const selectedLength = Math.max(0, selection.end - selection.start);
+  const fontSize = getFileFontSize(tab);
+
+  useEffect(() => {
+    setSelection({ start: 0, end: 0 });
+  }, [tab.id]);
+
+  const rememberSelection = (editor: HTMLTextAreaElement) => {
+    setSelection({ start: editor.selectionStart, end: editor.selectionEnd });
+  };
+
+  const applySelectedTextAction = (action: ProgrammerAction) => {
+    const editor = editorRef.current;
+    const start = editor?.selectionStart ?? selection.start;
+    const end = editor?.selectionEnd ?? selection.end;
+    if (start === end) {
+      message.info("请先选中需要处理的文本");
+      return;
+    }
+
+    try {
+      const nextSelection = transformJsonText(tab.content.slice(start, end), action);
+      onContentTransform(`${tab.content.slice(0, start)}${nextSelection}${tab.content.slice(end)}`);
+      const nextEnd = start + nextSelection.length;
+      setSelection({ start, end: nextEnd });
+      window.requestAnimationFrame(() => {
+        editorRef.current?.focus();
+        editorRef.current?.setSelectionRange(start, nextEnd);
+      });
+    } catch (error) {
+      message.error(`JSON 处理失败：${String(error)}`);
+    }
+  };
+
+  const selectionTools: Array<{ action: ProgrammerAction; label: string }> = [
+    { action: "format-json", label: "转为 JSON" },
+    { action: "minify-json", label: "压缩 JSON" },
+    { action: "string-to-json", label: "字符串转 JSON" },
+  ];
 
   return (
-    <div className="file-view">
+    <div className="file-view" data-tab-id={tab.id} style={{ ["--file-font-size" as string]: `${fontSize}px` }}>
       <div className="file-header">
         <div>
           <Typography.Title level={4}>{tab.fileName}</Typography.Title>
           {tab.filePath ? <Typography.Text type="secondary">{tab.filePath}</Typography.Text> : null}
         </div>
-        {needle ? <Typography.Text type="secondary">{matchCount} 个匹配</Typography.Text> : null}
+        <div className="file-header-actions">
+          <div className="selection-json-tools" aria-label="选中文本 JSON 工具">
+            {selectionTools.map((tool) => (
+              <Button
+                key={tool.action}
+                size="small"
+                icon={<CodeOutlined />}
+                disabled={selectedLength === 0}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => applySelectedTextAction(tool.action)}
+              >
+                {tool.label}
+              </Button>
+            ))}
+          </div>
+          <Typography.Text type="secondary">
+            {selectedLength > 0 ? `已选 ${selectedLength} 个字符` : needle ? `${matchCount} 个匹配` : "选中文字后可使用 JSON 工具"}
+          </Typography.Text>
+        </div>
       </div>
       <div className="file-editor-wrap">
         <pre ref={highlightRef} className="file-highlight" aria-hidden>
           {renderHighlightedText(tab.content || " ", searchValue)}
         </pre>
         <textarea
+          ref={editorRef}
           className="file-editor"
           value={tab.content}
           spellCheck={false}
@@ -2685,6 +3116,9 @@ function FileView({
             }
           }}
           onChange={(event) => onContentChange(event.target.value)}
+          onSelect={(event) => rememberSelection(event.currentTarget)}
+          onMouseUp={(event) => rememberSelection(event.currentTarget)}
+          onKeyUp={(event) => rememberSelection(event.currentTarget)}
         />
       </div>
     </div>

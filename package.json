@@ -1,6 +1,6 @@
 {
   "name": "super-note",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "认识自身平凡后，依旧拥有改变世界的勇气",
   "author": "kunkun",
@@ -45,6 +45,7 @@
     },
     "win": {
       "target": "nsis",
+      "artifactName": "Super.Note.Setup.${version}.${ext}",
       "icon": "assets/app-icon.ico"
     }
   }
