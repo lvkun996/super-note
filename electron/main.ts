@@ -7,6 +7,7 @@ let tray: Tray | null = null;
 let forceQuit = false;
 
 const workspaceFileName = "workspace.json";
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
 function getWorkspacePath() {
   return path.join(app.getPath("userData"), workspaceFileName);
@@ -19,6 +20,9 @@ function getIconPath() {
 function showMainWindow() {
   if (!mainWindow) {
     createWindow();
+  }
+  if (mainWindow?.isMinimized()) {
+    mainWindow.restore();
   }
   mainWindow?.show();
   mainWindow?.focus();
@@ -91,27 +95,39 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
-  Menu.setApplicationMenu(null);
-  createWindow();
-  createTray();
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (app.isReady()) {
+      showMainWindow();
     }
   });
-});
 
-app.on("window-all-closed", () => {
-  if (forceQuit && process.platform !== "darwin") {
-    app.quit();
-  }
-});
+  app.whenReady().then(() => {
+    Menu.setApplicationMenu(null);
+    createWindow();
+    createTray();
 
-app.on("before-quit", () => {
-  forceQuit = true;
-});
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      } else {
+        showMainWindow();
+      }
+    });
+  });
+
+  app.on("window-all-closed", () => {
+    if (forceQuit && process.platform !== "darwin") {
+      app.quit();
+    }
+  });
+
+  app.on("before-quit", () => {
+    forceQuit = true;
+  });
+}
 
 ipcMain.handle("workspace:load", async () => {
   const filePath = getWorkspacePath();

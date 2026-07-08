@@ -14,14 +14,16 @@ import {
 } from "antd";
 import type { MenuProps, TabsProps } from "antd";
 import {
+  BookOutlined,
+  CheckOutlined,
   CloseOutlined,
   CodeOutlined,
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
-  FileAddOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
+  HistoryOutlined,
   InfoCircleOutlined,
   BorderOutlined,
   MinusOutlined,
@@ -29,17 +31,21 @@ import {
   PlusOutlined,
   PushpinFilled,
   PushpinOutlined,
-  QuestionCircleOutlined,
   RedoOutlined,
   SaveOutlined,
   SearchOutlined,
   SplitCellsOutlined,
   SunOutlined,
   UndoOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
+import { EmptyWorld } from "./components/EmptyWorld";
+import { HelpDocumentation } from "./components/HelpDocumentation";
+import { DEFAULT_PLUGIN_SETTINGS, normalizePluginSettings } from "./pluginSettings";
+import type { PluginSettings } from "./pluginSettings";
 
 const HISTORY_LIMIT = 80;
 const LONG_PRESS_MS = 160;
@@ -147,6 +153,7 @@ type AppSettings = {
   programmerMode: boolean;
   darkMode: boolean;
   followSystemTheme: boolean;
+  plugins: PluginSettings;
   shortcuts: ShortcutConfig;
 };
 
@@ -250,6 +257,12 @@ const canvasThemes: CanvasTheme[] = [
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.5",
+    date: "2026.07.08",
+    title: "空工作区、插件开关与安装体验",
+    description: "新增无标签页空状态与动态背景，画板插件支持启用状态控制，并优化安装目录选择、单实例启动和本地打包缓存。",
+  },
+  {
     version: "v0.1.4",
     date: "2026.06.30",
     title: "文本模块字号与滚动空间",
@@ -297,11 +310,12 @@ const DEFAULT_SETTINGS: AppSettings = {
   programmerMode: false,
   darkMode: false,
   followSystemTheme: false,
+  plugins: DEFAULT_PLUGIN_SETTINGS,
   shortcuts: DEFAULT_SHORTCUTS,
 };
 
 const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; desc: string }> = [
-  { action: "newCanvas", label: "新建画板模块", desc: "直接创建一个空白画板" },
+  { action: "newCanvas", label: "新建画板", desc: "仅在画板插件启用后生效" },
   { action: "newText", label: "新建文本模块", desc: "直接创建一个纯文本编辑模块" },
   { action: "closeTab", label: "关闭当前标签", desc: "关闭当前画板或文本模块" },
   { action: "fileFontIncrease", label: "放大文本模块字号", desc: "仅调整当前文本模块的编辑字号" },
@@ -668,6 +682,7 @@ function normalizeSettings(value?: Partial<AppSettings>): AppSettings {
     programmerMode: Boolean(value?.programmerMode),
     darkMode: Boolean(value?.darkMode),
     followSystemTheme: Boolean(value?.followSystemTheme),
+    plugins: normalizePluginSettings(value?.plugins),
     shortcuts,
   };
 }
@@ -781,7 +796,7 @@ function focusTextEditor(itemId: string, pane: PaneKey, placeAtEnd = false) {
 
 function AppShell() {
   const { message, modal } = AntApp.useApp();
-  const [tabs, setTabs] = useState<NoteTab[]>(() => [createCanvasTab(0)]);
+  const [tabs, setTabs] = useState<NoteTab[]>(() => [createTextTab(0)]);
   const [paneIds, setPaneIds] = useState<PaneKey[]>([INITIAL_PANE_ID]);
   const [paneActiveTabIds, setPaneActiveTabIds] = useState<Record<PaneKey, string>>(() => ({ [INITIAL_PANE_ID]: tabs[0].id }));
   const [activePane, setActivePane] = useState<PaneKey>(INITIAL_PANE_ID);
@@ -799,7 +814,7 @@ function AppShell() {
   const [activeSearchResultId, setActiveSearchResultId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.4",
+    version: "0.1.5",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
@@ -811,6 +826,7 @@ function AppShell() {
   const fileUndoRef = useRef<Record<string, string[]>>({});
   const fileRedoRef = useRef<Record<string, string[]>>({});
   const effectiveDarkMode = settings.followSystemTheme ? systemDarkMode : settings.darkMode;
+  const canvasPluginEnabled = settings.plugins.canvas;
 
   const closeSearch = useCallback(() => {
     setSearchOpen(false);
@@ -880,6 +896,16 @@ function AppShell() {
   const focusTabInPane = useCallback((tabId: string, pane: PaneKey) => {
     setPaneActiveTabIds((current) => ({ ...current, [pane]: tabId }));
     setActivePane(pane);
+  }, []);
+
+  const toggleCanvasPlugin = useCallback(() => {
+    setSettings((current) => ({
+      ...current,
+      plugins: {
+        ...current.plugins,
+        canvas: !current.plugins.canvas,
+      },
+    }));
   }, []);
 
   const scheduleDragPaint = useCallback(() => {
@@ -1258,16 +1284,15 @@ function AppShell() {
         delete fileRedoRef.current[targetId];
         setTabs((current) => {
           if (current.length === 1) {
-            const replacement = createCanvasTab(0);
-            const replacementPane = pane && paneIds.includes(pane) ? pane : activePane;
-            setPaneIds([replacementPane]);
+            const emptyPane = pane && paneIds.includes(pane) ? pane : paneIds.includes(activePane) ? activePane : paneIds[0];
+            setPaneIds([emptyPane]);
             setPaneWidths([100]);
-            setPaneActiveTabIds({ [replacementPane]: replacement.id });
-            setActivePane(replacementPane);
-            setTabPaneIds({ [replacement.id]: [replacementPane] });
+            setPaneActiveTabIds({});
+            setActivePane(emptyPane);
+            setTabPaneIds({});
             setCanvasViewStates({});
             setSelectedItem(null);
-            return [replacement];
+            return [];
           }
 
           const currentIndex = current.findIndex((tab) => tab.id === targetId);
@@ -1779,7 +1804,7 @@ function AppShell() {
       } else if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontDecrease)) {
         event.preventDefault();
         updateFileFontSize(activeTab.id, (fontSize) => fontSize - 1);
-      } else if (!searchOpen && shortcutMatches(event, settings.shortcuts.newCanvas)) {
+      } else if (!searchOpen && canvasPluginEnabled && shortcutMatches(event, settings.shortcuts.newCanvas)) {
         event.preventDefault();
         addCanvasTab();
       } else if (!searchOpen && shortcutMatches(event, settings.shortcuts.newText)) {
@@ -1822,6 +1847,7 @@ function AppShell() {
       addCanvasTab,
       addTextTab,
       autoSplitTab,
+      canvasPluginEnabled,
       closeCurrentTab,
       closeSearch,
       deleteCanvasItem,
@@ -1950,7 +1976,25 @@ function AppShell() {
           workspace = raw ? JSON.parse(raw) : null;
         }
 
-        if (isPersistedWorkspace(workspace) && workspace.tabs.length > 0) {
+        if (isPersistedWorkspace(workspace)) {
+          if (workspace.tabs.length === 0) {
+            const savedPaneIds =
+              workspace.version === 4 && Array.isArray(workspace.paneIds)
+                ? Array.from(new Set(workspace.paneIds.filter((paneId): paneId is string => typeof paneId === "string" && paneId.length > 0)))
+                : [];
+            const emptyPane = savedPaneIds.includes(workspace.activePane ?? "") ? workspace.activePane! : savedPaneIds[0] ?? INITIAL_PANE_ID;
+
+            setTabs([]);
+            setPaneIds([emptyPane]);
+            setTabPaneIds({});
+            setPaneActiveTabIds({});
+            setActivePane(emptyPane);
+            setPaneWidths([100]);
+            setCanvasViewStates({});
+            setSettings(normalizeSettings(workspace.settings));
+            return;
+          }
+
           const restored = workspace.tabs.map(restoreTab);
           let restoredPaneIds: PaneKey[];
           let restoredTabPaneIds: Record<string, PaneKey[]> = {};
@@ -2243,29 +2287,26 @@ function AppShell() {
     [activePane, focusTabInPane, getTabPanes, setPaneViewState, tabs],
   );
 
-  const newModuleMenu: MenuProps = {
-    items: [
-      {
-        key: "canvas",
-        label: <span className="new-module-menu-label"><strong>画板模块</strong><small>自由放置文字与图片 · {settings.shortcuts.newCanvas}</small></span>,
-        icon: <BorderOutlined />,
-        onClick: addCanvasTab,
-      },
-      {
-        key: "text",
-        label: <span className="new-module-menu-label"><strong>文本模块</strong><small>纯文本与选区 JSON 工具 · {settings.shortcuts.newText}</small></span>,
-        icon: <FileTextOutlined />,
-        onClick: () => addTextTab(),
-      },
-    ],
-  };
+  const pluginMenu: MenuProps["items"] = [
+    {
+      key: "canvas-plugin",
+      label: (
+        <span className="new-module-menu-label">
+          <strong>画板插件</strong>
+          <small>{canvasPluginEnabled ? `已启用 · 新建画板 ${settings.shortcuts.newCanvas}` : "未启用 · 点击启用画板能力"}</small>
+        </span>
+      ),
+      icon: canvasPluginEnabled ? <CheckOutlined /> : <BorderOutlined />,
+      onClick: toggleCanvasPlugin,
+    },
+  ];
 
   const fileMenu: MenuProps["items"] = [
     {
-      key: "new",
-      label: "新建模块",
-      icon: <FileAddOutlined />,
-      children: newModuleMenu.items,
+      key: "new-text",
+      label: `新建文本模块 (${settings.shortcuts.newText})`,
+      icon: <FileTextOutlined />,
+      onClick: () => addTextTab(),
     },
     {
       key: "open",
@@ -2283,12 +2324,6 @@ function AppShell() {
   ];
 
   const operationMenu: MenuProps["items"] = [
-    {
-      key: "new-canvas",
-      label: `新建画板模块 (${settings.shortcuts.newCanvas})`,
-      icon: <FileAddOutlined />,
-      onClick: addCanvasTab,
-    },
     {
       key: "new-text",
       label: `新建文本模块 (${settings.shortcuts.newText})`,
@@ -2360,11 +2395,13 @@ function AppShell() {
     {
       key: "docs",
       label: "文档",
-      icon: <QuestionCircleOutlined />,
+      icon: <BookOutlined />,
       onClick: () =>
         modal.info({
           title: "文档",
-          content: "双击画板创建文字区，双击文字再次编辑。点击元素后 Ctrl+滚轮缩放元素；长按画板拖拽平移；Ctrl+滚轮缩放画板。",
+          width: 760,
+          okText: "关闭",
+          content: <HelpDocumentation canvasPluginEnabled={canvasPluginEnabled} shortcuts={settings.shortcuts} />,
         }),
     },
     {
@@ -2376,7 +2413,7 @@ function AppShell() {
     {
       key: "updates",
       label: "版本更新",
-      icon: <InfoCircleOutlined />,
+      icon: <HistoryOutlined />,
       onClick: () =>
         modal.info({
           title: "版本更新",
@@ -2404,7 +2441,7 @@ function AppShell() {
     {
       key: "author",
       label: "作者",
-      icon: <InfoCircleOutlined />,
+      icon: <UserOutlined />,
       onClick: () => modal.info({ title: "作者", content: `${appInfo.author}\n${appInfo.desc}` }),
     },
   ];
@@ -2615,7 +2652,9 @@ function AppShell() {
 
   const renderSurface = (tab: NoteTab | null, pane: PaneKey) => (
     <section key={pane} className={`work-pane ${activePane === pane ? "focused" : ""}`} onMouseDown={() => tab && focusTabInPane(tab.id, pane)}>
-      <div className="pane-content">{tab ? renderPaneContent(tab, pane) : <Empty description="没有标签页" />}</div>
+      <div className="pane-content">
+        {tab ? renderPaneContent(tab, pane) : <EmptyWorld />}
+      </div>
     </section>
   );
 
@@ -2638,6 +2677,9 @@ function AppShell() {
         <div className="titlebar-left">
           <span className="app-title">Super Note</span>
         <div className="menu-left">
+          <Dropdown menu={{ items: pluginMenu }} trigger={["click"]}>
+            <Button type="text">插件</Button>
+          </Dropdown>
           <Dropdown menu={{ items: fileMenu }} trigger={["click"]}>
             <Button type="text">文件</Button>
           </Dropdown>
@@ -2687,7 +2729,7 @@ function AppShell() {
         </div>
       </header>
 
-      <div className={splitView ? "tabs-bar multi-pane" : "tabs-bar"}>
+      <div className={`${splitView ? "tabs-bar multi-pane" : "tabs-bar"}${canvasPluginEnabled ? " canvas-plugin-enabled" : ""}`}>
         {paneIds.flatMap((paneId, index) => [
           renderTabZone(paneId, paneTabs[paneId] ?? [], activeTabsByPane[paneId]?.id),
           ...(index < paneIds.length - 1
@@ -2701,9 +2743,14 @@ function AppShell() {
               ]
             : []),
         ])}
-        <Dropdown menu={newModuleMenu} trigger={["click"]} placement="bottomRight">
-          <Button className="tabs-add-button" type="text" aria-label="新建" icon={<PlusOutlined />} />
-        </Dropdown>
+        {canvasPluginEnabled ? (
+          <Tooltip title={`新建画板 (${settings.shortcuts.newCanvas})`}>
+            <Button className="tabs-canvas-add-button" type="text" aria-label="新建画板" icon={<BorderOutlined />} onClick={addCanvasTab} />
+          </Tooltip>
+        ) : null}
+        <Tooltip title={`新建文本模块 (${settings.shortcuts.newText})`}>
+          <Button className="tabs-add-button" type="text" aria-label="新建文本模块" icon={<PlusOutlined />} onClick={() => addTextTab()} />
+        </Tooltip>
       </div>
 
       <main className={splitView ? "workspace multi-pane" : "workspace"}>

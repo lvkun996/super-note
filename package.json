@@ -1,17 +1,18 @@
 {
   "name": "super-note",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "认识自身平凡后，依旧拥有改变世界的勇气",
   "author": "kunkun",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "cache:packager": "node scripts/cache-packager-deps.mjs",
     "build": "tsc -p tsconfig.electron.json && vite build",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
-    "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder",
-    "dist:win7-8": "npm run build && electron-builder --config electron-builder.win7-8.json --publish never"
+    "pack": "npm run cache:packager && npm run build && electron-builder --dir",
+    "dist": "npm run cache:packager && npm run build && electron-builder",
+    "dist:win7-8": "npm run cache:packager && npm run build && electron-builder --config electron-builder.win7-8.json --publish never"
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
@@ -32,6 +33,7 @@
   "build": {
     "appId": "com.supernote.desktop",
     "productName": "Super Note",
+    "electronDist": "node_modules/electron/dist",
     "directories": {
       "output": "release"
     },
@@ -47,6 +49,10 @@
       "target": "nsis",
       "artifactName": "Super.Note.Setup.${version}.${ext}",
       "icon": "assets/app-icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }
