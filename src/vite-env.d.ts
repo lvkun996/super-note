@@ -46,6 +46,16 @@ type AppInfo = {
   version: string;
   author: string;
   desc: string;
+  globalShortcut?: string;
+};
+
+type UpdateStatus = {
+  state: "idle" | "checking" | "available" | "not-available" | "downloading" | "downloaded" | "installing" | "error";
+  channel: "latest" | "win7-8";
+  currentVersion: string;
+  latestVersion?: string;
+  progress?: number;
+  error?: string;
 };
 
 interface Window {
@@ -61,5 +71,10 @@ interface Window {
     getPathForFile: (file: File) => string;
     readClipboardText: () => Promise<string>;
     getAppInfo: () => Promise<AppInfo>;
+    getUpdateStatus: () => Promise<UpdateStatus>;
+    checkForUpdates: () => Promise<UpdateStatus>;
+    downloadUpdate: () => Promise<UpdateStatus>;
+    installUpdate: () => Promise<UpdateStatus>;
+    onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void;
   };
 }

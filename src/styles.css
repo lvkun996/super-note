@@ -101,6 +101,15 @@ input {
   padding-inline: 8px;
 }
 
+.menu-left .update-button.ant-btn {
+  height: 24px;
+  padding-inline: 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .window-controls {
   display: flex;
   align-items: center;
@@ -769,47 +778,6 @@ input {
   background: #101722;
 }
 
-.file-header {
-  min-height: 72px;
-  padding: 14px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  border-bottom: 1px solid #e5e8ef;
-}
-
-.dark-mode .file-header {
-  border-bottom-color: #263344;
-}
-
-.file-header h4.ant-typography {
-  margin: 0 0 4px;
-}
-
-.file-header-actions {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.selection-json-tools {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.selection-json-tools .ant-btn {
-  white-space: nowrap;
-}
-
-.file-header .ant-typography {
-  word-break: break-all;
-}
-
 .file-editor-wrap {
   min-height: 0;
   flex: 1;
@@ -1248,20 +1216,6 @@ input {
 
   .titlebar-left {
     flex-wrap: wrap;
-  }
-
-  .file-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .file-header-actions {
-    width: 100%;
-    align-items: flex-start;
-  }
-
-  .selection-json-tools {
-    justify-content: flex-start;
   }
 
   .empty-world-title {

@@ -1,6 +1,6 @@
 {
   "name": "super-note",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "认识自身平凡后，依旧拥有改变世界的勇气",
   "author": "kunkun",
@@ -10,13 +10,15 @@
     "cache:packager": "node scripts/cache-packager-deps.mjs",
     "build": "tsc -p tsconfig.electron.json && vite build",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
-    "pack": "npm run cache:packager && npm run build && electron-builder --dir",
-    "dist": "npm run cache:packager && npm run build && electron-builder",
-    "dist:win7-8": "npm run cache:packager && npm run build && electron-builder --config electron-builder.win7-8.json --publish never"
+    "pack": "node scripts/build-installer.mjs --dir",
+    "dist": "node scripts/build-installer.mjs",
+    "dist:win7-8": "node scripts/build-installer.mjs --win7-8",
+    "release:full": "node scripts/release.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
     "antd": "^5.24.1",
+    "electron-updater": "^6.8.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

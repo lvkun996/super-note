@@ -9,13 +9,13 @@ import {
   Switch,
   Tabs,
   Tooltip,
-  Typography,
   theme,
 } from "antd";
 import type { MenuProps, TabsProps } from "antd";
 import {
   BookOutlined,
   CheckOutlined,
+  CloudDownloadOutlined,
   CloseOutlined,
   CodeOutlined,
   CopyOutlined,
@@ -256,6 +256,12 @@ const canvasThemes: CanvasTheme[] = [
 ];
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.6",
+    date: "2026.07.08",
+    title: "自动更新与全局快捷键",
+    description: "根据凯哥的提议，新增自动更新按钮、Windows 版本通道识别、一键发布脚本，以及 Ctrl + Alt + 空格全局打开/隐藏。",
+  },
   {
     version: "v0.1.5",
     date: "2026.07.08",
@@ -814,9 +820,14 @@ function AppShell() {
   const [activeSearchResultId, setActiveSearchResultId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.5",
+    version: "0.1.6",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
+  });
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
+    state: "idle",
+    channel: "latest",
+    currentVersion: "0.1.6",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -1056,19 +1067,6 @@ function AppShell() {
       ),
     );
   }, []);
-
-  const commitFileTransformation = useCallback(
-    (tabId: string, content: string) => {
-      const tab = tabs.find((item): item is FileTab => item.id === tabId && item.kind === "file");
-      if (!tab || tab.content === content) {
-        return;
-      }
-      fileUndoRef.current[tabId] = [...(fileUndoRef.current[tabId] ?? []), tab.content].slice(-HISTORY_LIMIT);
-      fileRedoRef.current[tabId] = [];
-      setTabs((current) => current.map((item) => (item.id === tabId && item.kind === "file" ? { ...item, content, dirty: true } : item)));
-    },
-    [tabs],
-  );
 
   const commitCanvasItems = useCallback(
     (tabId: string, itemUpdater: (items: CanvasItem[]) => CanvasItem[]) => {
@@ -2082,6 +2080,12 @@ function AppShell() {
   }, [message]);
 
   useEffect(() => {
+    window.superNote?.getUpdateStatus?.().then(setUpdateStatus).catch(() => undefined);
+    const unsubscribe = window.superNote?.onUpdateStatus?.((status) => setUpdateStatus(status));
+    return () => unsubscribe?.();
+  }, []);
+
+  useEffect(() => {
     window.addEventListener("keydown", handleGlobalKeyDown);
     window.addEventListener("paste", handlePaste);
     return () => {
@@ -2446,6 +2450,41 @@ function AppShell() {
     },
   ];
 
+  const updateButtonVisible =
+    updateStatus.state === "available" ||
+    updateStatus.state === "downloading" ||
+    updateStatus.state === "downloaded" ||
+    updateStatus.state === "installing";
+  const updateButtonLoading = updateStatus.state === "downloading" || updateStatus.state === "installing";
+  const updateButtonText =
+    updateStatus.state === "downloading"
+      ? `${Math.max(0, Math.min(100, updateStatus.progress ?? 0))}%`
+      : updateStatus.state === "downloaded"
+        ? "安装"
+        : updateStatus.state === "installing"
+          ? "安装中"
+          : updateStatus.latestVersion
+            ? `更新 ${updateStatus.latestVersion}`
+            : "更新";
+  const updateButtonTitle =
+    updateStatus.channel === "win7-8"
+      ? "发现新版本，点击自动更新 Windows 7 / 8 版本"
+      : "发现新版本，点击自动更新 Windows 10 / 11 版本";
+
+  const handleUpdateClick = useCallback(async () => {
+    try {
+      if (updateStatus.state === "downloaded") {
+        await window.superNote?.installUpdate?.();
+        return;
+      }
+      if (updateStatus.state === "available") {
+        await window.superNote?.downloadUpdate?.();
+      }
+    } catch (error) {
+      message.error(`自动更新启动失败：${String(error)}`);
+    }
+  }, [message, updateStatus.state]);
+
   const makeTabItems = useCallback(
     (paneTabs: NoteTab[], pane: PaneKey): TabsProps["items"] =>
       paneTabs.map((tab) => {
@@ -2645,7 +2684,6 @@ function AppShell() {
         tab={tab}
         searchValue={searchValue}
         onContentChange={(content) => updateFileContent(tab.id, content)}
-        onContentTransform={(content) => commitFileTransformation(tab.id, content)}
       />
     );
   };
@@ -2692,6 +2730,20 @@ function AppShell() {
           <Dropdown menu={{ items: helpMenu }} trigger={["click"]}>
             <Button type="text">帮助</Button>
           </Dropdown>
+          {updateButtonVisible ? (
+            <Tooltip title={updateButtonTitle}>
+              <Button
+                type="primary"
+                size="small"
+                className="update-button"
+                icon={<CloudDownloadOutlined />}
+                loading={updateButtonLoading}
+                onClick={handleUpdateClick}
+              >
+                {updateButtonText}
+              </Button>
+            </Tooltip>
+          ) : null}
         </div>
 
         </div>
@@ -3066,86 +3118,17 @@ function FileView({
   tab,
   searchValue,
   onContentChange,
-  onContentTransform,
 }: {
   tab: FileTab;
   searchValue: string;
   onContentChange: (content: string) => void;
-  onContentTransform: (content: string) => void;
 }) {
-  const { message } = AntApp.useApp();
-  const needle = searchValue.trim();
   const highlightRef = useRef<HTMLPreElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
-  const [selection, setSelection] = useState({ start: 0, end: 0 });
-  const matchCount = needle ? (tab.content.match(new RegExp(escapeRegExp(needle), "gi")) ?? []).length : 0;
-  const selectedLength = Math.max(0, selection.end - selection.start);
   const fontSize = getFileFontSize(tab);
-
-  useEffect(() => {
-    setSelection({ start: 0, end: 0 });
-  }, [tab.id]);
-
-  const rememberSelection = (editor: HTMLTextAreaElement) => {
-    setSelection({ start: editor.selectionStart, end: editor.selectionEnd });
-  };
-
-  const applySelectedTextAction = (action: ProgrammerAction) => {
-    const editor = editorRef.current;
-    const start = editor?.selectionStart ?? selection.start;
-    const end = editor?.selectionEnd ?? selection.end;
-    if (start === end) {
-      message.info("请先选中需要处理的文本");
-      return;
-    }
-
-    try {
-      const nextSelection = transformJsonText(tab.content.slice(start, end), action);
-      onContentTransform(`${tab.content.slice(0, start)}${nextSelection}${tab.content.slice(end)}`);
-      const nextEnd = start + nextSelection.length;
-      setSelection({ start, end: nextEnd });
-      window.requestAnimationFrame(() => {
-        editorRef.current?.focus();
-        editorRef.current?.setSelectionRange(start, nextEnd);
-      });
-    } catch (error) {
-      message.error(`JSON 处理失败：${String(error)}`);
-    }
-  };
-
-  const selectionTools: Array<{ action: ProgrammerAction; label: string }> = [
-    { action: "format-json", label: "转为 JSON" },
-    { action: "minify-json", label: "压缩 JSON" },
-    { action: "string-to-json", label: "字符串转 JSON" },
-  ];
 
   return (
     <div className="file-view" data-tab-id={tab.id} style={{ ["--file-font-size" as string]: `${fontSize}px` }}>
-      <div className="file-header">
-        <div>
-          <Typography.Title level={4}>{tab.fileName}</Typography.Title>
-          {tab.filePath ? <Typography.Text type="secondary">{tab.filePath}</Typography.Text> : null}
-        </div>
-        <div className="file-header-actions">
-          <div className="selection-json-tools" aria-label="选中文本 JSON 工具">
-            {selectionTools.map((tool) => (
-              <Button
-                key={tool.action}
-                size="small"
-                icon={<CodeOutlined />}
-                disabled={selectedLength === 0}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => applySelectedTextAction(tool.action)}
-              >
-                {tool.label}
-              </Button>
-            ))}
-          </div>
-          <Typography.Text type="secondary">
-            {selectedLength > 0 ? `已选 ${selectedLength} 个字符` : needle ? `${matchCount} 个匹配` : "选中文字后可使用 JSON 工具"}
-          </Typography.Text>
-        </div>
-      </div>
       <div className="file-editor-wrap">
         <pre ref={highlightRef} className="file-highlight" aria-hidden>
           {renderHighlightedText(tab.content || " ", searchValue)}
@@ -3163,9 +3146,6 @@ function FileView({
             }
           }}
           onChange={(event) => onContentChange(event.target.value)}
-          onSelect={(event) => rememberSelection(event.currentTarget)}
-          onMouseUp={(event) => rememberSelection(event.currentTarget)}
-          onKeyUp={(event) => rememberSelection(event.currentTarget)}
         />
       </div>
     </div>
@@ -3250,6 +3230,14 @@ function SettingsModal({
               })
             }
           />
+        </label>
+
+        <label className="settings-row">
+          <span>
+            <strong>全局快速打开/关闭</strong>
+            <small>在任意位置按 Ctrl + Alt + 空格，可打开或隐藏 Super Note。</small>
+          </span>
+          <Input value="Ctrl + Alt + 空格" disabled />
         </label>
 
         <div className="shortcut-settings">

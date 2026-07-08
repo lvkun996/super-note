@@ -1,13 +1,34 @@
-import { app, BrowserWindow, Menu, Tray, clipboard, dialog, ipcMain, nativeImage } from "electron";
+import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage } from "electron";
+import { autoUpdater } from "electron-updater";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let forceQuit = false;
+let installUpdateAfterDownload = false;
 
 const workspaceFileName = "workspace.json";
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
+const globalToggleShortcut = "Control+Alt+Space";
+const updateFeedUrl = "https://github.com/lvkun996/super-note/releases/latest/download/";
+
+type UpdateState = "idle" | "checking" | "available" | "not-available" | "downloading" | "downloaded" | "installing" | "error";
+
+type UpdateStatus = {
+  state: UpdateState;
+  channel: "latest" | "win7-8";
+  currentVersion: string;
+  latestVersion?: string;
+  progress?: number;
+  error?: string;
+};
+
+let updateStatus: UpdateStatus = {
+  state: "idle",
+  channel: getUpdateChannel(),
+  currentVersion: app.getVersion(),
+};
 
 function getWorkspacePath() {
   return path.join(app.getPath("userData"), workspaceFileName);
@@ -26,6 +47,117 @@ function showMainWindow() {
   }
   mainWindow?.show();
   mainWindow?.focus();
+}
+
+function toggleMainWindow() {
+  if (mainWindow?.isVisible() && !mainWindow.isMinimized()) {
+    mainWindow.hide();
+    return;
+  }
+  showMainWindow();
+}
+
+function getUpdateChannel(): "latest" | "win7-8" {
+  const electronMajor = Number(process.versions.electron.split(".")[0]);
+  return Number.isFinite(electronMajor) && electronMajor <= 22 ? "win7-8" : "latest";
+}
+
+function sendUpdateStatus() {
+  mainWindow?.webContents.send("update:status", updateStatus);
+}
+
+function setUpdateStatus(next: Partial<UpdateStatus>) {
+  updateStatus = {
+    ...updateStatus,
+    ...next,
+    channel: getUpdateChannel(),
+    currentVersion: app.getVersion(),
+  };
+  sendUpdateStatus();
+}
+
+function configureAutoUpdater() {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.channel = getUpdateChannel();
+  autoUpdater.setFeedURL({
+    provider: "generic",
+    url: updateFeedUrl,
+    channel: getUpdateChannel(),
+  });
+
+  autoUpdater.on("checking-for-update", () => setUpdateStatus({ state: "checking", error: undefined }));
+  autoUpdater.on("update-available", (info) =>
+    setUpdateStatus({
+      state: "available",
+      latestVersion: info.version,
+      progress: undefined,
+      error: undefined,
+    }),
+  );
+  autoUpdater.on("update-not-available", (info) =>
+    setUpdateStatus({
+      state: "not-available",
+      latestVersion: info.version,
+      progress: undefined,
+      error: undefined,
+    }),
+  );
+  autoUpdater.on("download-progress", (progress) =>
+    setUpdateStatus({
+      state: "downloading",
+      progress: Math.round(progress.percent),
+      error: undefined,
+    }),
+  );
+  autoUpdater.on("update-downloaded", (info) => {
+    setUpdateStatus({
+      state: "downloaded",
+      latestVersion: info.version,
+      progress: 100,
+      error: undefined,
+    });
+    if (installUpdateAfterDownload) {
+      setTimeout(() => installDownloadedUpdate(), 800);
+    }
+  });
+  autoUpdater.on("error", (error) =>
+    setUpdateStatus({
+      state: "error",
+      error: error.message || String(error),
+    }),
+  );
+}
+
+function checkForUpdates() {
+  if (!app.isPackaged) {
+    setUpdateStatus({ state: "not-available" });
+    return updateStatus;
+  }
+  void autoUpdater.checkForUpdates();
+  return updateStatus;
+}
+
+async function downloadUpdate() {
+  if (!app.isPackaged) {
+    return updateStatus;
+  }
+  installUpdateAfterDownload = true;
+  setUpdateStatus({ state: "downloading", progress: 0, error: undefined });
+  await autoUpdater.downloadUpdate();
+  return updateStatus;
+}
+
+function installDownloadedUpdate() {
+  installUpdateAfterDownload = false;
+  forceQuit = true;
+  setUpdateStatus({ state: "installing", progress: 100, error: undefined });
+  autoUpdater.quitAndInstall();
+  return updateStatus;
+}
+
+function registerGlobalShortcuts() {
+  globalShortcut.register(globalToggleShortcut, toggleMainWindow);
 }
 
 function createTray() {
@@ -93,6 +225,7 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
+  mainWindow.webContents.once("did-finish-load", sendUpdateStatus);
 }
 
 if (!gotSingleInstanceLock) {
@@ -106,8 +239,11 @@ if (!gotSingleInstanceLock) {
 
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
+    configureAutoUpdater();
     createWindow();
     createTray();
+    registerGlobalShortcuts();
+    setTimeout(() => checkForUpdates(), 2500);
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -126,6 +262,7 @@ if (!gotSingleInstanceLock) {
 
   app.on("before-quit", () => {
     forceQuit = true;
+    globalShortcut.unregisterAll();
   });
 }
 
@@ -252,8 +389,17 @@ ipcMain.handle("window:close", () => {
 
 ipcMain.handle("clipboard:readText", () => clipboard.readText());
 
+ipcMain.handle("update:getStatus", () => updateStatus);
+
+ipcMain.handle("update:check", () => checkForUpdates());
+
+ipcMain.handle("update:download", () => downloadUpdate());
+
+ipcMain.handle("update:install", () => installDownloadedUpdate());
+
 ipcMain.handle("app:getInfo", () => ({
   version: app.getVersion(),
   author: "kunkun",
   desc: "认识自身平凡后，依旧拥有改变世界的勇气",
+  globalShortcut: "Ctrl+Alt+Space",
 }));

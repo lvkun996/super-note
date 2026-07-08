@@ -15,4 +15,13 @@ contextBridge.exposeInMainWorld("superNote", {
     electron.webUtils?.getPathForFile(file) || (file as File & { path?: string }).path || "",
   readClipboardText: () => ipcRenderer.invoke("clipboard:readText"),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
+  getUpdateStatus: () => ipcRenderer.invoke("update:getStatus"),
+  checkForUpdates: () => ipcRenderer.invoke("update:check"),
+  downloadUpdate: () => ipcRenderer.invoke("update:download"),
+  installUpdate: () => ipcRenderer.invoke("update:install"),
+  onUpdateStatus: (callback: (status: unknown) => void) => {
+    const listener = (_event: electron.IpcRendererEvent, status: unknown) => callback(status);
+    ipcRenderer.on("update:status", listener);
+    return () => ipcRenderer.removeListener("update:status", listener);
+  },
 });
