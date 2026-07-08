@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="凯哥生日快乐，一页纯 CSS 的生日祝福。" />
+    <title>凯哥生日快乐</title>
+    <link rel="icon" href="./assets/app-icon.png" />
+    <link rel="stylesheet" href="./kaige-birthday.css" />
+  </head>
+  <body>
+    <input class="control" type="checkbox" id="wish-mode" />
+    <input class="control" type="checkbox" id="gift-open" />
+    <input class="control" type="checkbox" id="firework-mode" />
+    <input class="control" type="radio" name="fortune" id="fortune-a" checked />
+    <input class="control" type="radio" name="fortune" id="fortune-b" />
+    <input class="control" type="radio" name="fortune" id="fortune-c" />
+
+    <main class="birthday-page">
+      <section class="hero" aria-labelledby="birthday-title">
+        <div class="sky" aria-hidden="true">
+          <span class="balloon b1"></span>
+          <span class="balloon b2"></span>
+          <span class="balloon b3"></span>
+          <span class="confetti c1"></span>
+          <span class="confetti c2"></span>
+          <span class="confetti c3"></span>
+          <span class="confetti c4"></span>
+          <span class="confetti c5"></span>
+          <span class="confetti c6"></span>
+          <span class="star s1"></span>
+          <span class="star s2"></span>
+          <span class="star s3"></span>
+        </div>
+
+        <a class="back-link" href="./index.html">Super Note</a>
+        <p class="kicker">Today is Kaige Day</p>
+        <h1 id="birthday-title">凯哥生日快乐</h1>
+        <p class="subtitle">愿你今天的快乐，比蛋糕多一层，比烟花亮一格。</p>
+
+        <div class="cake-scene" aria-label="生日蛋糕">
+          <div class="halo"></div>
+          <div class="cake">
+            <div class="candles">
+              <span class="candle"><i></i></span>
+              <span class="candle"><i></i></span>
+              <span class="candle"><i></i></span>
+            </div>
+            <div class="cake-top">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="cake-body">
+              <b>KAIGE</b>
+            </div>
+            <div class="plate"></div>
+          </div>
+        </div>
+
+        <div class="actions" aria-label="生日互动">
+          <label class="pill primary" for="wish-mode">点亮祝福</label>
+          <label class="pill" for="gift-open">打开礼物</label>
+          <label class="pill" for="firework-mode">放烟花</label>
+        </div>
+      </section>
+
+      <section class="wish-card" aria-labelledby="wish-title">
+        <div class="card-shell">
+          <p class="section-mark">Birthday Signal</p>
+          <h2 id="wish-title">给凯哥的一段认真祝福</h2>
+          <p>
+            凯哥，生日快乐。愿新的一岁里，你遇到的事都带一点好运，做成的事都带一点漂亮，
+            普通日子也能冒出闪闪发光的瞬间。
+          </p>
+          <div class="meter" aria-hidden="true">
+            <span>快乐值</span>
+            <i></i>
+          </div>
+        </div>
+      </section>
+
+      <section class="gift-zone" aria-labelledby="gift-title">
+        <h2 id="gift-title">生日礼物已投递</h2>
+        <label class="gift" for="gift-open" aria-label="打开或合上礼物">
+          <span class="gift-lid"></span>
+          <span class="gift-box"></span>
+          <span class="gift-ribbon"></span>
+          <span class="gift-light l1"></span>
+          <span class="gift-light l2"></span>
+          <span class="gift-light l3"></span>
+        </label>
+        <p class="gift-text closed">点一下礼盒，看看里面藏了什么。</p>
+        <p class="gift-text opened">里面是满格幸运、稳定快乐，还有一整年的好消息。</p>
+      </section>
+
+      <section class="fortune-zone" aria-labelledby="fortune-title">
+        <p class="section-mark">Pick One</p>
+        <h2 id="fortune-title">抽一张生日签</h2>
+        <div class="fortune-tabs" role="group" aria-label="生日签选择">
+          <label for="fortune-a">好运</label>
+          <label for="fortune-b">灵感</label>
+          <label for="fortune-c">快乐</label>
+        </div>
+        <div class="fortune-stack">
+          <article class="fortune-card card-a">
+            <strong>好运签</strong>
+            <p>今天开始，凯哥的随机事件里，好事权重上调。</p>
+          </article>
+          <article class="fortune-card card-b">
+            <strong>灵感签</strong>
+            <p>灵感会在你需要时准时出现，还会顺手带一杯咖啡。</p>
+          </article>
+          <article class="fortune-card card-c">
+            <strong>快乐签</strong>
+            <p>快乐不是短暂停靠，是新一岁里的长期合作伙伴。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="firework-zone" aria-labelledby="firework-title">
+        <h2 id="firework-title">最后，给凯哥一场小烟花</h2>
+        <p>点上面的“放烟花”，天空会替大家热闹一下。</p>
+        <div class="fireworks" aria-hidden="true">
+          <span class="fw fw1"></span>
+          <span class="fw fw2"></span>
+          <span class="fw fw3"></span>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

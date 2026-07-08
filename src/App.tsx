@@ -259,8 +259,8 @@ const releaseTimeline: Array<{ version: string; date: string; title: string; des
   {
     version: "v0.1.5",
     date: "2026.07.08",
-    title: "空工作区、插件开关与安装体验",
-    description: "新增无标签页空状态与动态背景，画板插件支持启用状态控制，并优化安装目录选择、单实例启动和本地打包缓存。",
+    title: "为凯哥更新的版本",
+    description: "新增凯哥生日快乐独立页面，用纯 CSS 做蛋糕、礼物、烟花与生日签互动；同时保留空工作区、插件开关、安装目录选择和本地打包缓存优化。",
   },
   {
     version: "v0.1.4",
