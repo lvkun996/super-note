@@ -220,6 +220,17 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.7") {
+    return [
+      "Super Note v0.1.7",
+      "",
+      "- 更换透明背景的新 logo，并同步安装图标与系统托盘图标。",
+      "- 作者寄语弹窗改为全屏展示。",
+      "- 优化标签栏 tab 标签边框，减少与工作区的视觉重叠。",
+      "- 暂时移除文本对比插件入口，后续打磨后再重新启用。",
+    ].join("\n");
+  }
+
   if (version === "0.1.6") {
     return [
       "Super Note v0.1.6",

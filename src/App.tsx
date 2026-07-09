@@ -257,6 +257,12 @@ const canvasThemes: CanvasTheme[] = [
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.7",
+    date: "2026.07.09",
+    title: "透明图标与作者全屏",
+    description: "更新透明背景的新 logo，作者寄语改为全屏展示，优化标签栏边框，并暂时移除文本对比插件。",
+  },
+  {
     version: "v0.1.6",
     date: "2026.07.08",
     title: "自动更新与全局快捷键",
@@ -820,14 +826,14 @@ function AppShell() {
   const [activeSearchResultId, setActiveSearchResultId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.6",
+    version: "0.1.7",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.6",
+    currentVersion: "0.1.7",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -2395,6 +2401,14 @@ function AppShell() {
     },
   ];
 
+  const topRightCloseModal = {
+    footer: null,
+    closable: true,
+    closeIcon: <CloseOutlined />,
+    maskClosable: true,
+    icon: null as ReactNode,
+  };
+
   const helpMenu: MenuProps["items"] = [
     {
       key: "docs",
@@ -2402,9 +2416,9 @@ function AppShell() {
       icon: <BookOutlined />,
       onClick: () =>
         modal.info({
+          ...topRightCloseModal,
           title: "文档",
           width: 760,
-          okText: "关闭",
           content: <HelpDocumentation canvasPluginEnabled={canvasPluginEnabled} shortcuts={settings.shortcuts} />,
         }),
     },
@@ -2412,7 +2426,7 @@ function AppShell() {
       key: "version",
       label: "版本",
       icon: <InfoCircleOutlined />,
-      onClick: () => modal.info({ title: "版本", content: appInfo.version }),
+      onClick: () => modal.info({ ...topRightCloseModal, title: "版本", content: <div className="version-modal-content">{appInfo.version}</div> }),
     },
     {
       key: "updates",
@@ -2420,9 +2434,9 @@ function AppShell() {
       icon: <HistoryOutlined />,
       onClick: () =>
         modal.info({
+          ...topRightCloseModal,
           title: "版本更新",
           width: 680,
-          okText: "关闭",
           content: (
             <ol className="help-update-timeline">
               {releaseTimeline.map((release) => (
@@ -2446,7 +2460,23 @@ function AppShell() {
       key: "author",
       label: "作者",
       icon: <UserOutlined />,
-      onClick: () => modal.info({ title: "作者", content: `${appInfo.author}\n${appInfo.desc}` }),
+      onClick: () =>
+        modal.info({
+          ...topRightCloseModal,
+          title: null,
+          width: "100vw",
+          style: { top: 0, maxWidth: "100vw", paddingBottom: 0 },
+          className: "author-inspiration-modal",
+          content: (
+            <div className="author-inspiration-panel" aria-label="作者寄语">
+              <div className="author-inspiration-text">
+                希望你认识自身平凡之后，
+                <br />
+                依旧拥有改变世界的勇气
+              </div>
+            </div>
+          ),
+        }),
     },
   ];
 

@@ -1,9 +1,33 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const scriptPath = fileURLToPath(import.meta.url);
+const root = path.resolve(path.dirname(scriptPath), "..");
+
+function getBundledNodePath() {
+  const home = process.env.USERPROFILE || process.env.HOME;
+  if (!home) {
+    return "";
+  }
+  return path.join(home, ".cache", "codex-runtimes", "codex-primary-runtime", "dependencies", "node", "bin", "node.exe");
+}
+
+const nodeMajor = Number(process.versions.node.split(".")[0]);
+const bundledNode = getBundledNodePath();
+if (Number.isFinite(nodeMajor) && nodeMajor < 18 && bundledNode && existsSync(bundledNode) && path.resolve(process.execPath) !== path.resolve(bundledNode)) {
+  const result = spawnSync(bundledNode, [scriptPath, ...process.argv.slice(2)], {
+    cwd: root,
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (result.error) {
+    throw result.error;
+  }
+  process.exit(result.status ?? 1);
+}
+
 const args = new Set(process.argv.slice(2));
 const builderCache = path.join(root, ".cache", "electron-builder");
 const electronCache = path.join(root, ".cache", "electron");
