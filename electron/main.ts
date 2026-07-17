@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage } from "electron";
+import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, shell } from "electron";
 import { autoUpdater } from "electron-updater";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -7,11 +7,14 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let forceQuit = false;
 let installUpdateAfterDownload = false;
+let updateDownloadPromise: Promise<UpdateStatus> | null = null;
 
 const workspaceFileName = "workspace.json";
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 const globalToggleShortcut = "Control+Alt+Space";
 const updateFeedUrl = "https://github.com/lvkun996/super-note/releases/latest/download/";
+const updateDownloadMaxAttempts = 3;
+const updateDownloadRetryDelayMs = 3000;
 
 type UpdateState = "idle" | "checking" | "available" | "not-available" | "downloading" | "downloaded" | "installing" | "error";
 
@@ -22,6 +25,8 @@ type UpdateStatus = {
   latestVersion?: string;
   progress?: number;
   error?: string;
+  downloadAttempt?: number;
+  maxDownloadAttempts?: number;
 };
 
 let updateStatus: UpdateStatus = {
@@ -76,10 +81,23 @@ function setUpdateStatus(next: Partial<UpdateStatus>) {
   sendUpdateStatus();
 }
 
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getUpdateErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function configureAutoUpdater() {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.disableDifferentialDownload = true;
   autoUpdater.channel = getUpdateChannel();
+  autoUpdater.requestHeaders = {
+    "Cache-Control": "no-cache",
+    "User-Agent": `Super Note/${app.getVersion()}`,
+  };
   autoUpdater.setFeedURL({
     provider: "generic",
     url: updateFeedUrl,
@@ -93,6 +111,8 @@ function configureAutoUpdater() {
       latestVersion: info.version,
       progress: undefined,
       error: undefined,
+      downloadAttempt: undefined,
+      maxDownloadAttempts: undefined,
     }),
   );
   autoUpdater.on("update-not-available", (info) =>
@@ -101,6 +121,8 @@ function configureAutoUpdater() {
       latestVersion: info.version,
       progress: undefined,
       error: undefined,
+      downloadAttempt: undefined,
+      maxDownloadAttempts: undefined,
     }),
   );
   autoUpdater.on("download-progress", (progress) =>
@@ -116,17 +138,28 @@ function configureAutoUpdater() {
       latestVersion: info.version,
       progress: 100,
       error: undefined,
+      downloadAttempt: undefined,
+      maxDownloadAttempts: undefined,
     });
     if (installUpdateAfterDownload) {
       setTimeout(() => installDownloadedUpdate(), 800);
     }
   });
-  autoUpdater.on("error", (error) =>
+  autoUpdater.on("error", (error) => {
+    const message = getUpdateErrorMessage(error);
+    if (updateDownloadPromise) {
+      setUpdateStatus({
+        state: "downloading",
+        error: message,
+      });
+      return;
+    }
     setUpdateStatus({
       state: "error",
-      error: error.message || String(error),
-    }),
-  );
+      progress: undefined,
+      error: message,
+    });
+  });
 }
 
 function checkForUpdates() {
@@ -142,9 +175,53 @@ async function downloadUpdate() {
   if (!app.isPackaged) {
     return updateStatus;
   }
+  if (updateDownloadPromise) {
+    return updateDownloadPromise;
+  }
   installUpdateAfterDownload = true;
-  setUpdateStatus({ state: "downloading", progress: 0, error: undefined });
-  await autoUpdater.downloadUpdate();
+  updateDownloadPromise = downloadUpdateWithRetry().finally(() => {
+    updateDownloadPromise = null;
+  });
+  return updateDownloadPromise;
+}
+
+async function downloadUpdateWithRetry() {
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= updateDownloadMaxAttempts; attempt += 1) {
+    setUpdateStatus({
+      state: "downloading",
+      progress: 0,
+      error: attempt === 1 ? undefined : `下载中断，正在重试 ${attempt}/${updateDownloadMaxAttempts}`,
+      downloadAttempt: attempt,
+      maxDownloadAttempts: updateDownloadMaxAttempts,
+    });
+
+    try {
+      await autoUpdater.downloadUpdate();
+      return updateStatus;
+    } catch (error) {
+      lastError = error;
+      if (attempt < updateDownloadMaxAttempts) {
+        setUpdateStatus({
+          state: "downloading",
+          error: `下载中断，${Math.round(updateDownloadRetryDelayMs / 1000)} 秒后重试 ${attempt + 1}/${updateDownloadMaxAttempts}：${getUpdateErrorMessage(error)}`,
+          downloadAttempt: attempt,
+          maxDownloadAttempts: updateDownloadMaxAttempts,
+        });
+        await delay(updateDownloadRetryDelayMs);
+        continue;
+      }
+    }
+  }
+
+  setUpdateStatus({
+    state: "error",
+    progress: undefined,
+    error: `下载失败，已重试 ${updateDownloadMaxAttempts} 次：${getUpdateErrorMessage(lastError)}`,
+    downloadAttempt: updateDownloadMaxAttempts,
+    maxDownloadAttempts: updateDownloadMaxAttempts,
+  });
   return updateStatus;
 }
 
@@ -388,6 +465,22 @@ ipcMain.handle("window:close", () => {
 });
 
 ipcMain.handle("clipboard:readText", () => clipboard.readText());
+
+ipcMain.handle("clipboard:writeText", (_event, text: unknown) => {
+  if (typeof text !== "string") {
+    return { ok: false };
+  }
+  clipboard.writeText(text);
+  return { ok: true };
+});
+
+ipcMain.handle("shell:openExternal", async (_event, url: unknown) => {
+  if (typeof url !== "string" || !/^https?:\/\//i.test(url)) {
+    return { ok: false };
+  }
+  await shell.openExternal(url);
+  return { ok: true };
+});
 
 ipcMain.handle("update:getStatus", () => updateStatus);
 

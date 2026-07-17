@@ -56,6 +56,8 @@ type UpdateStatus = {
   latestVersion?: string;
   progress?: number;
   error?: string;
+  downloadAttempt?: number;
+  maxDownloadAttempts?: number;
 };
 
 interface Window {
@@ -70,6 +72,8 @@ interface Window {
     closeWindow: () => Promise<{ ok: boolean }>;
     getPathForFile: (file: File) => string;
     readClipboardText: () => Promise<string>;
+    writeClipboardText: (text: string) => Promise<{ ok: boolean }>;
+    openExternal: (url: string) => Promise<{ ok: boolean }>;
     getAppInfo: () => Promise<AppInfo>;
     getUpdateStatus: () => Promise<UpdateStatus>;
     checkForUpdates: () => Promise<UpdateStatus>;

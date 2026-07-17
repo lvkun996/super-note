@@ -5,8 +5,6 @@ import {
   Dropdown,
   Empty,
   Input,
-  Modal,
-  Switch,
   Tabs,
   Tooltip,
   theme,
@@ -20,11 +18,11 @@ import {
   CodeOutlined,
   CopyOutlined,
   DeleteOutlined,
-  EditOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
   HistoryOutlined,
   InfoCircleOutlined,
+  LinkOutlined,
   BorderOutlined,
   MinusOutlined,
   MoonOutlined,
@@ -42,209 +40,63 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
+import MarkdownIt from "markdown-it";
+import type {
+  AppSettings,
+  CanvasItem,
+  CanvasItemOverride,
+  CanvasTab,
+  CanvasTheme,
+  CanvasViewState,
+  DragState,
+  FileDocumentMode,
+  FileTab,
+  ImageCanvasItem,
+  LegacyTabPlacement,
+  MarkdownRenderEnv,
+  NoteFilePayload,
+  NoteTab,
+  PaneKey,
+  PersistedCanvasTab,
+  PersistedTab,
+  PersistedWorkspace,
+  ProgrammerAction,
+  SearchResult,
+  SelectedItem,
+  TextCanvasItem,
+  TextSearchTarget,
+} from "./appTypes";
 import { EmptyWorld } from "./components/EmptyWorld";
 import { HelpDocumentation } from "./components/HelpDocumentation";
-import { DEFAULT_PLUGIN_SETTINGS, normalizePluginSettings } from "./pluginSettings";
-import type { PluginSettings } from "./pluginSettings";
+import { CanvasView } from "./features/canvas/CanvasView";
+import {
+  DEFAULT_TEXT_FONT_SIZE,
+  estimateTextHeight,
+  estimateTextWidth,
+  focusTextEditor,
+  getItemLayout,
+  getPointOnCanvas,
+  getTextFontSize,
+} from "./features/canvas/canvasUtils";
+import {
+  openExternalUrl,
+  renderHighlightedText,
+  transformJsonText,
+} from "./features/editor/editorUtils";
+import {
+  DEFAULT_SETTINGS,
+  SettingsModal,
+  normalizeSettings,
+  shortcutMatches,
+} from "./features/settings/SettingsModal";
+import { FileView, getFileDocumentMode } from "./features/text/FileView";
 
 const HISTORY_LIMIT = 80;
 const LONG_PRESS_MS = 160;
 const STORAGE_KEY = "super-note-workspace";
-const DEFAULT_TEXT_FONT_SIZE = 18;
 const DEFAULT_FILE_FONT_SIZE = 13;
 const INITIAL_PANE_ID = "pane-main";
-
-type PaneKey = string;
-type LegacyPaneKey = "left" | "right";
-type LegacyTabPlacement = LegacyPaneKey | "both";
-
-type CanvasTheme = {
-  accent: string;
-};
-
-type TextCanvasItem = {
-  id: string;
-  type: "text";
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  fontSize?: number;
-  text: string;
-};
-
-type ImageCanvasItem = {
-  id: string;
-  type: "image";
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  src: string;
-  name: string;
-};
-
-type CanvasItem = TextCanvasItem | ImageCanvasItem;
-
-type CanvasTab = {
-  id: string;
-  kind: "canvas";
-  title: string;
-  autoTitle: boolean;
-  themeIndex: number;
-  scale: number;
-  panX: number;
-  panY: number;
-  items: CanvasItem[];
-  history: CanvasItem[][];
-  historyIndex: number;
-  filePath?: string;
-  dirty: boolean;
-};
-
-type FileTab = {
-  id: string;
-  kind: "file";
-  title: string;
-  fileName: string;
-  filePath?: string;
-  content: string;
-  fontSize?: number;
-  themeIndex: number;
-  dirty: boolean;
-};
-
-type NoteTab = CanvasTab | FileTab;
-
-type CanvasItemOverride = {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  fontSize?: number;
-};
-
-type CanvasViewState = {
-  scale: number;
-  panX: number;
-  panY: number;
-  itemOverrides: Record<string, CanvasItemOverride>;
-};
-
-type ShortcutAction =
-  | "newCanvas"
-  | "newText"
-  | "closeTab"
-  | "fileFontIncrease"
-  | "fileFontDecrease"
-  | "save"
-  | "search"
-  | "undo"
-  | "redo"
-  | "redoAlt"
-  | "paste"
-  | "deleteSelected"
-  | "splitLeft"
-  | "splitRight";
-type ShortcutConfig = Record<ShortcutAction, string>;
-
-type AppSettings = {
-  handwritten: boolean;
-  programmerMode: boolean;
-  darkMode: boolean;
-  followSystemTheme: boolean;
-  plugins: PluginSettings;
-  shortcuts: ShortcutConfig;
-};
-
-type PersistedCanvasTab = Omit<CanvasTab, "history" | "historyIndex">;
-type PersistedTab = PersistedCanvasTab | FileTab;
-
-type PersistedWorkspace = {
-  version: 1 | 2 | 3 | 4;
-  savedAt: string;
-  activeTabId: string;
-  leftActiveTabId?: string;
-  rightActiveTabId?: string | null;
-  activePane?: PaneKey;
-  splitView: boolean;
-  splitTabId?: string | null;
-  splitRatio?: number;
-  tabPlacements?: Record<string, LegacyTabPlacement>;
-  canvasViewStates?: Record<string, Partial<Record<PaneKey, CanvasViewState>>>;
-  paneIds?: PaneKey[];
-  paneActiveTabIds?: Record<PaneKey, string>;
-  tabPaneIds?: Record<string, PaneKey[]>;
-  paneWidths?: number[];
-  settings?: Partial<AppSettings>;
-  tabs: PersistedTab[];
-};
-
-type NoteFilePayload = {
-  type: "super-note-canvas";
-  version: 1;
-  tab: PersistedCanvasTab;
-};
-
-type SelectedItem = {
-  tabId: string;
-  itemId: string;
-  pane: PaneKey;
-} | null;
-
-type ItemDragState = {
-  mode: "item";
-  tabId: string;
-  pane: PaneKey;
-  itemId: string;
-  surface: HTMLDivElement;
-  elements: HTMLElement[];
-  scale: number;
-  offsetX: number;
-  offsetY: number;
-  originX: number;
-  originY: number;
-  currentX: number;
-  currentY: number;
-  moved: boolean;
-};
-
-type PanDragState = {
-  mode: "pan";
-  tabId: string;
-  pane: PaneKey;
-  surface: HTMLDivElement;
-  scale: number;
-  startX: number;
-  startY: number;
-  panX: number;
-  panY: number;
-  currentPanX: number;
-  currentPanY: number;
-};
-
-type SplitDragState = {
-  mode: "split";
-  container: HTMLElement;
-  dividerIndex: number;
-  startX: number;
-  startWidths: number[];
-  currentWidths: number[];
-};
-
-type DragState = ItemDragState | PanDragState | SplitDragState;
-
-type SearchResult = {
-  id: string;
-  tabId: string;
-  itemId?: string;
-  kind: "canvas-text" | "file";
-  title: string;
-  preview: string;
-  line?: number;
-};
-
-type ProgrammerAction = "format-json" | "minify-json" | "string-to-json";
+const SITE_URL = "https://lvkun996.github.io/super-note/";
 
 const canvasThemes: CanvasTheme[] = [
   { accent: "#1677ff" },
@@ -255,7 +107,36 @@ const canvasThemes: CanvasTheme[] = [
   { accent: "#52c41a" },
 ];
 
+const markdownRenderer = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: true,
+});
+const defaultMarkdownLinkOpen = markdownRenderer.renderer.rules.link_open;
+const defaultMarkdownImage = markdownRenderer.renderer.rules.image;
+
+markdownRenderer.renderer.rules.link_open = (tokens, index, options, env, self) => {
+  tokens[index].attrSet("target", "_blank");
+  tokens[index].attrSet("rel", "noreferrer");
+  return defaultMarkdownLinkOpen ? defaultMarkdownLinkOpen(tokens, index, options, env, self) : self.renderToken(tokens, index, options);
+};
+
+markdownRenderer.renderer.rules.image = (tokens, index, options, env, self) => {
+  const src = tokens[index].attrGet("src");
+  if (src) {
+    tokens[index].attrSet("src", resolveMarkdownAssetUrl(src, (env as MarkdownRenderEnv).filePath));
+    tokens[index].attrSet("loading", "lazy");
+  }
+  return defaultMarkdownImage ? defaultMarkdownImage(tokens, index, options, env, self) : self.renderToken(tokens, index, options);
+};
+
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.8",
+    date: "2026.07.17",
+    title: "链接、搜索与编辑体验",
+    description: "修复文本底部点击和搜索定位，新增 Ctrl + 单击外部链接、固定编辑菜单，并按功能拆分核心代码。",
+  },
   {
     version: "v0.1.7",
     date: "2026.07.09",
@@ -300,49 +181,6 @@ const releaseTimeline: Array<{ version: string; date: string; title: string; des
   },
 ];
 
-const DEFAULT_SHORTCUTS: ShortcutConfig = {
-  newCanvas: "Ctrl+D",
-  newText: "Ctrl+T",
-  closeTab: "Ctrl+Q",
-  fileFontIncrease: "Ctrl++",
-  fileFontDecrease: "Ctrl+-",
-  save: "Ctrl+S",
-  search: "Ctrl+F",
-  undo: "Ctrl+Z",
-  redo: "Ctrl+Y",
-  redoAlt: "Ctrl+Shift+Z",
-  paste: "Ctrl+V",
-  deleteSelected: "Backspace",
-  splitLeft: "Ctrl+Left",
-  splitRight: "Ctrl+Right",
-};
-
-const DEFAULT_SETTINGS: AppSettings = {
-  handwritten: false,
-  programmerMode: false,
-  darkMode: false,
-  followSystemTheme: false,
-  plugins: DEFAULT_PLUGIN_SETTINGS,
-  shortcuts: DEFAULT_SHORTCUTS,
-};
-
-const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; desc: string }> = [
-  { action: "newCanvas", label: "新建画板", desc: "仅在画板插件启用后生效" },
-  { action: "newText", label: "新建文本模块", desc: "直接创建一个纯文本编辑模块" },
-  { action: "closeTab", label: "关闭当前标签", desc: "关闭当前画板或文本模块" },
-  { action: "fileFontIncrease", label: "放大文本模块字号", desc: "仅调整当前文本模块的编辑字号" },
-  { action: "fileFontDecrease", label: "缩小文本模块字号", desc: "仅调整当前文本模块的编辑字号" },
-  { action: "save", label: "保存当前标签", desc: "保存当前文件或画板" },
-  { action: "search", label: "全局搜索", desc: "打开全局搜索面板" },
-  { action: "undo", label: "撤销", desc: "撤销当前模块变更" },
-  { action: "redo", label: "重做", desc: "重做当前模块变更" },
-  { action: "redoAlt", label: "重做备用", desc: "兼容常见编辑器快捷键" },
-  { action: "paste", label: "粘贴", desc: "粘贴文字或图片" },
-  { action: "deleteSelected", label: "删除选中元素", desc: "删除画板中选中的元素" },
-  { action: "splitLeft", label: "向左分割视图", desc: "把当前标签分割到左侧视图" },
-  { action: "splitRight", label: "向右分割视图", desc: "把当前标签分割到右侧视图" },
-];
-
 const makeId = () => crypto.randomUUID();
 
 function cloneItems(items: CanvasItem[]) {
@@ -359,6 +197,84 @@ function truncateTitle(value: string) {
 
 function getFileName(filePath: string) {
   return filePath.split(/[\\/]/).pop() || filePath;
+}
+
+function isMarkdownFileName(fileName?: string) {
+  return Boolean(fileName && /\.(md|markdown|mdown|mkd)$/i.test(fileName));
+}
+
+function isAbsoluteWindowsPath(filePath: string) {
+  return /^[a-z]:[\\/]/i.test(filePath) || filePath.startsWith("\\\\");
+}
+
+function encodeFileUrlPath(filePath: string) {
+  const normalized = filePath.replace(/\\/g, "/");
+  return normalized
+    .split("/")
+    .map((part, index) => (index === 0 && /^[a-z]:$/i.test(part) ? part : encodeURIComponent(part)))
+    .join("/");
+}
+
+function joinMarkdownAssetPath(baseDir: string, assetPath: string) {
+  const parts = `${baseDir.replace(/\\/g, "/")}/${assetPath.replace(/\\/g, "/")}`.split("/");
+  const normalized: string[] = [];
+  parts.forEach((part) => {
+    if (!part || part === ".") {
+      return;
+    }
+    if (part === "..") {
+      if (normalized.length > 1) {
+        normalized.pop();
+      }
+      return;
+    }
+    normalized.push(part);
+  });
+  return normalized.join("/");
+}
+
+function resolveMarkdownAssetUrl(src: string, filePath?: string) {
+  if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(src) || src.startsWith("/")) {
+    return src;
+  }
+
+  const suffixStart = src.search(/[?#]/);
+  const assetPath = suffixStart >= 0 ? src.slice(0, suffixStart) : src;
+  const suffix = suffixStart >= 0 ? src.slice(suffixStart) : "";
+  if (!assetPath) {
+    return src;
+  }
+
+  if (isAbsoluteWindowsPath(assetPath)) {
+    return `file:///${encodeFileUrlPath(assetPath)}${suffix}`;
+  }
+  if (!filePath) {
+    return src;
+  }
+
+  const baseDir = filePath.replace(/[\\/][^\\/]*$/, "");
+  if (!baseDir) {
+    return src;
+  }
+  return `file:///${encodeFileUrlPath(joinMarkdownAssetPath(baseDir, assetPath))}${suffix}`;
+}
+
+function getFileSaveFilters(tab: FileTab) {
+  const textFilters = [
+    { name: "Text", extensions: ["txt", "md", "json", "csv", "log", "ts", "tsx", "js", "jsx", "css", "html"] },
+    { name: "All Files", extensions: ["*"] },
+  ];
+  if (getFileDocumentMode(tab) !== "markdown") {
+    return textFilters;
+  }
+  return [
+    { name: "Markdown", extensions: ["md", "markdown"] },
+    ...textFilters,
+  ];
+}
+
+function renderMarkdownContent(content: string, filePath?: string) {
+  return markdownRenderer.render(content || "", { filePath });
 }
 
 function deriveCanvasTitle(tab: CanvasTab, items: CanvasItem[]) {
@@ -405,6 +321,7 @@ function createFileTab(file: OpenedFile, themeIndex: number): FileTab {
     fileName: file.name,
     filePath: file.path,
     content: file.content,
+    documentMode: isMarkdownFileName(file.name) || isMarkdownFileName(file.path) ? "markdown" : "text",
     fontSize: DEFAULT_FILE_FONT_SIZE,
     themeIndex,
     dirty: false,
@@ -418,6 +335,21 @@ function createTextTab(themeIndex: number): FileTab {
     title: "未命名文本",
     fileName: "未命名文本.txt",
     content: "",
+    documentMode: "text",
+    fontSize: DEFAULT_FILE_FONT_SIZE,
+    themeIndex,
+    dirty: true,
+  };
+}
+
+function createMarkdownTab(themeIndex: number): FileTab {
+  return {
+    id: makeId(),
+    kind: "file",
+    title: "未命名 Markdown",
+    fileName: "untitled.md",
+    content: "# 未命名\n\n",
+    documentMode: "markdown",
     fontSize: DEFAULT_FILE_FONT_SIZE,
     themeIndex,
     dirty: true,
@@ -442,6 +374,7 @@ function restoreTab(tab: PersistedTab): NoteTab {
   }
   return {
     ...tab,
+    documentMode: tab.documentMode ?? (isMarkdownFileName(tab.fileName) || isMarkdownFileName(tab.filePath) ? "markdown" : "text"),
     fontSize: tab.fontSize ?? DEFAULT_FILE_FONT_SIZE,
     dirty: tab.dirty ?? false,
   };
@@ -507,31 +440,8 @@ function normalizeViewState(tab: CanvasTab, state?: Partial<CanvasViewState>): C
   };
 }
 
-function getTextFontSize(item: TextCanvasItem) {
-  return item.fontSize ?? DEFAULT_TEXT_FONT_SIZE;
-}
-
 function getFileFontSize(tab: FileTab) {
   return tab.fontSize ?? DEFAULT_FILE_FONT_SIZE;
-}
-
-function estimateTextHeight(text: string, fontSize: number, width: number) {
-  const usableWidth = Math.max(40, width - 12);
-  const charactersPerLine = Math.max(1, Math.floor(usableWidth / (fontSize * 0.62)));
-  const visualLines = (text || " ")
-    .split("\n")
-    .reduce((total, line) => total + Math.max(1, Math.ceil(Math.max(1, line.length) / charactersPerLine)), 0);
-  return Math.max(48, Math.ceil(visualLines * fontSize * 1.45 + 12));
-}
-
-function estimateTextWidth(text: string, fontSize: number) {
-  const longestLineWidth = (text || " ")
-    .split("\n")
-    .reduce((longest, line) => {
-      const width = Array.from(line).reduce((sum, character) => sum + (character.charCodeAt(0) > 255 ? fontSize : fontSize * 0.62), 0);
-      return Math.max(longest, width);
-    }, 0);
-  return clamp(Math.ceil(longestLineWidth + 16), 260, 960);
 }
 
 function isTabEmpty(tab: NoteTab) {
@@ -541,38 +451,6 @@ function isTabEmpty(tab: NoteTab) {
   return tab.items.every((item) => item.type === "text" && item.text.trim().length === 0);
 }
 
-function getItemLayout(item: CanvasItem, viewState: CanvasViewState) {
-  const override = viewState.itemOverrides[item.id];
-  if (item.type === "text") {
-    return {
-      ...item,
-      x: override?.x ?? item.x,
-      y: override?.y ?? item.y,
-      width: override?.width ?? item.width,
-      height: override?.height ?? item.height,
-      fontSize: override?.fontSize ?? getTextFontSize(item),
-    };
-  }
-  return {
-    ...item,
-    x: override?.x ?? item.x,
-    y: override?.y ?? item.y,
-    width: override?.width ?? item.width,
-    height: override?.height ?? item.height,
-  };
-}
-
-function getPointOnCanvas(clientX: number, clientY: number, surface: HTMLDivElement | null, scale: number) {
-  if (!surface) {
-    return { x: 120, y: 120 };
-  }
-  const rect = surface.getBoundingClientRect();
-  return {
-    x: Math.round((clientX - rect.left) / scale),
-    y: Math.round((clientY - rect.top) / scale),
-  };
-}
-
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -580,123 +458,6 @@ function readFileAsDataUrl(file: File) {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function splitShortcutParts(value: string) {
-  const clean = value
-    .replace(/Command/gi, "Meta")
-    .replace(/Cmd/gi, "Meta");
-  const parts = clean
-    .split("+")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (clean.trim().endsWith("+")) {
-    parts.push("+");
-  }
-  return parts;
-}
-
-function normalizeShortcutKey(part: string) {
-  const lower = part.toLowerCase();
-  if (lower === "plus" || lower === "add" || lower === "numpadadd" || part === "+" || part === "=") {
-    return "+";
-  }
-  if (lower === "minus" || lower === "subtract" || lower === "numpadsubtract" || part === "-" || part === "_") {
-    return "-";
-  }
-  if (lower === "left" || lower === "arrowleft") {
-    return "Left";
-  }
-  if (lower === "right" || lower === "arrowright") {
-    return "Right";
-  }
-  if (part.length === 1) {
-    return part.toUpperCase();
-  }
-  return part[0].toUpperCase() + part.slice(1);
-}
-
-function normalizeShortcut(value: string) {
-  const clean = value.trim();
-  if (!clean) {
-    return "";
-  }
-  const rawParts = splitShortcutParts(clean);
-  const modifiers = new Set<string>();
-  let key = "";
-  rawParts.forEach((part) => {
-    const lower = part.toLowerCase();
-    if (lower === "ctrl" || lower === "control") {
-      modifiers.add("Ctrl");
-    } else if (lower === "meta" || lower === "win" || lower === "super") {
-      modifiers.add("Meta");
-    } else if (lower === "alt" || lower === "option") {
-      modifiers.add("Alt");
-    } else if (lower === "shift") {
-      modifiers.add("Shift");
-    } else {
-      key = normalizeShortcutKey(part);
-    }
-  });
-  return ["Ctrl", "Meta", "Alt", "Shift"].filter((part) => modifiers.has(part)).concat(key ? [key] : []).join("+");
-}
-
-function shortcutFromEvent(event: KeyboardEvent | React.KeyboardEvent) {
-  const key = event.key;
-  if (["Control", "Meta", "Alt", "Shift"].includes(key)) {
-    return "";
-  }
-  const normalizedKey =
-    event.code === "Equal" || event.code === "NumpadAdd" || key === "+" || key === "="
-      ? "+"
-      : event.code === "Minus" || event.code === "NumpadSubtract" || key === "-" || key === "_"
-        ? "-"
-        : key === " "
-          ? "Space"
-          : key === "ArrowLeft"
-            ? "Left"
-            : key === "ArrowRight"
-              ? "Right"
-              : key.length === 1
-                ? key.toUpperCase()
-                : key;
-  const includeShift = event.shiftKey && normalizedKey !== "+";
-  return [
-    event.ctrlKey ? "Ctrl" : "",
-    event.metaKey ? "Meta" : "",
-    event.altKey ? "Alt" : "",
-    includeShift ? "Shift" : "",
-    normalizedKey,
-  ]
-    .filter(Boolean)
-    .join("+");
-}
-
-function shortcutMatches(event: KeyboardEvent, shortcut: string) {
-  return normalizeShortcut(shortcutFromEvent(event)) === normalizeShortcut(shortcut);
-}
-
-function normalizeSettings(value?: Partial<AppSettings>): AppSettings {
-  const shortcuts = {
-    ...DEFAULT_SHORTCUTS,
-    ...(value?.shortcuts ?? {}),
-  };
-  if (!value?.shortcuts?.deleteSelected || value.shortcuts.deleteSelected === "Delete") {
-    shortcuts.deleteSelected = DEFAULT_SHORTCUTS.deleteSelected;
-  }
-
-  return {
-    handwritten: Boolean(value?.handwritten),
-    programmerMode: Boolean(value?.programmerMode),
-    darkMode: Boolean(value?.darkMode),
-    followSystemTheme: Boolean(value?.followSystemTheme),
-    plugins: normalizePluginSettings(value?.plugins),
-    shortcuts,
-  };
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -743,67 +504,16 @@ function makePaneGridTemplate(widths: number[]) {
   ]).join(" ");
 }
 
-function makePreview(text: string, query: string) {
+function makePreview(text: string, query: string, matchIndex?: number) {
   const lowerText = text.toLowerCase();
   const lowerQuery = query.toLowerCase();
-  const index = lowerText.indexOf(lowerQuery);
+  const index = matchIndex ?? lowerText.indexOf(lowerQuery);
   if (index < 0) {
     return text.slice(0, 80);
   }
   const start = Math.max(0, index - 28);
   const end = Math.min(text.length, index + query.length + 36);
   return `${start > 0 ? "..." : ""}${text.slice(start, end)}${end < text.length ? "..." : ""}`;
-}
-
-function renderHighlightedText(text: string, query: string): ReactNode {
-  const needle = query.trim();
-  if (!needle) {
-    return text;
-  }
-  const regex = new RegExp(`(${escapeRegExp(needle)})`, "gi");
-  return text.split(regex).map((part, index) =>
-    part.toLowerCase() === needle.toLowerCase() ? (
-      <mark key={`${part}-${index}`} className="search-mark">
-        {part}
-      </mark>
-    ) : (
-      <span key={`${part}-${index}`}>{part}</span>
-    ),
-  );
-}
-
-function transformJsonText(text: string, action: ProgrammerAction) {
-  if (action === "format-json") {
-    try {
-      return JSON.stringify(JSON.parse(text), null, 2);
-    } catch {
-      return JSON.stringify(text, null, 2);
-    }
-  }
-  if (action === "minify-json") {
-    return JSON.stringify(JSON.parse(text));
-  }
-
-  const first = JSON.parse(text);
-  const parsed = typeof first === "string" ? JSON.parse(first) : first;
-  return JSON.stringify(parsed, null, 2);
-}
-
-function focusTextEditor(itemId: string, pane: PaneKey, placeAtEnd = false) {
-  window.setTimeout(() => {
-    const editor = document.querySelector<HTMLTextAreaElement>(`.canvas-viewport[data-pane="${pane}"] textarea[data-item-id="${itemId}"]`);
-    if (!editor) {
-      return;
-    }
-    window.requestAnimationFrame(() => {
-      editor.focus({ preventScroll: true });
-      if (placeAtEnd) {
-        const end = editor.value.replace(/[\r\n]+$/g, "").length;
-        editor.setSelectionRange(end, end);
-        editor.scrollLeft = editor.scrollWidth;
-      }
-    });
-  }, 0);
 }
 
 function AppShell() {
@@ -824,16 +534,17 @@ function AppShell() {
   const [editingText, setEditingText] = useState<{ itemId: string; pane: PaneKey } | null>(null);
   const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
   const [activeSearchResultId, setActiveSearchResultId] = useState<string | null>(null);
+  const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.7",
+    version: "0.1.8",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.7",
+    currentVersion: "0.1.8",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -848,7 +559,6 @@ function AppShell() {
   const closeSearch = useCallback(() => {
     setSearchOpen(false);
     setSearchValue("");
-    setActiveSearchResultId(null);
   }, []);
 
   const getTabPanes = useCallback(
@@ -1142,6 +852,16 @@ function AppShell() {
     window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(`.file-view[data-tab-id="${nextTab.id}"] .file-editor`)?.focus(), 0);
   }, [activePane, focusTabInPane, paneIds, tabs.length]);
 
+  const addMarkdownTab = useCallback((targetPane?: PaneKey) => {
+    const nextTab = createMarkdownTab(tabs.length);
+    const destination = targetPane && paneIds.includes(targetPane) ? targetPane : paneIds.includes(activePane) ? activePane : paneIds[0];
+    setTabs((current) => [...current, nextTab]);
+    setTabPaneIds((current) => ({ ...current, [nextTab.id]: [destination] }));
+    focusTabInPane(nextTab.id, destination);
+    setSelectedItem(null);
+    window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(`.file-view[data-tab-id="${nextTab.id}"] .file-editor`)?.focus(), 0);
+  }, [activePane, focusTabInPane, paneIds, tabs.length]);
+
   const openFilesAsTabs = useCallback(
     (files: OpenedFile[], targetPane?: PaneKey) => {
       if (files.length === 0) {
@@ -1165,6 +885,35 @@ function AppShell() {
     [activePane, focusTabInPane, paneIds],
   );
 
+  const openDroppedFilesAsTabs = useCallback(
+    async (files: File[], targetPane?: PaneKey) => {
+      const fileTabs: OpenedFile[] = [];
+      for (const file of files) {
+        if (file.type.startsWith("image/")) {
+          continue;
+        }
+        const filePath = window.superNote?.getPathForFile?.(file) || (file as File & { path?: string }).path;
+        try {
+          fileTabs.push({
+            path: filePath,
+            name: file.name,
+            content: await file.text(),
+          });
+        } catch (error) {
+          message.error(`读取文件失败：${file.name}，${String(error)}`);
+        }
+      }
+
+      if (fileTabs.length === 0) {
+        return false;
+      }
+
+      openFilesAsTabs(fileTabs, targetPane);
+      return true;
+    },
+    [message, openFilesAsTabs],
+  );
+
   const openExistingFile = useCallback(async () => {
     if (!window.superNote) {
       message.warning("当前环境不支持系统文件选择器");
@@ -1175,6 +924,28 @@ function AppShell() {
       openFilesAsTabs(result.files);
     }
   }, [message, openFilesAsTabs]);
+
+  const handleAppDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    if (event.dataTransfer.types.includes("Files")) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    }
+  }, []);
+
+  const handleAppDrop = useCallback(
+    async (event: React.DragEvent<HTMLDivElement>) => {
+      const files = Array.from(event.dataTransfer.files);
+      if (files.length === 0) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const targetPane = paneIds.includes(activePane) ? activePane : paneIds[0];
+      await openDroppedFilesAsTabs(files, targetPane);
+    },
+    [activePane, openDroppedFilesAsTabs, paneIds],
+  );
 
   const splitTab = useCallback(
     (tabId: string, sourcePane: PaneKey, direction: "left" | "right") => {
@@ -1363,11 +1134,8 @@ function AppShell() {
         const result = await window.superNote?.saveFile({
           path: activeTab.filePath,
           content: activeTab.content,
-          defaultName: activeTab.fileName || "untitled.txt",
-          filters: [
-            { name: "Text", extensions: ["txt", "md", "json", "csv", "log", "ts", "tsx", "js", "jsx", "css", "html"] },
-            { name: "All Files", extensions: ["*"] },
-          ],
+          defaultName: activeTab.fileName || (getFileDocumentMode(activeTab) === "markdown" ? "untitled.md" : "untitled.txt"),
+          filters: getFileSaveFilters(activeTab),
         });
         if (!result || result.canceled) {
           return;
@@ -1383,6 +1151,7 @@ function AppShell() {
                   filePath: result.path,
                   fileName: result.name ?? getFileName(result.path ?? tab.fileName),
                   title: result.name ?? getFileName(result.path ?? tab.title),
+                  documentMode: tab.documentMode === "markdown" || isMarkdownFileName(result.name) || isMarkdownFileName(result.path) ? "markdown" : "text",
                   dirty: false,
                 }
               : tab,
@@ -1611,6 +1380,37 @@ function AppShell() {
     [commitCanvasItems, message, tabs],
   );
 
+  const applyFileProgrammerAction = useCallback(
+    (tabId: string, action: ProgrammerAction, selectionStart: number, selectionEnd: number) => {
+      try {
+        const tab = tabs.find((item): item is FileTab => item.id === tabId && item.kind === "file");
+        if (!tab) {
+          message.warning("程序员工具仅支持文本模块和画布文字元素");
+          return;
+        }
+
+        const start = clamp(Math.min(selectionStart, selectionEnd), 0, tab.content.length);
+        const end = clamp(Math.max(selectionStart, selectionEnd), 0, tab.content.length);
+        if (end <= start) {
+          message.warning("请先选中需要处理的文本");
+          return;
+        }
+
+        const sourceText = tab.content.slice(start, end);
+        const transformedText = transformJsonText(sourceText, action);
+        const nextContent = `${tab.content.slice(0, start)}${transformedText}${tab.content.slice(end)}`;
+        fileUndoRef.current[tabId] = [...(fileUndoRef.current[tabId] ?? []), tab.content].slice(-HISTORY_LIMIT);
+        fileRedoRef.current[tabId] = [];
+        setTabs((current) =>
+          current.map((item) => (item.id === tabId && item.kind === "file" ? { ...item, content: nextContent, dirty: true } : item)),
+        );
+      } catch (error) {
+        message.error(`JSON 处理失败：${String(error)}`);
+      }
+    },
+    [message, tabs],
+  );
+
   const handleCanvasDoubleClick = useCallback(
     (tab: CanvasTab, pane: PaneKey, viewState: CanvasViewState, event: React.MouseEvent<HTMLDivElement>) => {
       if (event.target !== event.currentTarget) {
@@ -1696,6 +1496,7 @@ function AppShell() {
   const handleCanvasDrop = useCallback(
     async (tab: CanvasTab, pane: PaneKey, viewState: CanvasViewState, event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
+      event.stopPropagation();
       focusTabInPane(tab.id, pane);
       const files = Array.from(event.dataTransfer.files);
       const text = event.dataTransfer.getData("text/plain");
@@ -2245,18 +2046,30 @@ function AppShell() {
         return;
       }
 
-      const lines = tab.content.split(/\r?\n/);
+      const lowerNeedle = needle.toLowerCase();
+      const lines = tab.content.split(/\r\n|\r|\n/);
+      let lineStart = 0;
       lines.forEach((line, index) => {
-        if (line.toLowerCase().includes(needle.toLowerCase())) {
+        const lowerLine = line.toLowerCase();
+        let searchFrom = 0;
+        let localIndex = lowerLine.indexOf(lowerNeedle, searchFrom);
+        while (localIndex >= 0) {
+          const selectionStart = lineStart + localIndex;
           results.push({
-            id: `${tab.id}:line:${index}`,
+            id: `${tab.id}:match:${selectionStart}`,
             tabId: tab.id,
             kind: "file",
             title: tab.title,
             line: index + 1,
-            preview: makePreview(line, needle),
+            preview: makePreview(line, needle, localIndex),
+            selectionStart,
+            selectionEnd: selectionStart + needle.length,
           });
+          searchFrom = localIndex + Math.max(1, lowerNeedle.length);
+          localIndex = lowerLine.indexOf(lowerNeedle, searchFrom);
         }
+        const separator = tab.content.slice(lineStart + line.length).match(/^(?:\r\n|\r|\n)/)?.[0] ?? "";
+        lineStart += line.length + separator.length;
       });
     });
     return results;
@@ -2273,6 +2086,15 @@ function AppShell() {
       const pane = availablePanes.includes(activePane) ? activePane : availablePanes[0];
       focusTabInPane(result.tabId, pane);
       setActiveSearchResultId(result.id);
+
+      if (tab.kind === "file" && result.selectionStart != null && result.selectionEnd != null) {
+        setFileSearchTarget((current) => ({
+          tabId: tab.id,
+          selectionStart: result.selectionStart!,
+          selectionEnd: result.selectionEnd!,
+          requestId: (current?.requestId ?? 0) + 1,
+        }));
+      }
 
       if (tab.kind === "canvas" && result.itemId) {
         const item = tab.items.find((canvasItem) => canvasItem.id === result.itemId);
@@ -2319,6 +2141,12 @@ function AppShell() {
       onClick: () => addTextTab(),
     },
     {
+      key: "new-markdown",
+      label: "新建 Markdown 文档",
+      icon: <CodeOutlined />,
+      onClick: () => addMarkdownTab(),
+    },
+    {
       key: "open",
       label: "打开已有文件",
       icon: <FolderOpenOutlined />,
@@ -2339,6 +2167,12 @@ function AppShell() {
       label: `新建文本模块 (${settings.shortcuts.newText})`,
       icon: <FileTextOutlined />,
       onClick: () => addTextTab(),
+    },
+    {
+      key: "new-markdown",
+      label: "新建 Markdown 文档",
+      icon: <CodeOutlined />,
+      onClick: () => addMarkdownTab(),
     },
     {
       key: "close-tab",
@@ -2410,6 +2244,12 @@ function AppShell() {
   };
 
   const helpMenu: MenuProps["items"] = [
+    {
+      key: "website",
+      label: "官网",
+      icon: <LinkOutlined />,
+      onClick: () => void openExternalUrl(SITE_URL),
+    },
     {
       key: "docs",
       label: "文档",
@@ -2484,20 +2324,29 @@ function AppShell() {
     updateStatus.state === "available" ||
     updateStatus.state === "downloading" ||
     updateStatus.state === "downloaded" ||
-    updateStatus.state === "installing";
+    updateStatus.state === "installing" ||
+    updateStatus.state === "error";
   const updateButtonLoading = updateStatus.state === "downloading" || updateStatus.state === "installing";
   const updateButtonText =
     updateStatus.state === "downloading"
-      ? `${Math.max(0, Math.min(100, updateStatus.progress ?? 0))}%`
+      ? updateStatus.error && (updateStatus.downloadAttempt ?? 1) > 1
+        ? `重试 ${updateStatus.downloadAttempt}/${updateStatus.maxDownloadAttempts ?? 3}`
+        : `${Math.max(0, Math.min(100, updateStatus.progress ?? 0))}%`
       : updateStatus.state === "downloaded"
         ? "安装"
         : updateStatus.state === "installing"
           ? "安装中"
-          : updateStatus.latestVersion
+          : updateStatus.state === "error"
+            ? "重试更新"
+            : updateStatus.latestVersion
             ? `更新 ${updateStatus.latestVersion}`
             : "更新";
   const updateButtonTitle =
-    updateStatus.channel === "win7-8"
+    updateStatus.state === "error"
+      ? `更新失败，点击重试${updateStatus.error ? `：${updateStatus.error}` : ""}`
+      : updateStatus.state === "downloading" && updateStatus.error
+        ? updateStatus.error
+        : updateStatus.channel === "win7-8"
       ? "发现新版本，点击自动更新 Windows 7 / 8 版本"
       : "发现新版本，点击自动更新 Windows 10 / 11 版本";
 
@@ -2507,13 +2356,17 @@ function AppShell() {
         await window.superNote?.installUpdate?.();
         return;
       }
-      if (updateStatus.state === "available") {
+      if (updateStatus.state === "error" && !updateStatus.latestVersion) {
+        await window.superNote?.checkForUpdates?.();
+        return;
+      }
+      if (updateStatus.state === "available" || updateStatus.state === "error") {
         await window.superNote?.downloadUpdate?.();
       }
     } catch (error) {
       message.error(`自动更新启动失败：${String(error)}`);
     }
-  }, [message, updateStatus.state]);
+  }, [message, updateStatus.latestVersion, updateStatus.state]);
 
   const makeTabItems = useCallback(
     (paneTabs: NoteTab[], pane: PaneKey): TabsProps["items"] =>
@@ -2570,7 +2423,7 @@ function AppShell() {
                   event.dataTransfer.effectAllowed = "move";
                 }}
               >
-                {tab.kind === "file" ? <FileTextOutlined /> : null}
+                {tab.kind === "file" ? getFileDocumentMode(tab) === "markdown" ? <CodeOutlined /> : <FileTextOutlined /> : null}
                 <span className="tab-title">{tab.title}</span>
                 <button
                   type="button"
@@ -2657,6 +2510,7 @@ function AppShell() {
           activeSearchItemId={activeSearchResultId?.startsWith(`${tab.id}:`) ? activeSearchResultId.split(":")[1] : null}
           handwritten={settings.handwritten}
           programmerMode={settings.programmerMode}
+          accent={canvasThemes[tab.themeIndex % canvasThemes.length].accent}
           onDoubleClick={handleCanvasDoubleClick}
           onWheel={handleCanvasWheel}
           onDrop={handleCanvasDrop}
@@ -2667,16 +2521,16 @@ function AppShell() {
           onTextChange={(itemId, text) =>
             updateCanvasItems(tab.id, (items) => items.map((item) => (item.id === itemId && item.type === "text" ? { ...item, text } : item)))
           }
-          onTextCommit={(item, size) => {
+          onTextCommit={(item, size, text) => {
             setEditingText(null);
-            if (!item.text.trim()) {
+            if (!text.trim()) {
               deleteCanvasItem(tab.id, item.id);
               return;
             }
             updateCanvasTab(tab.id, (current) => {
               const nextItems = current.items.map((currentItem) =>
                 currentItem.id === item.id && currentItem.type === "text"
-                  ? { ...currentItem, width: size.width, height: size.height }
+                  ? { ...currentItem, text, width: size.width, height: size.height }
                   : currentItem,
               );
               return {
@@ -2713,7 +2567,16 @@ function AppShell() {
       <FileView
         tab={tab}
         searchValue={searchValue}
+        searchTarget={fileSearchTarget}
+        programmerMode={settings.programmerMode}
+        renderedMarkdown={getFileDocumentMode(tab) === "markdown" ? renderMarkdownContent(tab.content, tab.filePath) : ""}
         onContentChange={(content) => updateFileContent(tab.id, content)}
+        onProgrammerAction={(action, selectionStart, selectionEnd) =>
+          applyFileProgrammerAction(tab.id, action, selectionStart, selectionEnd)
+        }
+        onSearchTargetHandled={(requestId) =>
+          setFileSearchTarget((current) => (current?.requestId === requestId ? null : current))
+        }
       />
     );
   };
@@ -2731,8 +2594,11 @@ function AppShell() {
       theme={{
         algorithm: effectiveDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: {
-          borderRadius: 8,
-          colorPrimary: "#1677ff",
+          borderRadius: 10,
+          colorPrimary: "#5b5bd6",
+          colorInfo: "#5b5bd6",
+          colorLink: "#5b5bd6",
+          controlHeight: 34,
           fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif",
         },
       }}
@@ -2740,16 +2606,22 @@ function AppShell() {
     <div
       className={`app-shell${settings.handwritten ? " handwritten-mode" : ""}${effectiveDarkMode ? " dark-mode" : ""}`}
       style={{ ["--pane-grid" as string]: makePaneGridTemplate(paneWidths) } as React.CSSProperties}
+      onDragOver={handleAppDragOver}
+      onDrop={handleAppDrop}
     >
       <header className="app-titlebar">
         <div className="titlebar-left">
-          <span className="app-title">Super Note</span>
+          <span className="app-brand" aria-label="Super Note">
+            <span className="app-title-stack">
+              <span className="app-title">Super Note</span>
+            </span>
+          </span>
         <div className="menu-left">
-          <Dropdown menu={{ items: pluginMenu }} trigger={["click"]}>
-            <Button type="text">插件</Button>
-          </Dropdown>
           <Dropdown menu={{ items: fileMenu }} trigger={["click"]}>
             <Button type="text">文件</Button>
+          </Dropdown>
+          <Dropdown menu={{ items: pluginMenu }} trigger={["click"]}>
+            <Button type="text">插件</Button>
           </Dropdown>
           <Dropdown menu={{ items: operationMenu }} trigger={["click"]}>
             <Button type="text">操作</Button>
@@ -2908,413 +2780,17 @@ function AppShell() {
   );
 }
 
-function CanvasView({
-  tab,
-  pane,
-  viewState,
-  editingTextId,
-  selectedItem,
-  searchValue,
-  activeSearchItemId,
-  handwritten,
-  programmerMode,
-  onDoubleClick,
-  onWheel,
-  onDrop,
-  onSurfaceMouseDown,
-  onPointChange,
-  onTextChange,
-  onTextCommit,
-  onTextDoubleClick,
-  onItemMouseDown,
-  onItemContextMenu,
-  onDeleteItem,
-  onEditItem,
-  onPreviewImage,
-  onProgrammerAction,
-}: {
-  tab: CanvasTab;
-  pane: PaneKey;
-  viewState: CanvasViewState;
-  editingTextId: string | null;
-  selectedItem: SelectedItem;
-  searchValue: string;
-  activeSearchItemId: string | null;
-  handwritten: boolean;
-  programmerMode: boolean;
-  onDoubleClick: (tab: CanvasTab, pane: PaneKey, viewState: CanvasViewState, event: React.MouseEvent<HTMLDivElement>) => void;
-  onWheel: (tab: CanvasTab, pane: PaneKey, event: React.WheelEvent<HTMLDivElement>) => void;
-  onDrop: (tab: CanvasTab, pane: PaneKey, viewState: CanvasViewState, event: React.DragEvent<HTMLDivElement>) => void;
-  onSurfaceMouseDown: (tab: CanvasTab, pane: PaneKey, viewState: CanvasViewState, event: React.MouseEvent<HTMLDivElement>) => void;
-  onPointChange: (point: { x: number; y: number }) => void;
-  onTextChange: (itemId: string, text: string) => void;
-  onTextCommit: (item: TextCanvasItem, size: { width: number; height: number }) => void;
-  onTextDoubleClick: (item: TextCanvasItem, event: React.MouseEvent<HTMLDivElement>) => void;
-  onItemMouseDown: (item: CanvasItem, event: React.MouseEvent<HTMLElement>) => void;
-  onItemContextMenu: (item: CanvasItem) => void;
-  onDeleteItem: (item: CanvasItem) => void;
-  onEditItem: (item: CanvasItem) => void;
-  onPreviewImage: (item: ImageCanvasItem) => void;
-  onProgrammerAction: (item: CanvasItem, action: ProgrammerAction) => void;
-}) {
-  const activeTheme = canvasThemes[tab.themeIndex % canvasThemes.length];
-  const needle = searchValue.trim().toLowerCase();
-
-  const makeItemMenu = (item: CanvasItem): MenuProps["items"] => [
-    {
-      key: "edit",
-      label: "编辑",
-      icon: <EditOutlined />,
-      onClick: () => onEditItem(item),
-    },
-    {
-      key: "delete",
-      label: "删除",
-      icon: <DeleteOutlined />,
-      danger: true,
-      onClick: () => onDeleteItem(item),
-    },
-    ...(item.type === "image"
-      ? [
-          {
-            key: "preview",
-            label: "预览",
-            icon: <SearchOutlined />,
-            onClick: () => onPreviewImage(item),
-          },
-        ]
-      : []),
-    ...(programmerMode && item.type === "text"
-      ? [
-          { type: "divider" as const },
-          {
-            key: "format-json",
-            label: "转为 JSON",
-            icon: <CodeOutlined />,
-            onClick: () => onProgrammerAction(item, "format-json"),
-          },
-          {
-            key: "minify-json",
-            label: "压缩 JSON",
-            icon: <CodeOutlined />,
-            onClick: () => onProgrammerAction(item, "minify-json"),
-          },
-          {
-            key: "string-to-json",
-            label: "字符串转 JSON",
-            icon: <CodeOutlined />,
-            onClick: () => onProgrammerAction(item, "string-to-json"),
-          },
-        ]
-      : []),
-  ];
-
-  return (
-    <div className="canvas-frame" style={{ ["--accent" as string]: activeTheme.accent }}>
-      <div
-        data-tab-id={tab.id}
-        data-pane={pane}
-        className="canvas-viewport"
-        style={{
-          ["--canvas-pan-x" as string]: `${viewState.panX}px`,
-          ["--canvas-pan-y" as string]: `${viewState.panY}px`,
-        }}
-        onWheel={(event) => onWheel(tab, pane, event)}
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => onDrop(tab, pane, viewState, event)}
-        onMouseMove={(event) => {
-          const surface = event.currentTarget.querySelector<HTMLDivElement>(".canvas-surface");
-          if (!surface) {
-            return;
-          }
-          onPointChange(getPointOnCanvas(event.clientX, event.clientY, surface, viewState.scale));
-        }}
-      >
-        <div
-          data-tab-id={tab.id}
-          data-pane={pane}
-          className="canvas-surface"
-          style={{
-            transform: `translate(${viewState.panX}px, ${viewState.panY}px) scale(${viewState.scale})`,
-          }}
-          onDoubleClick={(event) => onDoubleClick(tab, pane, viewState, event)}
-          onMouseDown={(event) => onSurfaceMouseDown(tab, pane, viewState, event)}
-        >
-          {tab.items.map((item, index) => {
-            const zIndex = index + 1;
-            const layout = getItemLayout(item, viewState);
-            const isSelected = selectedItem?.tabId === tab.id && selectedItem.itemId === item.id && selectedItem.pane === pane;
-            const isSearchTarget = activeSearchItemId === item.id;
-            if (item.type === "text") {
-              const matched = Boolean(needle && item.text.toLowerCase().includes(needle));
-              const fontSize = (layout as TextCanvasItem).fontSize;
-              const editorStyle = {
-                left: layout.x,
-                top: layout.y,
-                width: layout.width,
-                height: layout.height,
-                fontSize,
-                zIndex,
-              };
-              const viewStyle = {
-                left: layout.x,
-                top: layout.y,
-                width: layout.width,
-                minHeight: layout.height,
-                fontSize,
-                zIndex,
-              };
-
-              if (editingTextId === item.id) {
-                return (
-                  <textarea
-                    id={`text-${pane}-${item.id}`}
-                    data-item-id={item.id}
-                    key={item.id}
-                    className={`${matched ? "text-note-editor matched" : "text-note-editor"}${handwritten ? " handwritten" : ""}`}
-                    style={editorStyle}
-                    value={item.text}
-                    placeholder="输入文字"
-                    ref={(editor) => {
-                      if (editor) {
-                        editor.style.height = "0px";
-                        editor.style.height = `${Math.max(48, editor.scrollHeight + 2)}px`;
-                      }
-                    }}
-                    onMouseDown={(event) => event.stopPropagation()}
-                    onChange={(event) => {
-                      event.currentTarget.style.height = "0px";
-                      event.currentTarget.style.height = `${Math.max(48, event.currentTarget.scrollHeight + 2)}px`;
-                      onTextChange(item.id, event.target.value);
-                    }}
-                    onBlur={(event) =>
-                      onTextCommit(item, {
-                        width: event.currentTarget.offsetWidth,
-                        height: Math.max(48, event.currentTarget.scrollHeight + 2),
-                      })
-                    }
-                  />
-                );
-              }
-
-              return (
-                <Dropdown key={item.id} menu={{ items: makeItemMenu(item) }} trigger={["contextMenu"]}>
-                  <div
-                    data-item-id={item.id}
-                    className={`${matched ? "text-note-view matched" : "text-note-view"}${isSelected ? " selected" : ""}${isSearchTarget ? " search-target" : ""}`}
-                    style={viewStyle}
-                    onContextMenu={() => onItemContextMenu(item)}
-                    onMouseDown={(event) => onItemMouseDown(item, event)}
-                    onDoubleClick={(event) => onTextDoubleClick(item, event)}
-                  >
-                    {item.text.trim() ? renderHighlightedText(item.text, searchValue) : <span className="text-placeholder">双击编辑</span>}
-                  </div>
-                </Dropdown>
-              );
-            }
-
-            return (
-              <Dropdown key={item.id} menu={{ items: makeItemMenu(item) }} trigger={["contextMenu"]}>
-                <div
-                  data-item-id={item.id}
-                  className={`image-note${isSelected ? " selected" : ""}${isSearchTarget ? " search-target" : ""}`}
-                  style={{
-                    left: layout.x,
-                    top: layout.y,
-                    width: layout.width,
-                    height: layout.height,
-                    zIndex,
-                  }}
-                  onContextMenu={() => onItemContextMenu(item)}
-                  onMouseDown={(event) => onItemMouseDown(item, event)}
-                  onDoubleClick={(event) => {
-                    event.stopPropagation();
-                    onPreviewImage(item);
-                  }}
-                >
-                  <img src={item.src} alt={item.name} draggable={false} />
-                  <span>{item.name}</span>
-                </div>
-              </Dropdown>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FileView({
-  tab,
-  searchValue,
-  onContentChange,
-}: {
-  tab: FileTab;
-  searchValue: string;
-  onContentChange: (content: string) => void;
-}) {
-  const highlightRef = useRef<HTMLPreElement>(null);
-  const editorRef = useRef<HTMLTextAreaElement>(null);
-  const fontSize = getFileFontSize(tab);
-
-  return (
-    <div className="file-view" data-tab-id={tab.id} style={{ ["--file-font-size" as string]: `${fontSize}px` }}>
-      <div className="file-editor-wrap">
-        <pre ref={highlightRef} className="file-highlight" aria-hidden>
-          {renderHighlightedText(tab.content || " ", searchValue)}
-        </pre>
-        <textarea
-          ref={editorRef}
-          className="file-editor"
-          value={tab.content}
-          spellCheck={false}
-          placeholder="文件为空，可以直接编辑"
-          onScroll={(event) => {
-            if (highlightRef.current) {
-              highlightRef.current.scrollTop = event.currentTarget.scrollTop;
-              highlightRef.current.scrollLeft = event.currentTarget.scrollLeft;
-            }
-          }}
-          onChange={(event) => onContentChange(event.target.value)}
-        />
-      </div>
-    </div>
-  );
-}
-
-function SettingsModal({
-  open,
-  settings,
-  onClose,
-  onChange,
-}: {
-  open: boolean;
-  settings: AppSettings;
-  onClose: () => void;
-  onChange: (settings: AppSettings) => void;
-}) {
-  const updateShortcut = (action: ShortcutAction, shortcut: string) => {
-    onChange({
-      ...settings,
-      shortcuts: {
-        ...settings.shortcuts,
-        [action]: normalizeShortcut(shortcut),
-      },
-    });
-  };
-
-  return (
-    <Modal
-      title="设置"
-      open={open}
-      footer={null}
-      onCancel={onClose}
-      width="min(720px, calc(100vw - 32px))"
-      style={{ top: 24 }}
-      styles={{ body: { maxHeight: "min(72vh, calc(100vh - 140px))", overflowY: "auto", paddingRight: 8 } }}
-    >
-      <div className="settings-panel">
-        <label className="settings-row">
-          <span>
-            <strong>手绘风格</strong>
-            <small>打开后，画板文字切换为偏 Q 版的手绘字体栈。</small>
-          </span>
-          <Switch
-            checked={settings.handwritten}
-            onChange={(checked) =>
-              onChange({
-                ...settings,
-                handwritten: checked,
-              })
-            }
-          />
-        </label>
-
-        <label className="settings-row">
-          <span>
-            <strong>程序员使用</strong>
-            <small>打开后，文字元素右键菜单增加 JSON 工具。</small>
-          </span>
-          <Switch
-            checked={settings.programmerMode}
-            onChange={(checked) =>
-              onChange({
-                ...settings,
-                programmerMode: checked,
-              })
-            }
-          />
-        </label>
-
-        <label className="settings-row">
-          <span>
-            <strong>夜间模式跟随系统设置</strong>
-            <small>打开后，夜间模式会跟随系统外观自动切换。</small>
-          </span>
-          <Switch
-            checked={settings.followSystemTheme}
-            onChange={(checked) =>
-              onChange({
-                ...settings,
-                followSystemTheme: checked,
-              })
-            }
-          />
-        </label>
-
-        <label className="settings-row">
-          <span>
-            <strong>全局快速打开/关闭</strong>
-            <small>在任意位置按 Ctrl + Alt + 空格，可打开或隐藏 Super Note。</small>
-          </span>
-          <Input value="Ctrl + Alt + 空格" disabled />
-        </label>
-
-        <div className="shortcut-settings">
-          <div className="settings-section-title">快捷键设置</div>
-          {SHORTCUT_ROWS.map((row) => (
-            <label className="shortcut-row" key={row.action}>
-              <span>
-                <strong>{row.label}</strong>
-                <small>{row.desc}</small>
-              </span>
-              <Input
-                value={settings.shortcuts[row.action]}
-                onChange={(event) => updateShortcut(row.action, event.target.value)}
-                onKeyDown={(event) => {
-                  const shortcut = shortcutFromEvent(event);
-                  if (shortcut) {
-                    event.preventDefault();
-                    updateShortcut(row.action, shortcut);
-                  }
-                }}
-              />
-            </label>
-          ))}
-          <Button
-            onClick={() =>
-              onChange({
-                ...settings,
-                shortcuts: DEFAULT_SHORTCUTS,
-              })
-            }
-          >
-            恢复默认快捷键
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
 export default function App() {
   return (
     <ConfigProvider
       theme={{
         algorithm: theme.defaultAlgorithm,
         token: {
-          borderRadius: 8,
-          colorPrimary: "#1677ff",
+          borderRadius: 10,
+          colorPrimary: "#5b5bd6",
+          colorInfo: "#5b5bd6",
+          colorLink: "#5b5bd6",
+          controlHeight: 34,
           fontFamily:
             "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif",
         },

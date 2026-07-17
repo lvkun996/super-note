@@ -10,6 +10,7 @@ const version = packageJson.version;
 const tag = `v${version}`;
 const releaseDir = path.join(root, "release");
 const legacyReleaseDir = path.join(root, "release-win7-8");
+const includeLegacy = !process.argv.includes("--no-win7-8");
 
 function run(command, args, options = {}) {
   console.log(`\n> ${command} ${args.join(" ")}`);
@@ -70,18 +71,27 @@ function ensureSiteMatchesVersion() {
   const site = readFileSync(path.join(root, "site", "index.html"), "utf8");
   const winCurrent = `releases/download/${tag}/Super.Note.Setup.${version}.exe`;
   const winLegacy = `releases/download/${tag}/Super.Note.Setup.${version}.Win7-8.exe`;
-  if (!site.includes(tag) || !site.includes(winCurrent) || !site.includes(winLegacy)) {
-    throw new Error(`site/index.html does not reference ${tag} download links yet.`);
+  if (!site.includes(tag) || !site.includes(winCurrent)) {
+    throw new Error(`site/index.html does not reference the ${tag} Windows download link yet.`);
+  }
+  if (includeLegacy && !site.includes(winLegacy)) {
+    throw new Error(`site/index.html does not reference the ${tag} Win7/8 download link yet.`);
   }
 }
 
 function buildInstallers() {
   rmSync(releaseDir, { recursive: true, force: true });
-  rmSync(legacyReleaseDir, { recursive: true, force: true });
+  if (includeLegacy) {
+    rmSync(legacyReleaseDir, { recursive: true, force: true });
+  }
 
   run(process.execPath, [path.join(root, "node_modules", "typescript", "bin", "tsc"), "--noEmit"]);
   run(process.execPath, [path.join(root, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.electron.json", "--noEmit"]);
   run(process.execPath, [path.join(root, "scripts", "build-installer.mjs")]);
+  if (!includeLegacy) {
+    return;
+  }
+
   run(process.execPath, [path.join(root, "scripts", "build-installer.mjs"), "--win7-8"]);
 
   const legacyLatest = path.join(legacyReleaseDir, "latest.yml");
@@ -97,10 +107,14 @@ function getAssets() {
     path.join(releaseDir, `Super.Note.Setup.${version}.exe`),
     path.join(releaseDir, `Super.Note.Setup.${version}.exe.blockmap`),
     path.join(releaseDir, "latest.yml"),
-    path.join(legacyReleaseDir, `Super.Note.Setup.${version}.Win7-8.exe`),
-    path.join(legacyReleaseDir, `Super.Note.Setup.${version}.Win7-8.exe.blockmap`),
-    path.join(legacyReleaseDir, "win7-8.yml"),
   ];
+  if (includeLegacy) {
+    assets.push(
+      path.join(legacyReleaseDir, `Super.Note.Setup.${version}.Win7-8.exe`),
+      path.join(legacyReleaseDir, `Super.Note.Setup.${version}.Win7-8.exe.blockmap`),
+      path.join(legacyReleaseDir, "win7-8.yml"),
+    );
+  }
 
   for (const asset of assets) {
     if (!existsSync(asset)) {
@@ -220,6 +234,17 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.8") {
+    return [
+      "Super Note v0.1.8",
+      "",
+      "- 修复文本模块底部部分区域无法点击，以及搜索结果无法滚动到匹配位置的问题。",
+      "- 文本模块与画板支持 Ctrl + 单击 HTTP/HTTPS 链接，在外部浏览器中打开。",
+      "- 右键菜单新增剪切、粘贴、复制，并限制 JSON 工具仅处理选中文本。",
+      "- 帮助菜单新增官网入口，调整顶部菜单顺序，并按功能拆分核心代码。",
+    ].join("\n");
+  }
+
   if (version === "0.1.7") {
     return [
       "Super Note v0.1.7",
