@@ -219,30 +219,25 @@ input {
   padding-right: 0;
 }
 
-.tabs-bar > .tab-pane-zone:last-of-type .ant-tabs-nav {
-  padding-right: 84px;
-}
-
-.tabs-bar.canvas-plugin-enabled > .tab-pane-zone:last-of-type .ant-tabs-nav {
-  padding-right: 116px;
-}
-
 .tabs-add-button,
 .tabs-canvas-add-button {
-  position: absolute;
-  top: 0;
-  z-index: 2;
   width: 32px;
   height: 31px;
   border-radius: 0;
 }
 
-.tabs-add-button {
-  right: 0;
+.tabs-extra-actions {
+  height: 31px;
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  border-left: 1px solid #e5e8ef;
+  background: #fff;
 }
 
-.tabs-canvas-add-button {
-  right: 32px;
+.dark-mode .tabs-extra-actions {
+  border-left-color: #263344;
+  background: #151d28;
 }
 
 .tab-pane-zone .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
@@ -868,6 +863,19 @@ input {
   font-size: 16px;
   font-weight: 700;
   color: #111820;
+}
+
+.version-fullscreen-text {
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: clamp(52px, 10vw, 132px);
+  letter-spacing: -0.06em;
+}
+
+.scrollable-modal-content {
+  max-height: min(70vh, calc(100vh - 170px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 10px;
 }
 
 .file-view {

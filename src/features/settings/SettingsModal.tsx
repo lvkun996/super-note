@@ -16,8 +16,10 @@ export const DEFAULT_SHORTCUTS: ShortcutConfig = {
   redoAlt: "Ctrl+Shift+Z",
   paste: "Ctrl+V",
   deleteSelected: "Backspace",
-  splitLeft: "Ctrl+Left",
-  splitRight: "Ctrl+Right",
+  previousTab: "Ctrl+Left",
+  nextTab: "Ctrl+Right",
+  splitLeft: "Ctrl+Shift+Left",
+  splitRight: "Ctrl+Shift+Right",
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -42,6 +44,8 @@ const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; desc: string
   { action: "redoAlt", label: "重做备用", desc: "兼容常见编辑器快捷键" },
   { action: "paste", label: "粘贴", desc: "粘贴文字或图片" },
   { action: "deleteSelected", label: "删除选中元素", desc: "删除画板中选中的元素" },
+  { action: "previousTab", label: "打开左侧标签", desc: "切换到当前标签左边的标签页" },
+  { action: "nextTab", label: "打开右侧标签", desc: "切换到当前标签右边的标签页" },
   { action: "splitLeft", label: "向左分割视图", desc: "把当前标签分割到左侧视图" },
   { action: "splitRight", label: "向右分割视图", desc: "把当前标签分割到右侧视图" },
 ];
@@ -145,6 +149,12 @@ export function normalizeSettings(value?: Partial<AppSettings>): AppSettings {
   const shortcuts = { ...DEFAULT_SHORTCUTS, ...(value?.shortcuts ?? {}) };
   if (!value?.shortcuts?.deleteSelected || value.shortcuts.deleteSelected === "Delete") {
     shortcuts.deleteSelected = DEFAULT_SHORTCUTS.deleteSelected;
+  }
+  if (!value?.shortcuts?.previousTab && value?.shortcuts?.splitLeft === "Ctrl+Left") {
+    shortcuts.splitLeft = DEFAULT_SHORTCUTS.splitLeft;
+  }
+  if (!value?.shortcuts?.nextTab && value?.shortcuts?.splitRight === "Ctrl+Right") {
+    shortcuts.splitRight = DEFAULT_SHORTCUTS.splitRight;
   }
 
   return {

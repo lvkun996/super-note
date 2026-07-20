@@ -11,6 +11,8 @@ type HelpDocumentationShortcuts = {
   redoAlt: string;
   paste: string;
   deleteSelected: string;
+  previousTab: string;
+  nextTab: string;
   splitLeft: string;
   splitRight: string;
 };
@@ -48,6 +50,7 @@ export function HelpDocumentation({ canvasPluginEnabled, shortcuts }: HelpDocume
     ["粘贴", shortcuts.paste],
     ["删除选中元素", shortcuts.deleteSelected],
     ["放大 / 缩小文本字号", `${shortcuts.fileFontIncrease} / ${shortcuts.fileFontDecrease}`],
+    ["打开左侧 / 右侧标签", `${shortcuts.previousTab} / ${shortcuts.nextTab}`],
     ["向左 / 向右分割视图", `${shortcuts.splitLeft} / ${shortcuts.splitRight}`],
   ];
 

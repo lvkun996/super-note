@@ -11,6 +11,19 @@ contextBridge.exposeInMainWorld("superNote", {
   minimizeWindow: () => ipcRenderer.invoke("window:minimize"),
   toggleMaximizeWindow: () => ipcRenderer.invoke("window:toggleMaximize"),
   closeWindow: () => ipcRenderer.invoke("window:close"),
+  syncTrayTabs: (state: unknown) => ipcRenderer.invoke("tray:syncTabs", state),
+  getTrayMenuState: () => ipcRenderer.invoke("tray:getMenuState"),
+  trayMenuAction: (action: unknown) => ipcRenderer.invoke("tray:menuAction", action),
+  onTrayAction: (callback: (action: unknown) => void) => {
+    const listener = (_event: electron.IpcRendererEvent, action: unknown) => callback(action);
+    ipcRenderer.on("tray:action", listener);
+    return () => ipcRenderer.removeListener("tray:action", listener);
+  },
+  onTrayMenuState: (callback: (state: unknown) => void) => {
+    const listener = (_event: electron.IpcRendererEvent, state: unknown) => callback(state);
+    ipcRenderer.on("tray:state", listener);
+    return () => ipcRenderer.removeListener("tray:state", listener);
+  },
   getPathForFile: (file: File) =>
     electron.webUtils?.getPathForFile(file) || (file as File & { path?: string }).path || "",
   readClipboardText: () => ipcRenderer.invoke("clipboard:readText"),

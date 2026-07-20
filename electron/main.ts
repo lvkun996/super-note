@@ -1,10 +1,11 @@
-import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, shell } from "electron";
+import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, screen, shell } from "electron";
 import { autoUpdater } from "electron-updater";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+let trayMenuWindow: BrowserWindow | null = null;
 let forceQuit = false;
 let installUpdateAfterDownload = false;
 let updateDownloadPromise: Promise<UpdateStatus> | null = null;
@@ -15,6 +16,90 @@ const globalToggleShortcut = "Control+Alt+Space";
 const updateFeedUrl = "https://github.com/lvkun996/super-note/releases/latest/download/";
 const updateDownloadMaxAttempts = 3;
 const updateDownloadRetryDelayMs = 3000;
+
+type TrayTab = { id: string; title: string; kind: "file" | "canvas" };
+let trayTabState: { activeTabId: string; tabs: TrayTab[] } = { activeTabId: "", tabs: [] };
+
+const trayMenuHtml = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: transparent; font: 13px/1.45 "Segoe UI", "Microsoft YaHei", sans-serif; color: #172033; }
+    body { padding: 6px; overflow: hidden; }
+    .menu { overflow: hidden; border: 1px solid #dce3ee; border-radius: 12px; background: rgba(255,255,255,.98); box-shadow: 0 12px 32px rgba(31,45,61,.22); }
+    .section-title { padding: 13px 14px 6px; color: #697386; font-size: 12px; }
+    .row { width: 100%; min-height: 38px; padding: 8px 14px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 12px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+    .row:hover, .row:focus-visible { background: #f1f6ff; outline: none; }
+    .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .meta { color: #788397; font-size: 12px; }
+    .divider { height: 1px; margin: 7px 0; background: #dce3ee; }
+    .empty { padding: 8px 14px 13px; color: #98a1b1; }
+  </style>
+</head>
+<body>
+  <div class="menu">
+    <div class="section-title">Recent</div>
+    <div id="recent"></div>
+    <button id="more" class="row" type="button"><span>More</span><span class="meta">›</span></button>
+    <div class="divider"></div>
+    <button id="new-text" class="row" type="button"><span>新建文本</span><span class="meta">＋</span></button>
+    <div class="divider"></div>
+    <button id="exit" class="row" type="button"><span>Exit</span><span></span></button>
+  </div>
+  <script>
+    const recent = document.getElementById("recent");
+    const more = document.getElementById("more");
+    let state = { tabs: [] };
+    let expanded = false;
+    function resize() {
+      requestAnimationFrame(function () {
+        window.superNote.trayMenuAction({ type: "resize", height: document.body.scrollHeight + 6 });
+      });
+    }
+    function render(next) {
+      state = next || { tabs: [] };
+      recent.replaceChildren();
+      const visible = expanded ? state.tabs : state.tabs.slice(0, 4);
+      recent.style.maxHeight = expanded ? "320px" : "none";
+      recent.style.overflowY = expanded ? "auto" : "visible";
+      if (!visible.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "暂无标签页";
+        recent.appendChild(empty);
+      }
+      visible.forEach(function (tab) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "row";
+        const title = document.createElement("span");
+        title.className = "title";
+        title.textContent = tab.title;
+        const meta = document.createElement("span");
+        meta.className = "meta";
+        meta.textContent = tab.kind === "canvas" ? "画板" : "文本";
+        button.append(title, meta);
+        button.addEventListener("click", function () {
+          window.superNote.trayMenuAction({ type: "open-tab", tabId: tab.id });
+        });
+        recent.appendChild(button);
+      });
+      more.hidden = state.tabs.length <= 4;
+      more.firstElementChild.textContent = expanded ? "收起" : "More";
+      more.lastElementChild.textContent = expanded ? "‹" : "›";
+      resize();
+    }
+    more.addEventListener("click", function () { expanded = !expanded; render(state); });
+    document.getElementById("new-text").addEventListener("click", function () { window.superNote.trayMenuAction({ type: "new-text" }); });
+    document.getElementById("exit").addEventListener("click", function () { window.superNote.trayMenuAction({ type: "exit" }); });
+    window.superNote.getTrayMenuState().then(render);
+    window.superNote.onTrayMenuState(render);
+  </script>
+</body>
+</html>`;
 
 type UpdateState = "idle" | "checking" | "available" | "not-available" | "downloading" | "downloaded" | "installing" | "error";
 
@@ -60,6 +145,75 @@ function toggleMainWindow() {
     return;
   }
   showMainWindow();
+}
+
+function getTrayMenuState() {
+  const active = trayTabState.tabs.find((tab) => tab.id === trayTabState.activeTabId);
+  const others = [...trayTabState.tabs].reverse().filter((tab) => tab.id !== trayTabState.activeTabId);
+  return { tabs: active ? [active, ...others] : others };
+}
+
+function positionTrayMenu() {
+  if (!tray || !trayMenuWindow) {
+    return;
+  }
+  const trayBounds = tray.getBounds();
+  const windowBounds = trayMenuWindow.getBounds();
+  const display = screen.getDisplayNearestPoint({ x: trayBounds.x, y: trayBounds.y });
+  const workArea = display.workArea;
+  const x = Math.max(workArea.x, Math.min(trayBounds.x + trayBounds.width - windowBounds.width, workArea.x + workArea.width - windowBounds.width));
+  const trayIsBelowWorkArea = trayBounds.y >= workArea.y + workArea.height;
+  const y = trayIsBelowWorkArea
+    ? workArea.y + workArea.height - windowBounds.height
+    : Math.min(trayBounds.y + trayBounds.height, workArea.y + workArea.height - windowBounds.height);
+  trayMenuWindow.setPosition(Math.round(x), Math.round(Math.max(workArea.y, y)), false);
+}
+
+function createTrayMenuWindow() {
+  if (trayMenuWindow) {
+    return trayMenuWindow;
+  }
+  trayMenuWindow = new BrowserWindow({
+    width: 360,
+    height: 280,
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+    },
+  });
+  trayMenuWindow.setMenuBarVisibility(false);
+  trayMenuWindow.on("blur", () => trayMenuWindow?.hide());
+  trayMenuWindow.on("closed", () => {
+    trayMenuWindow = null;
+  });
+  void trayMenuWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(trayMenuHtml)}`);
+  return trayMenuWindow;
+}
+
+function toggleTrayMenu() {
+  const menuWindow = createTrayMenuWindow();
+  if (menuWindow.isVisible()) {
+    menuWindow.hide();
+    return;
+  }
+  menuWindow.webContents.send("tray:state", getTrayMenuState());
+  positionTrayMenu();
+  menuWindow.show();
+  menuWindow.focus();
+}
+
+function sendTrayAction(action: { type: "new-text" } | { type: "open-tab"; tabId: string }) {
+  showMainWindow();
+  mainWindow?.webContents.send("tray:action", action);
+  trayMenuWindow?.hide();
 }
 
 function getUpdateChannel(): "latest" | "win7-8" {
@@ -245,26 +399,8 @@ function createTray() {
   const icon = nativeImage.createFromPath(getIconPath()).resize({ width: 16, height: 16 });
   tray = new Tray(icon);
   tray.setToolTip("Super Note");
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      {
-        label: "显示 Super Note",
-        click: showMainWindow,
-      },
-      {
-        label: "隐藏窗口",
-        click: () => mainWindow?.hide(),
-      },
-      { type: "separator" },
-      {
-        label: "退出",
-        click: () => {
-          forceQuit = true;
-          app.quit();
-        },
-      },
-    ]),
-  );
+  tray.on("click", toggleTrayMenu);
+  tray.on("right-click", toggleTrayMenu);
   tray.on("double-click", showMainWindow);
 }
 
@@ -366,6 +502,53 @@ ipcMain.handle("workspace:save", async (_event, workspace) => {
   } catch (error) {
     return { ok: false, error: String(error), path: filePath };
   }
+});
+
+ipcMain.handle("tray:syncTabs", (event, state: { activeTabId?: unknown; tabs?: unknown }) => {
+  if (event.sender !== mainWindow?.webContents || !Array.isArray(state?.tabs)) {
+    return { ok: false };
+  }
+  trayTabState = {
+    activeTabId: typeof state.activeTabId === "string" ? state.activeTabId : "",
+    tabs: state.tabs
+      .filter(
+        (tab): tab is TrayTab =>
+          Boolean(tab) &&
+          typeof tab.id === "string" &&
+          typeof tab.title === "string" &&
+          (tab.kind === "file" || tab.kind === "canvas"),
+      )
+      .map((tab) => ({ id: tab.id, title: tab.title.slice(0, 120), kind: tab.kind })),
+  };
+  trayMenuWindow?.webContents.send("tray:state", getTrayMenuState());
+  return { ok: true };
+});
+
+ipcMain.handle("tray:getMenuState", () => getTrayMenuState());
+
+ipcMain.handle("tray:menuAction", (event, action: { type?: unknown; tabId?: unknown; height?: unknown }) => {
+  if (event.sender !== trayMenuWindow?.webContents) {
+    return { ok: false };
+  }
+  if (action?.type === "resize" && typeof action.height === "number") {
+    trayMenuWindow.setSize(360, Math.max(180, Math.min(Math.round(action.height), 520)), false);
+    positionTrayMenu();
+    return { ok: true };
+  }
+  if (action?.type === "new-text") {
+    sendTrayAction({ type: "new-text" });
+    return { ok: true };
+  }
+  if (action?.type === "open-tab" && typeof action.tabId === "string") {
+    sendTrayAction({ type: "open-tab", tabId: action.tabId });
+    return { ok: true };
+  }
+  if (action?.type === "exit") {
+    forceQuit = true;
+    app.quit();
+    return { ok: true };
+  }
+  return { ok: false };
 });
 
 ipcMain.handle("dialog:openFile", async () => {

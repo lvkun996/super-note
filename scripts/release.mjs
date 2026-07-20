@@ -234,6 +234,17 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.9") {
+    return [
+      "Super Note v0.1.9",
+      "",
+      "- 分栏快捷键调整为 Ctrl + Shift + 左/右，Ctrl + 左/右用于切换相邻标签页。",
+      "- 未保存文本标签会根据内容自动显示预览标题。",
+      "- 系统托盘改为最近标签菜单，支持 More、新建文本和直接打开标签。",
+      "- 优化文档与版本更新弹窗滚动、全屏版本页和窄窗口标签栏溢出。",
+    ].join("\n");
+  }
+
   if (version === "0.1.8") {
     return [
       "Super Note v0.1.8",

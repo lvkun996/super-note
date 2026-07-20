@@ -93,6 +93,8 @@ export type ShortcutAction =
   | "redoAlt"
   | "paste"
   | "deleteSelected"
+  | "previousTab"
+  | "nextTab"
   | "splitLeft"
   | "splitRight";
 

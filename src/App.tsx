@@ -132,6 +132,12 @@ markdownRenderer.renderer.rules.image = (tokens, index, options, env, self) => {
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.9",
+    date: "2026.07.20",
+    title: "标签、托盘与弹窗体验",
+    description: "更新分栏与标签切换快捷键，新增内容标签名和最近标签托盘菜单，并优化全屏版本页、弹窗滚动与标签栏溢出。",
+  },
+  {
     version: "v0.1.8",
     date: "2026.07.17",
     title: "链接、搜索与编辑体验",
@@ -451,6 +457,17 @@ function isTabEmpty(tab: NoteTab) {
   return tab.items.every((item) => item.type === "text" && item.text.trim().length === 0);
 }
 
+function getTabDisplayTitle(tab: NoteTab) {
+  if (tab.kind !== "file" || tab.filePath || !tab.title.startsWith("未命名")) {
+    return tab.title;
+  }
+  const preview = tab.content.replace(/\s+/g, " ").trim();
+  if (!preview) {
+    return tab.title;
+  }
+  return `${Array.from(preview).slice(0, 14).join("")}...`;
+}
+
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -537,14 +554,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.8",
+    version: "0.1.9",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.8",
+    currentVersion: "0.1.9",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -861,6 +878,18 @@ function AppShell() {
     setSelectedItem(null);
     window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(`.file-view[data-tab-id="${nextTab.id}"] .file-editor`)?.focus(), 0);
   }, [activePane, focusTabInPane, paneIds, tabs.length]);
+
+  const focusSiblingTab = useCallback(
+    (offset: -1 | 1) => {
+      const available = paneTabs[activePane] ?? [];
+      const currentIndex = available.findIndex((tab) => tab.id === activeTabId);
+      const sibling = available[currentIndex + offset];
+      if (sibling) {
+        focusTabInPane(sibling.id, activePane);
+      }
+    },
+    [activePane, activeTabId, focusTabInPane, paneTabs],
+  );
 
   const openFilesAsTabs = useCallback(
     (files: OpenedFile[], targetPane?: PaneKey) => {
@@ -1625,6 +1654,12 @@ function AppShell() {
         event.preventDefault();
         setSearchOpen(true);
         window.setTimeout(() => document.getElementById("global-search-input")?.focus(), 0);
+      } else if (!searchOpen && !settingsOpen && shortcutMatches(event, settings.shortcuts.previousTab)) {
+        event.preventDefault();
+        focusSiblingTab(-1);
+      } else if (!searchOpen && !settingsOpen && shortcutMatches(event, settings.shortcuts.nextTab)) {
+        event.preventDefault();
+        focusSiblingTab(1);
       } else if (!searchOpen && shortcutMatches(event, settings.shortcuts.splitLeft)) {
         event.preventDefault();
         autoSplitTab("left");
@@ -1656,6 +1691,7 @@ function AppShell() {
       closeCurrentTab,
       closeSearch,
       deleteCanvasItem,
+      focusSiblingTab,
       pasteFromClipboard,
       redo,
       saveCurrentTab,
@@ -1891,6 +1927,32 @@ function AppShell() {
     const unsubscribe = window.superNote?.onUpdateStatus?.((status) => setUpdateStatus(status));
     return () => unsubscribe?.();
   }, []);
+
+  useEffect(() => {
+    window.superNote?.syncTrayTabs?.({
+      activeTabId,
+      tabs: tabs.map((tab) => ({ id: tab.id, title: getTabDisplayTitle(tab), kind: tab.kind })),
+    });
+  }, [activeTabId, tabs]);
+
+  useEffect(() => {
+    const unsubscribe = window.superNote?.onTrayAction?.((action) => {
+      if (action.type === "new-text") {
+        addTextTab();
+        return;
+      }
+      const tab = tabs.find((item) => item.id === action.tabId);
+      if (!tab) {
+        return;
+      }
+      const availablePanes = getTabPanes(tab.id);
+      const targetPane = availablePanes.includes(activePane) ? activePane : availablePanes[0];
+      if (targetPane) {
+        focusTabInPane(tab.id, targetPane);
+      }
+    });
+    return () => unsubscribe?.();
+  }, [activePane, addTextTab, focusTabInPane, getTabPanes, tabs]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleGlobalKeyDown);
@@ -2259,14 +2321,30 @@ function AppShell() {
           ...topRightCloseModal,
           title: "文档",
           width: 760,
-          content: <HelpDocumentation canvasPluginEnabled={canvasPluginEnabled} shortcuts={settings.shortcuts} />,
+          content: (
+            <div className="scrollable-modal-content">
+              <HelpDocumentation canvasPluginEnabled={canvasPluginEnabled} shortcuts={settings.shortcuts} />
+            </div>
+          ),
         }),
     },
     {
       key: "version",
       label: "版本",
       icon: <InfoCircleOutlined />,
-      onClick: () => modal.info({ ...topRightCloseModal, title: "版本", content: <div className="version-modal-content">{appInfo.version}</div> }),
+      onClick: () =>
+        modal.info({
+          ...topRightCloseModal,
+          title: null,
+          width: "100vw",
+          style: { top: 0, maxWidth: "100vw", paddingBottom: 0 },
+          className: "author-inspiration-modal",
+          content: (
+            <div className="author-inspiration-panel" aria-label="版本">
+              <div className="author-inspiration-text version-fullscreen-text">v{appInfo.version}</div>
+            </div>
+          ),
+        }),
     },
     {
       key: "updates",
@@ -2278,7 +2356,8 @@ function AppShell() {
           title: "版本更新",
           width: 680,
           content: (
-            <ol className="help-update-timeline">
+            <div className="scrollable-modal-content">
+              <ol className="help-update-timeline">
               {releaseTimeline.map((release) => (
                 <li key={release.version} className={release.upcoming ? "upcoming" : ""}>
                   <span className="help-update-marker" aria-hidden />
@@ -2292,7 +2371,8 @@ function AppShell() {
                   </article>
                 </li>
               ))}
-            </ol>
+              </ol>
+            </div>
           ),
         }),
     },
@@ -2424,7 +2504,7 @@ function AppShell() {
                 }}
               >
                 {tab.kind === "file" ? getFileDocumentMode(tab) === "markdown" ? <CodeOutlined /> : <FileTextOutlined /> : null}
-                <span className="tab-title">{tab.title}</span>
+                <span className="tab-title">{getTabDisplayTitle(tab)}</span>
                 <button
                   type="button"
                   className={`tab-close ${isActive ? "active" : "inactive"}${tab.dirty ? " dirty" : ""}`}
@@ -2459,7 +2539,7 @@ function AppShell() {
     [addTextTab],
   );
 
-  const renderTabZone = (pane: PaneKey, paneTabs: NoteTab[], activeKey?: string | null) => (
+  const renderTabZone = (pane: PaneKey, paneTabs: NoteTab[], activeKey?: string | null, showAddButtons = false) => (
     <div
       key={pane}
       className="tab-pane-zone"
@@ -2492,6 +2572,20 @@ function AppShell() {
         activeKey={activeKey ?? undefined}
         items={makeTabItems(paneTabs, pane)}
         onChange={(key) => focusTabInPane(key, pane)}
+        tabBarExtraContent={
+          showAddButtons ? (
+            <div className="tabs-extra-actions">
+              {canvasPluginEnabled ? (
+                <Tooltip title={`新建画板 (${settings.shortcuts.newCanvas})`}>
+                  <Button className="tabs-canvas-add-button" type="text" aria-label="新建画板" icon={<BorderOutlined />} onClick={addCanvasTab} />
+                </Tooltip>
+              ) : null}
+              <Tooltip title={`新建文本模块 (${settings.shortcuts.newText})`}>
+                <Button className="tabs-add-button" type="text" aria-label="新建文本模块" icon={<PlusOutlined />} onClick={() => addTextTab()} />
+              </Tooltip>
+            </div>
+          ) : null
+        }
       />
     </div>
   );
@@ -2685,7 +2779,7 @@ function AppShell() {
 
       <div className={`${splitView ? "tabs-bar multi-pane" : "tabs-bar"}${canvasPluginEnabled ? " canvas-plugin-enabled" : ""}`}>
         {paneIds.flatMap((paneId, index) => [
-          renderTabZone(paneId, paneTabs[paneId] ?? [], activeTabsByPane[paneId]?.id),
+          renderTabZone(paneId, paneTabs[paneId] ?? [], activeTabsByPane[paneId]?.id, index === paneIds.length - 1),
           ...(index < paneIds.length - 1
             ? [
                 <div
@@ -2697,14 +2791,6 @@ function AppShell() {
               ]
             : []),
         ])}
-        {canvasPluginEnabled ? (
-          <Tooltip title={`新建画板 (${settings.shortcuts.newCanvas})`}>
-            <Button className="tabs-canvas-add-button" type="text" aria-label="新建画板" icon={<BorderOutlined />} onClick={addCanvasTab} />
-          </Tooltip>
-        ) : null}
-        <Tooltip title={`新建文本模块 (${settings.shortcuts.newText})`}>
-          <Button className="tabs-add-button" type="text" aria-label="新建文本模块" icon={<PlusOutlined />} onClick={() => addTextTab()} />
-        </Tooltip>
       </div>
 
       <main className={splitView ? "workspace multi-pane" : "workspace"}>

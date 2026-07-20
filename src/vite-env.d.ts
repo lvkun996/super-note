@@ -60,6 +60,13 @@ type UpdateStatus = {
   maxDownloadAttempts?: number;
 };
 
+type TrayTabState = {
+  activeTabId: string;
+  tabs: Array<{ id: string; title: string; kind: "file" | "canvas" }>;
+};
+
+type TrayAction = { type: "new-text" } | { type: "open-tab"; tabId: string };
+
 interface Window {
   superNote?: {
     loadWorkspace: () => Promise<WorkspaceResult>;
@@ -70,6 +77,11 @@ interface Window {
     minimizeWindow: () => Promise<{ ok: boolean }>;
     toggleMaximizeWindow: () => Promise<{ ok: boolean; maximized: boolean }>;
     closeWindow: () => Promise<{ ok: boolean }>;
+    syncTrayTabs: (state: TrayTabState) => Promise<{ ok: boolean }>;
+    getTrayMenuState: () => Promise<{ tabs: TrayTabState["tabs"] }>;
+    trayMenuAction: (action: unknown) => Promise<{ ok: boolean }>;
+    onTrayAction: (callback: (action: TrayAction) => void) => () => void;
+    onTrayMenuState: (callback: (state: { tabs: TrayTabState["tabs"] }) => void) => () => void;
     getPathForFile: (file: File) => string;
     readClipboardText: () => Promise<string>;
     writeClipboardText: (text: string) => Promise<{ ok: boolean }>;
