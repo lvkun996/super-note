@@ -234,6 +234,16 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.10") {
+    return [
+      "Super Note v0.1.10",
+      "",
+      "- Moved the active tab marker to the close-control end and changed it to a close icon on hover.",
+      "- Removed the remaining right-side gap from the author and version full-screen dialogs.",
+      "- Added Windows Explorer preview registration for .snote files.",
+    ].join("\n");
+  }
+
   if (version === "0.1.9") {
     return [
       "Super Note v0.1.9",

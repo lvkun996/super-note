@@ -89,6 +89,7 @@ import {
   normalizeSettings,
   shortcutMatches,
 } from "./features/settings/SettingsModal";
+import { rememberTabVisit, removeTabVisit, resolveTabAfterClose } from "./features/tabs/tabHistory";
 import { FileView, getFileDocumentMode } from "./features/text/FileView";
 
 const HISTORY_LIMIT = 80;
@@ -131,6 +132,12 @@ markdownRenderer.renderer.rules.image = (tokens, index, options, env, self) => {
 };
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.10",
+    date: "2026.08.04",
+    title: "Tab close state and fullscreen modal polish",
+    description: "Moved the active-tab marker beside the close control, changed it to a close icon on hover, and removed the remaining right-side gap from author and version dialogs.",
+  },
   {
     version: "v0.1.9",
     date: "2026.07.20",
@@ -554,14 +561,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.9",
+    version: "0.1.10",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.9",
+    currentVersion: "0.1.10",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -570,6 +577,7 @@ function AppShell() {
   const rafRef = useRef<number | null>(null);
   const fileUndoRef = useRef<Record<string, string[]>>({});
   const fileRedoRef = useRef<Record<string, string[]>>({});
+  const paneTabHistoryRef = useRef<Record<PaneKey, string[]>>({ [INITIAL_PANE_ID]: [tabs[0].id] });
   const effectiveDarkMode = settings.followSystemTheme ? systemDarkMode : settings.darkMode;
   const canvasPluginEnabled = settings.plugins.canvas;
 
@@ -638,6 +646,7 @@ function AppShell() {
   );
 
   const focusTabInPane = useCallback((tabId: string, pane: PaneKey) => {
+    paneTabHistoryRef.current[pane] = rememberTabVisit(paneTabHistoryRef.current[pane] ?? [], tabId);
     setPaneActiveTabIds((current) => ({ ...current, [pane]: tabId }));
     setActivePane(pane);
   }, []);
@@ -777,6 +786,18 @@ function AppShell() {
       setActivePane(paneIds[0]);
     }
   }, [activePane, paneIds, paneTabs, tabs]);
+
+  useEffect(() => {
+    const paneSet = new Set(paneIds);
+    Object.keys(paneTabHistoryRef.current).forEach((paneId) => {
+      if (!paneSet.has(paneId)) {
+        delete paneTabHistoryRef.current[paneId];
+      }
+    });
+    Object.entries(paneActiveTabIds).forEach(([paneId, tabId]) => {
+      paneTabHistoryRef.current[paneId] = rememberTabVisit(paneTabHistoryRef.current[paneId] ?? [], tabId);
+    });
+  }, [paneActiveTabIds, paneIds]);
 
   const updateCanvasTab = useCallback((tabId: string, updater: (tab: CanvasTab) => CanvasTab) => {
     setTabs((current) => current.map((tab) => (tab.id === tabId && tab.kind === "canvas" ? updater(tab) : tab)));
@@ -1034,6 +1055,7 @@ function AppShell() {
         const { [paneId]: _removed, ...rest } = current;
         return rest;
       });
+      delete paneTabHistoryRef.current[paneId];
       setCanvasViewStates((current) => {
         const next: typeof current = {};
         Object.entries(current).forEach(([tabId, states]) => {
@@ -1073,10 +1095,26 @@ function AppShell() {
 
       const targetPanes = getTabPanes(targetId);
       if (pane && targetPanes.length > 1) {
+        const orderedTabIds = (paneTabs[pane] ?? []).map((tab) => tab.id);
+        const fallback = resolveTabAfterClose(paneTabHistoryRef.current[pane] ?? [], targetId, orderedTabIds);
         setTabPaneIds((current) => ({
           ...current,
           [targetId]: (current[targetId] ?? targetPanes).filter((paneId) => paneId !== pane),
         }));
+        paneTabHistoryRef.current[pane] = removeTabVisit(paneTabHistoryRef.current[pane] ?? [], targetId);
+        setPaneActiveTabIds((current) => {
+          if (current[pane] !== targetId) {
+            return current;
+          }
+          const next = { ...current };
+          if (fallback) {
+            next[pane] = fallback;
+            paneTabHistoryRef.current[pane] = rememberTabVisit(paneTabHistoryRef.current[pane] ?? [], fallback);
+          } else {
+            delete next[pane];
+          }
+          return next;
+        });
         if (selectedItem?.tabId === targetId && selectedItem.pane === pane) {
           setSelectedItem(null);
         }
@@ -1096,17 +1134,29 @@ function AppShell() {
             setTabPaneIds({});
             setCanvasViewStates({});
             setSelectedItem(null);
+            paneTabHistoryRef.current = {};
             return [];
           }
 
-          const currentIndex = current.findIndex((tab) => tab.id === targetId);
           const next = current.filter((tab) => tab.id !== targetId);
-          const fallback = next[Math.max(0, currentIndex - 1)]?.id ?? next[0]?.id;
           setPaneActiveTabIds((activeIds) => {
             const updated = { ...activeIds };
             Object.entries(updated).forEach(([paneId, activeId]) => {
-              if (activeId === targetId && fallback) {
-                updated[paneId] = fallback;
+              const paneHistory = paneTabHistoryRef.current[paneId] ?? [];
+              if (activeId === targetId) {
+                const orderedTabIds = current
+                  .filter((tab) => getTabPanes(tab.id).includes(paneId))
+                  .map((tab) => tab.id);
+                const fallback = resolveTabAfterClose(paneHistory, targetId, orderedTabIds);
+                if (fallback) {
+                  updated[paneId] = fallback;
+                  paneTabHistoryRef.current[paneId] = rememberTabVisit(removeTabVisit(paneHistory, targetId), fallback);
+                } else {
+                  delete updated[paneId];
+                  delete paneTabHistoryRef.current[paneId];
+                }
+              } else {
+                paneTabHistoryRef.current[paneId] = removeTabVisit(paneHistory, targetId);
               }
             });
             return updated;
@@ -1140,7 +1190,7 @@ function AppShell() {
         onOk: doClose,
       });
     },
-    [activePane, getTabPanes, modal, paneIds, selectedItem, tabs],
+    [activePane, getTabPanes, modal, paneIds, paneTabs, selectedItem, tabs],
   );
 
   const closeCurrentTab = useCallback(() => {
@@ -1833,6 +1883,7 @@ function AppShell() {
             setPaneWidths([100]);
             setCanvasViewStates({});
             setSettings(normalizeSettings(workspace.settings));
+            paneTabHistoryRef.current = {};
             return;
           }
 
@@ -1912,6 +1963,9 @@ function AppShell() {
           setPaneWidths(restoredPaneWidths);
           setCanvasViewStates(restoredViewStates);
           setSettings(normalizeSettings(workspace.settings));
+          paneTabHistoryRef.current = Object.fromEntries(
+            Object.entries(restoredActiveTabIds).map(([paneId, tabId]) => [paneId, [tabId]]),
+          );
         }
       } catch (error) {
         message.warning(`加载上次内容失败：${String(error)}`);
@@ -2337,7 +2391,8 @@ function AppShell() {
           ...topRightCloseModal,
           title: null,
           width: "100vw",
-          style: { top: 0, maxWidth: "100vw", paddingBottom: 0 },
+          wrapClassName: "author-inspiration-modal-wrap",
+          style: { top: 0, left: 0, right: 0, bottom: 0, width: "100vw", height: "100vh", maxWidth: "none", margin: 0, paddingBottom: 0 },
           className: "author-inspiration-modal",
           content: (
             <div className="author-inspiration-panel" aria-label="版本">
@@ -2385,7 +2440,8 @@ function AppShell() {
           ...topRightCloseModal,
           title: null,
           width: "100vw",
-          style: { top: 0, maxWidth: "100vw", paddingBottom: 0 },
+          wrapClassName: "author-inspiration-modal-wrap",
+          style: { top: 0, left: 0, right: 0, bottom: 0, width: "100vw", height: "100vh", maxWidth: "none", margin: 0, paddingBottom: 0 },
           className: "author-inspiration-modal",
           content: (
             <div className="author-inspiration-panel" aria-label="作者寄语">
@@ -2503,19 +2559,24 @@ function AppShell() {
                   event.dataTransfer.effectAllowed = "move";
                 }}
               >
-                {tab.kind === "file" ? getFileDocumentMode(tab) === "markdown" ? <CodeOutlined /> : <FileTextOutlined /> : null}
                 <span className="tab-title">{getTabDisplayTitle(tab)}</span>
                 <button
                   type="button"
-                  className={`tab-close ${isActive ? "active" : "inactive"}${tab.dirty ? " dirty" : ""}`}
+                  className={`tab-close${isActive ? " active" : ""}${tab.dirty ? " dirty" : ""}`}
                   title={tab.dirty ? "未保存，点击关闭" : "关闭"}
                   onClick={(event) => {
                     event.stopPropagation();
                     closeTab(tab.id, pane);
                   }}
                 >
-                  <span className="dirty-dot" />
-                  <CloseOutlined className="dirty-close" />
+                  {isActive || tab.dirty ? (
+                    <>
+                      <span className="tab-status-dot" />
+                      <CloseOutlined className="tab-status-close" />
+                    </>
+                  ) : (
+                    <CloseOutlined />
+                  )}
                 </button>
               </span>
             </Dropdown>

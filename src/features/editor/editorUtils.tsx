@@ -185,7 +185,6 @@ export function placeCaretAtEndForBlankArea(
     return false;
   }
 
-  event.preventDefault();
   editor.focus({ preventScroll: true });
   const end = editor.value.length;
   editor.setSelectionRange(end, end);
