@@ -251,8 +251,21 @@ function run(command, commandArgs, extraEnv = {}) {
 }
 
 run(process.execPath, [path.join(root, "scripts", "cache-packager-deps.mjs")]);
-run(process.execPath, [path.join(root, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.electron.json"]);
-run(process.execPath, [path.join(root, "node_modules", "vite", "bin", "vite.js"), "build"]);
+if (args.has("--skip-build")) {
+  const requiredBuildOutputs = [
+    path.join(root, "dist", "index.html"),
+    path.join(root, "dist-electron", "main.js"),
+    path.join(root, "dist-electron", "preload.js"),
+  ];
+  const missingBuildOutputs = requiredBuildOutputs.filter((filePath) => !existsSync(filePath));
+  if (missingBuildOutputs.length > 0) {
+    throw new Error(`Cannot skip build because required output is missing:\n${missingBuildOutputs.join("\n")}`);
+  }
+  console.log("Using the existing verified dist and dist-electron output.");
+} else {
+  run(process.execPath, [path.join(root, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.electron.json"]);
+  run(process.execPath, [path.join(root, "node_modules", "vite", "bin", "vite.js"), "build"]);
+}
 
 const builderArgs = [path.join(root, "node_modules", "electron-builder", "cli.js")];
 
@@ -264,4 +277,11 @@ if (args.has("--dir")) {
   builderArgs.push("--dir");
 }
 
-run(process.execPath, builderArgs);
+const builderEnv = args.has("--low-memory") ? { ELECTRON_BUILDER_COMPRESSION_LEVEL: "1" } : {};
+if (args.has("--low-memory")) {
+  console.log("Using low-memory installer compression level 1.");
+}
+run(process.execPath, builderArgs, builderEnv);
+
+const packagedOutput = args.has("--win7-8") ? "release-win7-8" : "release";
+run(process.execPath, [path.join(root, "scripts", "verify-packaged-app.mjs"), packagedOutput]);

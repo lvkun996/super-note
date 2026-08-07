@@ -1,7 +1,12 @@
 import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, screen, shell } from "electron";
 import { autoUpdater } from "electron-updater";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { atomicWriteText, getFileMetadata, isWorkspaceJson, readJsonFileCandidate } from "./fileStorage";
+
+if (process.env.SUPER_NOTE_DEV_USER_DATA) {
+  app.setPath("userData", process.env.SUPER_NOTE_DEV_USER_DATA);
+}
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -9,9 +14,15 @@ let trayMenuWindow: BrowserWindow | null = null;
 let forceQuit = false;
 let installUpdateAfterDownload = false;
 let updateDownloadPromise: Promise<UpdateStatus> | null = null;
+let rendererReady = false;
+let windowLoaded = false;
+let pendingOpenFilePaths = new Set<string>();
+let openFileFlushPromise: Promise<void> | null = null;
+let pendingQuitAction: "quit" | "install" | null = null;
+let quitFlushTimer: NodeJS.Timeout | null = null;
 
 const workspaceFileName = "workspace.json";
-const gotSingleInstanceLock = app.requestSingleInstanceLock();
+const gotSingleInstanceLock = process.env.SUPER_NOTE_ALLOW_MULTIPLE_INSTANCES === "1" || app.requestSingleInstanceLock();
 const globalToggleShortcut = "Control+Alt+Space";
 const updateFeedUrl = "https://github.com/lvkun996/super-note/releases/latest/download/";
 const updateDownloadMaxAttempts = 3;
@@ -19,6 +30,8 @@ const updateDownloadRetryDelayMs = 3000;
 
 type TrayTab = { id: string; title: string; kind: "file" | "canvas" };
 let trayTabState: { activeTabId: string; tabs: TrayTab[] } = { activeTabId: "", tabs: [] };
+
+type OpenedFile = { path: string; name: string; content: string; mtimeMs?: number; size?: number };
 
 const trayMenuHtml = `<!doctype html>
 <html lang="zh-CN">
@@ -124,6 +137,10 @@ function getWorkspacePath() {
   return path.join(app.getPath("userData"), workspaceFileName);
 }
 
+function getWorkspaceBackupPath() {
+  return `${getWorkspacePath()}.bak`;
+}
+
 function getIconPath() {
   return path.join(__dirname, "../assets/app-icon.png");
 }
@@ -137,6 +154,96 @@ function showMainWindow() {
   }
   mainWindow?.show();
   mainWindow?.focus();
+}
+
+function completePendingQuit() {
+  const action = pendingQuitAction;
+  if (!action) {
+    return;
+  }
+  pendingQuitAction = null;
+  if (quitFlushTimer) {
+    clearTimeout(quitFlushTimer);
+    quitFlushTimer = null;
+  }
+  forceQuit = true;
+  if (action === "install") {
+    autoUpdater.quitAndInstall();
+  } else {
+    app.quit();
+  }
+}
+
+function requestWorkspaceFlushBeforeQuit(action: "quit" | "install") {
+  if (pendingQuitAction) {
+    return;
+  }
+  pendingQuitAction = action;
+  if (!mainWindow || mainWindow.webContents.isDestroyed() || !rendererReady) {
+    completePendingQuit();
+    return;
+  }
+  mainWindow.webContents.send("app:prepareQuit");
+  quitFlushTimer = setTimeout(completePendingQuit, 1500);
+}
+
+function normalizeOpenFilePath(value: string, workingDirectory: string) {
+  const trimmed = value.trim().replace(/^"|"$/g, "");
+  if (!trimmed || trimmed.startsWith("-")) {
+    return null;
+  }
+  return path.isAbsolute(trimmed) ? path.normalize(trimmed) : path.resolve(workingDirectory, trimmed);
+}
+
+function queueOpenFilePaths(commandLine: string[], workingDirectory = process.cwd()) {
+  commandLine.slice(process.defaultApp ? 2 : 1).forEach((value) => {
+    const filePath = normalizeOpenFilePath(value, workingDirectory);
+    if (filePath) {
+      pendingOpenFilePaths.add(filePath);
+    }
+  });
+  void flushPendingOpenFiles();
+}
+
+async function readOpenedFiles(filePaths: string[]): Promise<OpenedFile[]> {
+  const files: OpenedFile[] = [];
+  for (const filePath of filePaths) {
+    try {
+      const metadata = await getFileMetadata(filePath);
+      files.push({
+        path: filePath,
+        name: path.basename(filePath),
+        content: await readFile(filePath, "utf8"),
+        mtimeMs: metadata.mtimeMs,
+        size: metadata.size,
+      });
+    } catch (error) {
+      console.warn(`Unable to open file from command line: ${filePath}`, error);
+    }
+  }
+  return files;
+}
+
+function flushPendingOpenFiles() {
+  if (openFileFlushPromise || !windowLoaded || !rendererReady || !mainWindow || mainWindow.webContents.isDestroyed() || pendingOpenFilePaths.size === 0) {
+    return openFileFlushPromise;
+  }
+
+  openFileFlushPromise = (async () => {
+    const filePaths = Array.from(pendingOpenFilePaths);
+    pendingOpenFilePaths.clear();
+    const files = await readOpenedFiles(filePaths);
+    if (files.length > 0 && mainWindow && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send("files:open", files);
+    }
+  })().finally(() => {
+    openFileFlushPromise = null;
+    if (pendingOpenFilePaths.size > 0) {
+      void flushPendingOpenFiles();
+    }
+  });
+
+  return openFileFlushPromise;
 }
 
 function toggleMainWindow() {
@@ -381,9 +488,8 @@ async function downloadUpdateWithRetry() {
 
 function installDownloadedUpdate() {
   installUpdateAfterDownload = false;
-  forceQuit = true;
   setUpdateStatus({ state: "installing", progress: 100, error: undefined });
-  autoUpdater.quitAndInstall();
+  requestWorkspaceFlushBeforeQuit("install");
   return updateStatus;
 }
 
@@ -438,13 +544,25 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
-  mainWindow.webContents.once("did-finish-load", sendUpdateStatus);
+  mainWindow.webContents.once("did-finish-load", () => {
+    windowLoaded = true;
+    sendUpdateStatus();
+    void flushPendingOpenFiles();
+  });
+  mainWindow.on("closed", () => {
+    windowLoaded = false;
+    rendererReady = false;
+    mainWindow = null;
+  });
 }
 
 if (!gotSingleInstanceLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
+  queueOpenFilePaths(process.argv);
+
+  app.on("second-instance", (_event, commandLine, workingDirectory) => {
+    queueOpenFilePaths(commandLine, workingDirectory);
     if (app.isReady()) {
       showMainWindow();
     }
@@ -473,7 +591,12 @@ if (!gotSingleInstanceLock) {
     }
   });
 
-  app.on("before-quit", () => {
+  app.on("before-quit", (event) => {
+    if (!forceQuit && rendererReady) {
+      event.preventDefault();
+      requestWorkspaceFlushBeforeQuit("quit");
+      return;
+    }
     forceQuit = true;
     globalShortcut.unregisterAll();
   });
@@ -481,27 +604,59 @@ if (!gotSingleInstanceLock) {
 
 ipcMain.handle("workspace:load", async () => {
   const filePath = getWorkspacePath();
-  try {
-    const raw = await readFile(filePath, "utf8");
-    return { ok: true, workspace: JSON.parse(raw), path: filePath };
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === "ENOENT") {
-      return { ok: true, workspace: null, path: filePath };
-    }
-    return { ok: false, error: String(error), path: filePath };
-  }
+  const backupPath = getWorkspaceBackupPath();
+  const [primary, backup] = await Promise.all([
+    readJsonFileCandidate(filePath),
+    readJsonFileCandidate(backupPath),
+  ]);
+  return {
+    ok: !primary.error || Boolean(backup.value),
+    workspace: primary.value ?? null,
+    backupWorkspace: backup.value ?? null,
+    path: filePath,
+    backupPath,
+    error: primary.error,
+  };
 });
 
 ipcMain.handle("workspace:save", async (_event, workspace) => {
   const filePath = getWorkspacePath();
-  try {
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, JSON.stringify(workspace, null, 2), "utf8");
-    return { ok: true, path: filePath };
-  } catch (error) {
-    return { ok: false, error: String(error), path: filePath };
+  const backupPath = getWorkspaceBackupPath();
+  if (!isWorkspaceJson(workspace)) {
+    return { ok: false, path: filePath, backupPath, error: "Invalid workspace payload" };
   }
+  try {
+    await atomicWriteText(filePath, JSON.stringify(workspace, null, 2), {
+      backupPath,
+      validateExisting: (content) => {
+        try {
+          return isWorkspaceJson(JSON.parse(content));
+        } catch {
+          return false;
+        }
+      },
+    });
+    return { ok: true, path: filePath, backupPath };
+  } catch (error) {
+    return { ok: false, error: String(error), path: filePath, backupPath };
+  }
+});
+
+ipcMain.handle("app:rendererReady", (event) => {
+  if (event.sender !== mainWindow?.webContents) {
+    return { ok: false };
+  }
+  rendererReady = true;
+  void flushPendingOpenFiles();
+  return { ok: true };
+});
+
+ipcMain.handle("app:workspaceFlushed", (event) => {
+  if (event.sender !== mainWindow?.webContents) {
+    return { ok: false };
+  }
+  completePendingQuit();
+  return { ok: true };
 });
 
 ipcMain.handle("tray:syncTabs", (event, state: { activeTabId?: unknown; tabs?: unknown }) => {
@@ -544,8 +699,7 @@ ipcMain.handle("tray:menuAction", (event, action: { type?: unknown; tabId?: unkn
     return { ok: true };
   }
   if (action?.type === "exit") {
-    forceQuit = true;
-    app.quit();
+    requestWorkspaceFlushBeforeQuit("quit");
     return { ok: true };
   }
   return { ok: false };
@@ -568,15 +722,33 @@ ipcMain.handle("dialog:openFile", async () => {
     return { canceled: true, files: [] };
   }
 
-  const files = await Promise.all(
-    result.filePaths.map(async (filePath) => ({
-      path: filePath,
-      name: path.basename(filePath),
-      content: await readFile(filePath, "utf8"),
-    })),
-  );
+  const files = await readOpenedFiles(result.filePaths);
 
   return { canceled: false, files };
+});
+
+ipcMain.handle("file:read", async (_event, filePath: unknown) => {
+  if (typeof filePath !== "string" || !filePath) {
+    return { ok: false, error: "Invalid file path" };
+  }
+  const files = await readOpenedFiles([filePath]);
+  return files[0] ? { ok: true, file: files[0] } : { ok: false, path: filePath, error: "Unable to read file" };
+});
+
+ipcMain.handle("file:getSnapshots", async (_event, filePaths: unknown) => {
+  if (!Array.isArray(filePaths)) {
+    return [];
+  }
+  const uniquePaths = Array.from(new Set(filePaths.filter((value): value is string => typeof value === "string" && value.length > 0))).slice(0, 100);
+  return Promise.all(
+    uniquePaths.map(async (filePath) => {
+      try {
+        return { path: filePath, ...(await getFileMetadata(filePath)) };
+      } catch (error) {
+        return { path: filePath, exists: false, error: String(error) };
+      }
+    }),
+  );
 });
 
 ipcMain.handle(
@@ -607,9 +779,15 @@ ipcMain.handle(
     }
 
     try {
-      await mkdir(path.dirname(filePath), { recursive: true });
-      await writeFile(filePath, payload.content, "utf8");
-      return { ok: true, canceled: false, path: filePath, name: path.basename(filePath) };
+      const metadata = await atomicWriteText(filePath, payload.content);
+      return {
+        ok: true,
+        canceled: false,
+        path: filePath,
+        name: path.basename(filePath),
+        mtimeMs: metadata.mtimeMs,
+        size: metadata.size,
+      };
     } catch (error) {
       return { ok: false, canceled: false, path: filePath, error: String(error) };
     }

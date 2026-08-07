@@ -1559,18 +1559,42 @@ input {
 }
 
 .help-doc-row.shortcut dd {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
   padding: 2px 7px;
   border-radius: 6px;
   background: #eef4ff;
   color: #0958d9;
   font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 12px;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: right;
+}
+
+.help-doc-shortcut-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.help-doc-shortcut-key {
+  overflow-wrap: anywhere;
+}
+
+.help-doc-shortcut-separator {
+  color: #7a8596;
 }
 
 .dark-mode .help-doc-row.shortcut dd {
   background: #17263a;
   color: #72adff;
+}
+
+.dark-mode .help-doc-shortcut-separator {
+  color: #a9b6c8;
 }
 
 .settings-row,

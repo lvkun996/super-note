@@ -4,18 +4,23 @@ type OpenedFile = {
   path?: string;
   name: string;
   content: string;
+  mtimeMs?: number;
+  size?: number;
 };
 
 type WorkspaceResult = {
   ok: boolean;
   workspace?: unknown;
+  backupWorkspace?: unknown;
   path?: string;
+  backupPath?: string;
   error?: string;
 };
 
 type SaveWorkspaceResult = {
   ok: boolean;
   path?: string;
+  backupPath?: string;
   error?: string;
 };
 
@@ -34,6 +39,23 @@ type SaveFileResult = {
   canceled?: boolean;
   path?: string;
   name?: string;
+  mtimeMs?: number;
+  size?: number;
+  error?: string;
+};
+
+type ReadFileResult = {
+  ok: boolean;
+  file?: OpenedFile;
+  path?: string;
+  error?: string;
+};
+
+type FileSnapshot = {
+  path: string;
+  exists: boolean;
+  mtimeMs?: number;
+  size?: number;
   error?: string;
 };
 
@@ -72,6 +94,12 @@ interface Window {
     loadWorkspace: () => Promise<WorkspaceResult>;
     saveWorkspace: (workspace: unknown) => Promise<SaveWorkspaceResult>;
     openFile: () => Promise<OpenFileResult>;
+    notifyRendererReady: () => Promise<{ ok: boolean }>;
+    notifyWorkspaceFlushed: () => Promise<{ ok: boolean }>;
+    onPrepareQuit: (callback: () => void) => () => void;
+    onOpenFiles: (callback: (files: OpenedFile[]) => void) => () => void;
+    readFile: (filePath: string) => Promise<ReadFileResult>;
+    getFileSnapshots: (filePaths: string[]) => Promise<FileSnapshot[]>;
     saveFile: (payload: SaveFilePayload) => Promise<SaveFileResult>;
     setAlwaysOnTop: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>;
     minimizeWindow: () => Promise<{ ok: boolean }>;

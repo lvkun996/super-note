@@ -47,6 +47,8 @@ export type CanvasTab = {
   history: CanvasItem[][];
   historyIndex: number;
   filePath?: string;
+  lastKnownMtimeMs?: number;
+  lastKnownSize?: number;
   dirty: boolean;
 };
 
@@ -60,6 +62,8 @@ export type FileTab = {
   documentMode?: FileDocumentMode;
   fontSize?: number;
   themeIndex: number;
+  lastKnownMtimeMs?: number;
+  lastKnownSize?: number;
   dirty: boolean;
 };
 
@@ -88,6 +92,7 @@ export type ShortcutAction =
   | "fileFontDecrease"
   | "save"
   | "search"
+  | "quickOpen"
   | "undo"
   | "redo"
   | "redoAlt"
@@ -113,7 +118,7 @@ export type PersistedCanvasTab = Omit<CanvasTab, "history" | "historyIndex">;
 export type PersistedTab = PersistedCanvasTab | FileTab;
 
 export type PersistedWorkspace = {
-  version: 1 | 2 | 3 | 4;
+  version: 1 | 2 | 3 | 4 | 5;
   savedAt: string;
   activeTabId: string;
   leftActiveTabId?: string;
@@ -129,7 +134,14 @@ export type PersistedWorkspace = {
   tabPaneIds?: Record<string, PaneKey[]>;
   paneWidths?: number[];
   settings?: Partial<AppSettings>;
+  recentFiles?: RecentFile[];
   tabs: PersistedTab[];
+};
+
+export type RecentFile = {
+  path: string;
+  name: string;
+  openedAt: number;
 };
 
 export type NoteFilePayload = {
@@ -188,9 +200,10 @@ export type DragState = ItemDragState | PanDragState | SplitDragState;
 
 export type SearchResult = {
   id: string;
-  tabId: string;
+  tabId?: string;
+  filePath?: string;
   itemId?: string;
-  kind: "canvas-text" | "file";
+  kind: "canvas-text" | "file" | "tab-title" | "recent-file";
   title: string;
   preview: string;
   line?: number;

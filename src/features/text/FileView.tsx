@@ -52,7 +52,7 @@ export function FileView({
 }: FileViewProps) {
   const highlightRef = useRef<HTMLPreElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
-  const [markdownMode, setMarkdownMode] = useState<"edit" | "preview">("edit");
+  const [markdownMode, setMarkdownMode] = useState<"edit" | "preview">("preview");
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
   const fontSize = tab.fontSize ?? 13;
   const documentMode = getFileDocumentMode(tab);
@@ -60,7 +60,7 @@ export function FileView({
   const activeSearchTarget = searchTarget?.tabId === tab.id ? searchTarget : null;
 
   useEffect(() => {
-    setMarkdownMode("edit");
+    setMarkdownMode("preview");
     setSelection(EMPTY_SELECTION);
   }, [tab.id]);
 

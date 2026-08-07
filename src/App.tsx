@@ -61,6 +61,7 @@ import type {
   PersistedTab,
   PersistedWorkspace,
   ProgrammerAction,
+  RecentFile,
   SearchResult,
   SelectedItem,
   TextCanvasItem,
@@ -91,6 +92,13 @@ import {
 } from "./features/settings/SettingsModal";
 import { rememberTabVisit, removeTabVisit, resolveTabAfterClose } from "./features/tabs/tabHistory";
 import { FileView, getFileDocumentMode } from "./features/text/FileView";
+import { hasExternalFileChange } from "./features/files/fileState";
+import {
+  CURRENT_WORKSPACE_VERSION,
+  normalizeRecentFiles,
+  rememberRecentFiles,
+  selectWorkspaceCandidate,
+} from "./features/workspace/workspaceUtils";
 
 const HISTORY_LIMIT = 80;
 const LONG_PRESS_MS = 160;
@@ -133,10 +141,16 @@ markdownRenderer.renderer.rules.image = (tokens, index, options, env, self) => {
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.11",
+    date: "2026.08.07",
+    title: "工作区安全与文件操作优化",
+    description: "增加工作区备份恢复、外部文件变化检测、最近文件和快速打开，并优化 Markdown 预览体验。",
+  },
+  {
     version: "v0.1.10",
     date: "2026.08.04",
-    title: "Tab close state and fullscreen modal polish",
-    description: "Moved the active-tab marker beside the close control, changed it to a close icon on hover, and removed the remaining right-side gap from author and version dialogs.",
+    title: "标签关闭状态与全屏弹窗优化",
+    description: "优化当前标签关闭状态提示、全屏版本与作者弹窗布局，并新增 .snote 文件的 Windows 资源管理器预览注册。",
   },
   {
     version: "v0.1.9",
@@ -337,6 +351,8 @@ function createFileTab(file: OpenedFile, themeIndex: number): FileTab {
     documentMode: isMarkdownFileName(file.name) || isMarkdownFileName(file.path) ? "markdown" : "text",
     fontSize: DEFAULT_FILE_FONT_SIZE,
     themeIndex,
+    lastKnownMtimeMs: file.mtimeMs,
+    lastKnownSize: file.size,
     dirty: false,
   };
 }
@@ -410,14 +426,6 @@ function createCanvasPayload(tab: CanvasTab): NoteFilePayload {
   };
 }
 
-function isPersistedWorkspace(value: unknown): value is PersistedWorkspace {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const candidate = value as Partial<PersistedWorkspace>;
-  return (candidate.version === 1 || candidate.version === 2 || candidate.version === 3 || candidate.version === 4) && Array.isArray(candidate.tabs);
-}
-
 function parseNoteFile(file: OpenedFile, themeIndex: number): NoteTab | null {
   try {
     const payload = JSON.parse(file.content) as Partial<NoteFilePayload>;
@@ -431,6 +439,8 @@ function parseNoteFile(file: OpenedFile, themeIndex: number): NoteTab | null {
       autoTitle: false,
       themeIndex,
       filePath: file.path,
+      lastKnownMtimeMs: file.mtimeMs,
+      lastKnownSize: file.size,
       dirty: false,
     }) as CanvasTab;
     return restored;
@@ -550,10 +560,14 @@ function AppShell() {
   const [paneWidths, setPaneWidths] = useState<number[]>([100]);
   const [canvasViewStates, setCanvasViewStates] = useState<Record<string, Partial<Record<PaneKey, CanvasViewState>>>>({});
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [systemDarkMode, setSystemDarkMode] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [quickOpenOpen, setQuickOpenOpen] = useState(false);
+  const [quickOpenValue, setQuickOpenValue] = useState("");
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
   const [editingText, setEditingText] = useState<{ itemId: string; pane: PaneKey } | null>(null);
   const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
@@ -561,14 +575,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.10",
+    version: "0.1.11",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.10",
+    currentVersion: "0.1.11",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -577,6 +591,12 @@ function AppShell() {
   const rafRef = useRef<number | null>(null);
   const fileUndoRef = useRef<Record<string, string[]>>({});
   const fileRedoRef = useRef<Record<string, string[]>>({});
+  const workspaceSaveErrorRef = useRef("");
+  const workspaceLoadedRef = useRef(false);
+  const pendingOpenedFilesRef = useRef<OpenedFile[]>([]);
+  const tabsRef = useRef(tabs);
+  const externalPromptedRef = useRef(new Set<string>());
+  tabsRef.current = tabs;
   const paneTabHistoryRef = useRef<Record<PaneKey, string[]>>({ [INITIAL_PANE_ID]: [tabs[0].id] });
   const effectiveDarkMode = settings.followSystemTheme ? systemDarkMode : settings.darkMode;
   const canvasPluginEnabled = settings.plugins.canvas;
@@ -584,6 +604,11 @@ function AppShell() {
   const closeSearch = useCallback(() => {
     setSearchOpen(false);
     setSearchValue("");
+  }, []);
+
+  const closeQuickOpen = useCallback(() => {
+    setQuickOpenOpen(false);
+    setQuickOpenValue("");
   }, []);
 
   const getTabPanes = useCallback(
@@ -688,9 +713,9 @@ function AppShell() {
     });
   }, []);
 
-  const persistWorkspace = useCallback(() => {
+  const persistWorkspace = useCallback(async () => {
     const workspace: PersistedWorkspace = {
-      version: 4,
+      version: CURRENT_WORKSPACE_VERSION,
       savedAt: new Date().toISOString(),
       activeTabId,
       activePane,
@@ -701,27 +726,56 @@ function AppShell() {
       paneWidths,
       canvasViewStates,
       settings,
+      recentFiles,
       tabs: tabs.map(stripTab),
     };
 
     if (window.superNote) {
-      window.superNote.saveWorkspace(workspace).catch(() => undefined);
+      try {
+        const result = await window.superNote.saveWorkspace(workspace);
+        if (!result.ok) {
+          throw new Error(result.error ?? "工作区保存失败");
+        }
+        workspaceSaveErrorRef.current = "";
+      } catch (error) {
+        const detail = String(error);
+        if (workspaceSaveErrorRef.current !== detail) {
+          workspaceSaveErrorRef.current = detail;
+          message.error(`自动保存失败：${detail}`);
+        }
+      }
     } else {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
     }
-  }, [activePane, activeTabId, canvasViewStates, paneActiveTabIds, paneIds, paneWidths, settings, splitView, tabPaneIds, tabs]);
+  }, [activePane, activeTabId, canvasViewStates, message, paneActiveTabIds, paneIds, paneWidths, recentFiles, settings, splitView, tabPaneIds, tabs]);
+  const persistWorkspaceRef = useRef(persistWorkspace);
+  persistWorkspaceRef.current = persistWorkspace;
 
   useEffect(() => {
+    const unsubscribe = window.superNote?.onPrepareQuit(() => {
+      if (!workspaceLoadedRef.current) {
+        void window.superNote?.notifyWorkspaceFlushed();
+        return;
+      }
+      void persistWorkspaceRef.current().finally(() => window.superNote?.notifyWorkspaceFlushed());
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!workspaceLoaded) {
+      return;
+    }
     if (saveTimerRef.current !== null) {
       window.clearTimeout(saveTimerRef.current);
     }
-    saveTimerRef.current = window.setTimeout(() => persistWorkspace(), 250);
+    saveTimerRef.current = window.setTimeout(() => void persistWorkspace(), 250);
     return () => {
       if (saveTimerRef.current !== null) {
         window.clearTimeout(saveTimerRef.current);
       }
     };
-  }, [persistWorkspace]);
+  }, [persistWorkspace, workspaceLoaded]);
 
   useEffect(() => {
     if (!searchValue.trim()) {
@@ -917,6 +971,12 @@ function AppShell() {
       if (files.length === 0) {
         return;
       }
+      setRecentFiles((current) =>
+        rememberRecentFiles(
+          current,
+          files.flatMap((file) => (file.path ? [{ path: file.path, name: file.name }] : [])),
+        ),
+      );
       setTabs((current) => {
         const nextTabs = files.map((file, index) => createTabFromOpenedFile(file, current.length + index));
         const destination = targetPane && paneIds.includes(targetPane) ? targetPane : activePane;
@@ -934,6 +994,40 @@ function AppShell() {
     },
     [activePane, focusTabInPane, paneIds],
   );
+  const openFilesAsTabsRef = useRef(openFilesAsTabs);
+  openFilesAsTabsRef.current = openFilesAsTabs;
+
+  const reloadTabFromDisk = useCallback(
+    async (tab: NoteTab) => {
+      if (!tab.filePath || !window.superNote) {
+        return false;
+      }
+      const result = await window.superNote.readFile(tab.filePath);
+      if (!result.ok || !result.file) {
+        message.error(`重新加载失败：${result.error ?? tab.filePath}`);
+        return false;
+      }
+      const restored = createTabFromOpenedFile(result.file, tab.themeIndex);
+      setTabs((current) => current.map((item) => (item.id === tab.id ? { ...restored, id: tab.id } : item)));
+      fileUndoRef.current[tab.id] = [];
+      fileRedoRef.current[tab.id] = [];
+      setRecentFiles((current) => rememberRecentFiles(current, [{ path: tab.filePath!, name: result.file!.name }]));
+      return true;
+    },
+    [message],
+  );
+
+  useEffect(() => {
+    const unsubscribe = window.superNote?.onOpenFiles((files) => {
+      if (workspaceLoadedRef.current) {
+        openFilesAsTabsRef.current(files);
+      } else {
+        pendingOpenedFilesRef.current.push(...files);
+      }
+    });
+    void window.superNote?.notifyRendererReady();
+    return unsubscribe;
+  }, []);
 
   const openDroppedFilesAsTabs = useCallback(
     async (files: File[], targetPane?: PaneKey) => {
@@ -974,6 +1068,31 @@ function AppShell() {
       openFilesAsTabs(result.files);
     }
   }, [message, openFilesAsTabs]);
+
+  const openFilePath = useCallback(
+    async (filePath: string, targetPane?: PaneKey) => {
+      const existing = tabs.find((tab) => tab.filePath?.toLowerCase() === filePath.toLowerCase());
+      if (existing) {
+        const availablePanes = getTabPanes(existing.id);
+        const pane = targetPane && availablePanes.includes(targetPane) ? targetPane : availablePanes[0] ?? activePane;
+        focusTabInPane(existing.id, pane);
+        setRecentFiles((current) => rememberRecentFiles(current, [{ path: filePath, name: getFileName(filePath) }]));
+        return true;
+      }
+      if (!window.superNote) {
+        return false;
+      }
+      const result = await window.superNote.readFile(filePath);
+      if (!result.ok || !result.file) {
+        message.error(`打开文件失败：${result.error ?? filePath}`);
+        setRecentFiles((current) => current.filter((file) => file.path.toLowerCase() !== filePath.toLowerCase()));
+        return false;
+      }
+      openFilesAsTabs([result.file], targetPane ?? (paneIds.includes(activePane) ? activePane : paneIds[0]));
+      return true;
+    },
+    [activePane, focusTabInPane, getTabPanes, message, openFilesAsTabs, paneIds, tabs],
+  );
 
   const handleAppDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     if (event.dataTransfer.types.includes("Files")) {
@@ -1231,11 +1350,18 @@ function AppShell() {
                   fileName: result.name ?? getFileName(result.path ?? tab.fileName),
                   title: result.name ?? getFileName(result.path ?? tab.title),
                   documentMode: tab.documentMode === "markdown" || isMarkdownFileName(result.name) || isMarkdownFileName(result.path) ? "markdown" : "text",
+                  lastKnownMtimeMs: result.mtimeMs,
+                  lastKnownSize: result.size,
                   dirty: false,
                 }
               : tab,
           ),
         );
+        if (result.path) {
+          setRecentFiles((current) =>
+            rememberRecentFiles(current, [{ path: result.path!, name: result.name ?? getFileName(result.path!) }]),
+          );
+        }
         message.success("已保存到本地文件");
         return;
       }
@@ -1264,11 +1390,18 @@ function AppShell() {
                 filePath: result.path,
                 title: result.name ?? getFileName(result.path ?? tab.title),
                 autoTitle: false,
+                lastKnownMtimeMs: result.mtimeMs,
+                lastKnownSize: result.size,
                 dirty: false,
               }
             : tab,
-        ),
+          ),
       );
+      if (result.path) {
+        setRecentFiles((current) =>
+          rememberRecentFiles(current, [{ path: result.path!, name: result.name ?? getFileName(result.path!) }]),
+        );
+      }
       message.success("已保存为 Super Note 文件");
     } catch (error) {
       message.error(`保存失败：${String(error)}`);
@@ -1671,6 +1804,11 @@ function AppShell() {
 
   const handleGlobalKeyDown = useCallback(
     (event: KeyboardEvent) => {
+      if (event.key === "Escape" && quickOpenOpen) {
+        event.preventDefault();
+        closeQuickOpen();
+        return;
+      }
       if (event.key === "Escape" && searchOpen) {
         event.preventDefault();
         closeSearch();
@@ -1682,7 +1820,14 @@ function AppShell() {
       const canUndoFile = activeTab?.kind === "file" && (fileUndoRef.current[activeTab.id]?.length ?? 0) > 0;
       const canRedoFile = activeTab?.kind === "file" && (fileRedoRef.current[activeTab.id]?.length ?? 0) > 0;
 
-      if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontIncrease)) {
+      if (shortcutMatches(event, settings.shortcuts.quickOpen)) {
+        event.preventDefault();
+        closeSearch();
+        setQuickOpenOpen(true);
+        window.setTimeout(() => document.getElementById("quick-open-input")?.focus(), 0);
+      } else if (quickOpenOpen) {
+        return;
+      } else if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontIncrease)) {
         event.preventDefault();
         updateFileFontSize(activeTab.id, (fontSize) => fontSize + 1);
       } else if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontDecrease)) {
@@ -1702,6 +1847,7 @@ function AppShell() {
         saveCurrentTab();
       } else if (shortcutMatches(event, settings.shortcuts.search)) {
         event.preventDefault();
+        closeQuickOpen();
         setSearchOpen(true);
         window.setTimeout(() => document.getElementById("global-search-input")?.focus(), 0);
       } else if (!searchOpen && !settingsOpen && shortcutMatches(event, settings.shortcuts.previousTab)) {
@@ -1739,10 +1885,12 @@ function AppShell() {
       autoSplitTab,
       canvasPluginEnabled,
       closeCurrentTab,
+      closeQuickOpen,
       closeSearch,
       deleteCanvasItem,
       focusSiblingTab,
       pasteFromClipboard,
+      quickOpenOpen,
       redo,
       saveCurrentTab,
       searchOpen,
@@ -1859,18 +2007,26 @@ function AppShell() {
         let workspace: unknown = null;
         if (window.superNote) {
           const result = await window.superNote.loadWorkspace();
-          if (result.ok) {
-            workspace = result.workspace;
+          const selected = selectWorkspaceCandidate(result.workspace, result.backupWorkspace);
+          workspace = selected.workspace;
+          if (selected.source === "backup") {
+            message.warning("主工作区无法读取，已从自动备份恢复");
+          } else if (!result.ok && selected.source === "none") {
+            throw new Error(result.error ?? "工作区与备份均无法读取");
+          } else if (selected.source === "none" && (result.workspace != null || result.backupWorkspace != null)) {
+            message.warning("工作区数据格式无效，已创建新的空工作区");
           }
         } else {
           const raw = localStorage.getItem(STORAGE_KEY);
           workspace = raw ? JSON.parse(raw) : null;
         }
 
-        if (isPersistedWorkspace(workspace)) {
+        const selectedWorkspace = selectWorkspaceCandidate(workspace, null).workspace;
+        if (selectedWorkspace) {
+          const workspace = selectedWorkspace;
           if (workspace.tabs.length === 0) {
             const savedPaneIds =
-              workspace.version === 4 && Array.isArray(workspace.paneIds)
+              workspace.version >= 4 && Array.isArray(workspace.paneIds)
                 ? Array.from(new Set(workspace.paneIds.filter((paneId): paneId is string => typeof paneId === "string" && paneId.length > 0)))
                 : [];
             const emptyPane = savedPaneIds.includes(workspace.activePane ?? "") ? workspace.activePane! : savedPaneIds[0] ?? INITIAL_PANE_ID;
@@ -1883,6 +2039,7 @@ function AppShell() {
             setPaneWidths([100]);
             setCanvasViewStates({});
             setSettings(normalizeSettings(workspace.settings));
+            setRecentFiles(normalizeRecentFiles(workspace.recentFiles));
             paneTabHistoryRef.current = {};
             return;
           }
@@ -1895,7 +2052,7 @@ function AppShell() {
           let restoredPaneWidths: number[];
           let restoredViewStates: Record<string, Partial<Record<PaneKey, CanvasViewState>>> = {};
 
-          if (workspace.version === 4 && Array.isArray(workspace.paneIds) && workspace.paneIds.length > 0) {
+          if (workspace.version >= 4 && Array.isArray(workspace.paneIds) && workspace.paneIds.length > 0) {
             restoredPaneIds = Array.from(new Set(workspace.paneIds.filter((paneId): paneId is string => typeof paneId === "string" && paneId.length > 0)));
             restored.forEach((tab) => {
               const validPanes = (workspace.tabPaneIds?.[tab.id] ?? []).filter((paneId) => restoredPaneIds.includes(paneId));
@@ -1963,18 +2120,129 @@ function AppShell() {
           setPaneWidths(restoredPaneWidths);
           setCanvasViewStates(restoredViewStates);
           setSettings(normalizeSettings(workspace.settings));
+          setRecentFiles(normalizeRecentFiles(workspace.recentFiles));
           paneTabHistoryRef.current = Object.fromEntries(
             Object.entries(restoredActiveTabIds).map(([paneId, tabId]) => [paneId, [tabId]]),
           );
         }
       } catch (error) {
         message.warning(`加载上次内容失败：${String(error)}`);
+      } finally {
+        setWorkspaceLoaded(true);
       }
     }
 
     loadWorkspace();
     window.superNote?.getAppInfo().then(setAppInfo).catch(() => undefined);
   }, [message]);
+
+  useEffect(() => {
+    if (!workspaceLoaded) {
+      return;
+    }
+    workspaceLoadedRef.current = true;
+    const pendingFiles = pendingOpenedFilesRef.current.splice(0);
+    if (pendingFiles.length > 0) {
+      openFilesAsTabs(pendingFiles);
+    }
+  }, [openFilesAsTabs, workspaceLoaded]);
+
+  useEffect(() => {
+    if (!workspaceLoaded || !window.superNote) {
+      return;
+    }
+    let disposed = false;
+
+    const checkExternalChanges = async () => {
+      const monitoredTabs = tabsRef.current.filter((tab) => Boolean(tab.filePath));
+      const paths = monitoredTabs.flatMap((tab) => (tab.filePath ? [tab.filePath] : []));
+      if (paths.length === 0) {
+        return;
+      }
+
+      let snapshots;
+      try {
+        snapshots = await window.superNote!.getFileSnapshots(paths);
+      } catch {
+        return;
+      }
+      if (disposed) {
+        return;
+      }
+      const byPath = new Map(snapshots.map((snapshot) => [snapshot.path.toLowerCase(), snapshot]));
+
+      for (const tab of monitoredTabs) {
+        const filePath = tab.filePath!;
+        const pathKey = filePath.toLowerCase();
+        const snapshot = byPath.get(pathKey);
+        if (!snapshot) {
+          continue;
+        }
+
+        if (!snapshot.exists) {
+          const deletedKey = `deleted:${pathKey}`;
+          if (!externalPromptedRef.current.has(deletedKey)) {
+            externalPromptedRef.current.add(deletedKey);
+            setTabs((current) => current.map((item) => (item.id === tab.id ? { ...item, dirty: true } : item)));
+            message.warning(`文件已被外部删除，当前内容仍保留：${tab.title}`);
+          }
+          continue;
+        }
+        externalPromptedRef.current.delete(`deleted:${pathKey}`);
+
+        if (tab.lastKnownMtimeMs == null && tab.lastKnownSize == null) {
+          setTabs((current) =>
+            current.map((item) =>
+              item.id === tab.id
+                ? { ...item, lastKnownMtimeMs: snapshot.mtimeMs, lastKnownSize: snapshot.size }
+                : item,
+            ),
+          );
+          continue;
+        }
+
+        if (!hasExternalFileChange(tab, snapshot)) {
+          continue;
+        }
+        const changeKey = `${pathKey}:${snapshot.mtimeMs ?? "unknown"}:${snapshot.size ?? "unknown"}`;
+        if (externalPromptedRef.current.has(changeKey)) {
+          continue;
+        }
+        externalPromptedRef.current.add(changeKey);
+
+        if (!tab.dirty) {
+          if (await reloadTabFromDisk(tab)) {
+            message.info(`已重新加载外部修改：${tab.title}`);
+          }
+          continue;
+        }
+
+        modal.confirm({
+          title: "文件已在外部修改",
+          content: `${tab.title} 在磁盘上发生变化，当前标签也有未保存内容。`,
+          okText: "重新加载磁盘版本",
+          cancelText: "保留当前内容",
+          onOk: () => reloadTabFromDisk(tab),
+          onCancel: () => {
+            setTabs((current) =>
+              current.map((item) =>
+                item.id === tab.id
+                  ? { ...item, lastKnownMtimeMs: snapshot.mtimeMs, lastKnownSize: snapshot.size, dirty: true }
+                  : item,
+              ),
+            );
+          },
+        });
+      }
+    };
+
+    void checkExternalChanges();
+    const timer = window.setInterval(() => void checkExternalChanges(), 2500);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [message, modal, reloadTabFromDisk, workspaceLoaded]);
 
   useEffect(() => {
     window.superNote?.getUpdateStatus?.().then(setUpdateStatus).catch(() => undefined);
@@ -2138,6 +2406,31 @@ function AppShell() {
     };
   }, [clearHoldTimer, getTabPanes, scheduleDragPaint, setPaneViewState, updateCanvasTab]);
 
+  const quickOpenResults = useMemo(() => {
+    const needle = quickOpenValue.trim().toLowerCase();
+    const openTabs = tabs
+      .filter((tab) => !needle || getTabDisplayTitle(tab).toLowerCase().includes(needle) || tab.filePath?.toLowerCase().includes(needle))
+      .map((tab) => ({
+        id: `tab:${tab.id}`,
+        kind: "tab" as const,
+        title: getTabDisplayTitle(tab),
+        detail: tab.filePath ?? (tab.kind === "canvas" ? "当前画板" : "未保存文本"),
+        tabId: tab.id,
+      }));
+    const openPaths = new Set(tabs.flatMap((tab) => (tab.filePath ? [tab.filePath.toLowerCase()] : [])));
+    const recent = recentFiles
+      .filter((file) => !openPaths.has(file.path.toLowerCase()))
+      .filter((file) => !needle || file.name.toLowerCase().includes(needle) || file.path.toLowerCase().includes(needle))
+      .map((file) => ({
+        id: `recent:${file.path.toLowerCase()}`,
+        kind: "recent" as const,
+        title: file.name,
+        detail: file.path,
+        filePath: file.path,
+      }));
+    return [...openTabs, ...recent].slice(0, 40);
+  }, [quickOpenValue, recentFiles, tabs]);
+
   const searchResults = useMemo<SearchResult[]>(() => {
     const needle = searchValue.trim();
     if (!needle) {
@@ -2145,7 +2438,17 @@ function AppShell() {
     }
 
     const results: SearchResult[] = [];
+    const lowerNeedle = needle.toLowerCase();
     tabs.forEach((tab) => {
+      if (getTabDisplayTitle(tab).toLowerCase().includes(lowerNeedle)) {
+        results.push({
+          id: `${tab.id}:title`,
+          tabId: tab.id,
+          kind: "tab-title",
+          title: getTabDisplayTitle(tab),
+          preview: tab.filePath ?? (tab.kind === "canvas" ? "画板标题匹配" : "标签标题匹配"),
+        });
+      }
       if (tab.kind === "canvas") {
         tab.items.forEach((item) => {
           if (item.type === "text" && item.text.toLowerCase().includes(needle.toLowerCase())) {
@@ -2162,7 +2465,6 @@ function AppShell() {
         return;
       }
 
-      const lowerNeedle = needle.toLowerCase();
       const lines = tab.content.split(/\r\n|\r|\n/);
       let lineStart = 0;
       lines.forEach((line, index) => {
@@ -2188,11 +2490,34 @@ function AppShell() {
         lineStart += line.length + separator.length;
       });
     });
+    const openPaths = new Set(tabs.flatMap((tab) => (tab.filePath ? [tab.filePath.toLowerCase()] : [])));
+    recentFiles.forEach((file) => {
+      if (
+        !openPaths.has(file.path.toLowerCase()) &&
+        (file.name.toLowerCase().includes(lowerNeedle) || file.path.toLowerCase().includes(lowerNeedle))
+      ) {
+        results.push({
+          id: `recent:${file.path.toLowerCase()}`,
+          filePath: file.path,
+          kind: "recent-file",
+          title: file.name,
+          preview: file.path,
+        });
+      }
+    });
     return results;
-  }, [searchValue, tabs]);
+  }, [recentFiles, searchValue, tabs]);
 
   const openSearchResult = useCallback(
-    (result: SearchResult) => {
+    async (result: SearchResult) => {
+      if (result.kind === "recent-file" && result.filePath) {
+        await openFilePath(result.filePath);
+        setActiveSearchResultId(result.id);
+        return;
+      }
+      if (!result.tabId) {
+        return;
+      }
       const tab = tabs.find((item) => item.id === result.tabId);
       if (!tab) {
         return;
@@ -2232,7 +2557,21 @@ function AppShell() {
         });
       }
     },
-    [activePane, focusTabInPane, getTabPanes, setPaneViewState, tabs],
+    [activePane, focusTabInPane, getTabPanes, openFilePath, setPaneViewState, tabs],
+  );
+
+  const openQuickOpenResult = useCallback(
+    async (result: (typeof quickOpenResults)[number]) => {
+      if (result.kind === "recent") {
+        await openFilePath(result.filePath);
+        closeQuickOpen();
+        return;
+      }
+      const availablePanes = getTabPanes(result.tabId);
+      focusTabInPane(result.tabId, availablePanes.includes(activePane) ? activePane : availablePanes[0]);
+      closeQuickOpen();
+    },
+    [activePane, closeQuickOpen, focusTabInPane, getTabPanes, openFilePath, quickOpenResults],
   );
 
   const pluginMenu: MenuProps["items"] = [
@@ -2268,6 +2607,31 @@ function AppShell() {
       icon: <FolderOpenOutlined />,
       onClick: openExistingFile,
     },
+    {
+      key: "quick-open",
+      label: `快速打开 (${settings.shortcuts.quickOpen})`,
+      icon: <SearchOutlined />,
+      onClick: () => {
+        closeSearch();
+        setQuickOpenOpen(true);
+        window.setTimeout(() => document.getElementById("quick-open-input")?.focus(), 0);
+      },
+    },
+    ...(recentFiles.length > 0
+      ? [
+          {
+            key: "recent-files",
+            label: "最近文件",
+            icon: <HistoryOutlined />,
+            children: recentFiles.slice(0, 8).map((file) => ({
+              key: `recent:${file.path}`,
+              label: file.name,
+              title: file.path,
+              onClick: () => void openFilePath(file.path),
+            })),
+          },
+        ]
+      : []),
     { type: "divider" },
     {
       key: "save",
@@ -2302,8 +2666,19 @@ function AppShell() {
       label: `搜索 (${settings.shortcuts.search})`,
       icon: <SearchOutlined />,
       onClick: () => {
+        closeQuickOpen();
         setSearchOpen(true);
         window.setTimeout(() => document.getElementById("global-search-input")?.focus(), 0);
+      },
+    },
+    {
+      key: "quick-open",
+      label: `快速打开 (${settings.shortcuts.quickOpen})`,
+      icon: <FolderOpenOutlined />,
+      onClick: () => {
+        closeSearch();
+        setQuickOpenOpen(true);
+        window.setTimeout(() => document.getElementById("quick-open-input")?.focus(), 0);
       },
     },
     {
@@ -2870,6 +3245,46 @@ function AppShell() {
         ])}
       </main>
 
+      {quickOpenOpen ? (
+        <div className="global-search-layer">
+          <div className="global-search-box">
+            <Input
+              id="quick-open-input"
+              autoFocus
+              allowClear
+              prefix={<FolderOpenOutlined />}
+              placeholder="输入标签名、文件名或路径"
+              value={quickOpenValue}
+              onChange={(event) => setQuickOpenValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && quickOpenResults[0]) {
+                  event.preventDefault();
+                  void openQuickOpenResult(quickOpenResults[0]);
+                }
+              }}
+              suffix={`${quickOpenResults.length} 个结果`}
+            />
+            <div className="search-results">
+              {quickOpenResults.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有匹配的标签或最近文件" /> : null}
+              {quickOpenResults.map((result) => (
+                <button
+                  key={result.id}
+                  type="button"
+                  className="search-result"
+                  onClick={() => void openQuickOpenResult(result)}
+                >
+                  <span className="search-result-title">
+                    {result.kind === "recent" ? <HistoryOutlined /> : <FileTextOutlined />}
+                    {result.title}
+                  </span>
+                  <span className="search-result-preview">{result.detail}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {searchOpen ? (
         <div className="global-search-layer">
           <div className="global-search-box">
@@ -2891,12 +3306,12 @@ function AppShell() {
                   type="button"
                   className="search-result"
                   onClick={() => {
-                    openSearchResult(result);
+                    void openSearchResult(result);
                     closeSearch();
                   }}
                 >
                   <span className="search-result-title">
-                    {result.kind === "file" ? <FileTextOutlined /> : null}
+                    {result.kind !== "canvas-text" ? <FileTextOutlined /> : null}
                     {result.title}
                     {result.line ? ` · 第 ${result.line} 行` : ""}
                   </span>

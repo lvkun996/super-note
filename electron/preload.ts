@@ -6,6 +6,20 @@ contextBridge.exposeInMainWorld("superNote", {
   loadWorkspace: () => ipcRenderer.invoke("workspace:load"),
   saveWorkspace: (workspace: unknown) => ipcRenderer.invoke("workspace:save", workspace),
   openFile: () => ipcRenderer.invoke("dialog:openFile"),
+  notifyRendererReady: () => ipcRenderer.invoke("app:rendererReady"),
+  notifyWorkspaceFlushed: () => ipcRenderer.invoke("app:workspaceFlushed"),
+  onPrepareQuit: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on("app:prepareQuit", listener);
+    return () => ipcRenderer.removeListener("app:prepareQuit", listener);
+  },
+  onOpenFiles: (callback: (files: unknown) => void) => {
+    const listener = (_event: electron.IpcRendererEvent, files: unknown) => callback(files);
+    ipcRenderer.on("files:open", listener);
+    return () => ipcRenderer.removeListener("files:open", listener);
+  },
+  readFile: (filePath: string) => ipcRenderer.invoke("file:read", filePath),
+  getFileSnapshots: (filePaths: string[]) => ipcRenderer.invoke("file:getSnapshots", filePaths),
   saveFile: (payload: unknown) => ipcRenderer.invoke("file:save", payload),
   setAlwaysOnTop: (enabled: boolean) => ipcRenderer.invoke("window:setAlwaysOnTop", enabled),
   minimizeWindow: () => ipcRenderer.invoke("window:minimize"),

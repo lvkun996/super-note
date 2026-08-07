@@ -37,6 +37,7 @@ export function HelpDocumentation({ canvasPluginEnabled, shortcuts }: HelpDocume
     ["保存内容", "当前标签有文件路径时直接保存；新内容会弹出保存位置选择。"],
     ["搜索内容", "打开全局搜索后，可在文本模块和画板文字中定位匹配项。"],
     ["关闭标签", "关闭最后一个标签后会进入空工作区。"],
+    ["侧边栏与快捷键", "左边是侧边栏，可以选择通过侧边栏操作，也可以使用快捷键切换。"],
   ];
 
   const shortcutRows = [
@@ -74,7 +75,14 @@ export function HelpDocumentation({ canvasPluginEnabled, shortcuts }: HelpDocume
           {shortcutRows.map(([title, shortcut]) => (
             <div key={title} className="help-doc-row shortcut">
               <dt>{title}</dt>
-              <dd>{shortcut}</dd>
+              <dd>
+                {shortcut.split(" / ").map((part, index) => (
+                  <span key={`${part}-${index}`} className="help-doc-shortcut-part">
+                    {index > 0 ? <span className="help-doc-shortcut-separator">/</span> : null}
+                    <span className="help-doc-shortcut-key">{part}</span>
+                  </span>
+                ))}
+              </dd>
             </div>
           ))}
         </dl>

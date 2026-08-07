@@ -87,12 +87,12 @@ function buildInstallers() {
 
   run(process.execPath, [path.join(root, "node_modules", "typescript", "bin", "tsc"), "--noEmit"]);
   run(process.execPath, [path.join(root, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.electron.json", "--noEmit"]);
-  run(process.execPath, [path.join(root, "scripts", "build-installer.mjs")]);
+  run(process.execPath, [path.join(root, "scripts", "build-installer.mjs"), "--low-memory"]);
   if (!includeLegacy) {
     return;
   }
 
-  run(process.execPath, [path.join(root, "scripts", "build-installer.mjs"), "--win7-8"]);
+  run(process.execPath, [path.join(root, "scripts", "build-installer.mjs"), "--win7-8", "--low-memory"]);
 
   const legacyLatest = path.join(legacyReleaseDir, "latest.yml");
   const legacyChannel = path.join(legacyReleaseDir, "win7-8.yml");
@@ -234,13 +234,23 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.11") {
+    return [
+      "Super Note v0.1.11",
+      "",
+      "- 增加工作区原子保存、备份恢复和损坏工作区自动恢复。",
+      "- 增加外部文件修改与删除检测，支持最近文件和 Ctrl + P 快速打开。",
+      "- 全局搜索支持标签标题、文件名和文件路径，并优化 Markdown 预览体验。",
+    ].join("\n");
+  }
+
   if (version === "0.1.10") {
     return [
       "Super Note v0.1.10",
       "",
-      "- Moved the active tab marker to the close-control end and changed it to a close icon on hover.",
-      "- Removed the remaining right-side gap from the author and version full-screen dialogs.",
-      "- Added Windows Explorer preview registration for .snote files.",
+      "- 当前标签的选中标识移动到尾部操作区域，鼠标移入后切换为关闭图标。",
+      "- 修复作者与版本全屏弹窗右侧残留空白。",
+      "- 新增 .snote 文件的 Windows 资源管理器预览注册。",
     ].join("\n");
   }
 
