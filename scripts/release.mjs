@@ -234,6 +234,16 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.12") {
+    return [
+      "Super Note v0.1.12",
+      "",
+      "- 修复高版本客户端仍提示安装低版本更新的问题。",
+      "- 中键拖动改为竖向文本选中，并增加文本模块 Ctrl + 滚轮调整字号。",
+      "- 内容区域字体统一为 Codex 正文使用的系统无衬线字体，Markdown 默认进入预览模式。",
+    ].join("\n");
+  }
+
   if (version === "0.1.11") {
     return [
       "Super Note v0.1.11",

@@ -141,6 +141,12 @@ markdownRenderer.renderer.rules.image = (tokens, index, options, env, self) => {
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.12",
+    date: "2026.08.11",
+    title: "更新与文本操作优化",
+    description: "修复低版本更新提示，增加中键竖向选中文本与 Ctrl + 滚轮调整字号，并让 Markdown 默认进入预览模式。",
+  },
+  {
     version: "v0.1.11",
     date: "2026.08.07",
     title: "工作区安全与文件操作优化",
@@ -575,14 +581,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.11",
+    version: "0.1.12",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.11",
+    currentVersion: "0.1.12",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -3101,6 +3107,7 @@ function AppShell() {
         programmerMode={settings.programmerMode}
         renderedMarkdown={getFileDocumentMode(tab) === "markdown" ? renderMarkdownContent(tab.content, tab.filePath) : ""}
         onContentChange={(content) => updateFileContent(tab.id, content)}
+        onFontSizeChange={(delta) => updateFileFontSize(tab.id, (fontSize) => fontSize + delta)}
         onProgrammerAction={(action, selectionStart, selectionEnd) =>
           applyFileProgrammerAction(tab.id, action, selectionStart, selectionEnd)
         }

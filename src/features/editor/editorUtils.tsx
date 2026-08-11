@@ -123,6 +123,79 @@ export function getMirrorTextOffsetAtPoint(
   }
 }
 
+function getApproximateTextOffsetAtPoint(editor: HTMLTextAreaElement, clientX: number, clientY: number) {
+  const rect = editor.getBoundingClientRect();
+  const styles = window.getComputedStyle(editor);
+  const paddingLeft = Number.parseFloat(styles.paddingLeft) || 0;
+  const paddingRight = Number.parseFloat(styles.paddingRight) || 0;
+  const paddingTop = Number.parseFloat(styles.paddingTop) || 0;
+  const lineHeight = Number.parseFloat(styles.lineHeight) || (Number.parseFloat(styles.fontSize) || 13) * 1.5;
+  const contentWidth = Math.max(1, editor.clientWidth - paddingLeft - paddingRight);
+  const targetX = Math.max(0, clientX - rect.left - paddingLeft + editor.scrollLeft);
+  const targetY = Math.max(0, clientY - rect.top - paddingTop + editor.scrollTop);
+  const targetLine = Math.floor(targetY / lineHeight);
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return editor.value.length;
+  }
+  context.font = styles.font || `${styles.fontWeight} ${styles.fontSize} ${styles.fontFamily}`;
+
+  const measureCharacter = (character: string) => (character === "\t" ? context.measureText("    ").width : context.measureText(character).width);
+  let visualLine = 0;
+  let logicalLineStart = 0;
+
+  while (logicalLineStart <= editor.value.length) {
+    const newlineIndex = editor.value.indexOf("\n", logicalLineStart);
+    const logicalLineEnd = newlineIndex < 0 ? editor.value.length : newlineIndex;
+    let segmentStart = logicalLineStart;
+
+    do {
+      let segmentEnd = segmentStart;
+      let segmentWidth = 0;
+      while (segmentEnd < logicalLineEnd) {
+        const characterWidth = measureCharacter(editor.value[segmentEnd]);
+        if (segmentEnd > segmentStart && segmentWidth + characterWidth > contentWidth) {
+          break;
+        }
+        segmentWidth += characterWidth;
+        segmentEnd += 1;
+      }
+
+      if (visualLine === targetLine) {
+        let currentWidth = 0;
+        for (let offset = segmentStart; offset < segmentEnd; offset += 1) {
+          const characterWidth = measureCharacter(editor.value[offset]);
+          if (targetX < currentWidth + characterWidth / 2) {
+            return offset;
+          }
+          currentWidth += characterWidth;
+        }
+        return segmentEnd;
+      }
+
+      visualLine += 1;
+      segmentStart = segmentEnd;
+    } while (segmentStart < logicalLineEnd);
+
+    if (newlineIndex < 0) {
+      break;
+    }
+    logicalLineStart = newlineIndex + 1;
+  }
+
+  return editor.value.length;
+}
+
+export function getTextOffsetAtPoint(
+  editor: HTMLTextAreaElement,
+  mirror: HTMLElement | null | undefined,
+  clientX: number,
+  clientY: number,
+) {
+  return getMirrorTextOffsetAtPoint(editor, mirror, clientX, clientY) ?? getApproximateTextOffsetAtPoint(editor, clientX, clientY);
+}
+
 export async function openExternalUrl(url: string) {
   if (!/^https?:\/\//i.test(url)) {
     return false;

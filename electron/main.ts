@@ -3,6 +3,7 @@ import { autoUpdater } from "electron-updater";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { atomicWriteText, getFileMetadata, isWorkspaceJson, readJsonFileCandidate } from "./fileStorage";
+import { isNewerVersion } from "./versionUtils";
 
 if (process.env.SUPER_NOTE_DEV_USER_DATA) {
   app.setPath("userData", process.env.SUPER_NOTE_DEV_USER_DATA);
@@ -367,19 +368,30 @@ function configureAutoUpdater() {
 
   autoUpdater.on("checking-for-update", () => setUpdateStatus({ state: "checking", error: undefined }));
   autoUpdater.on("update-available", (info) =>
-    setUpdateStatus({
-      state: "available",
-      latestVersion: info.version,
-      progress: undefined,
-      error: undefined,
-      downloadAttempt: undefined,
-      maxDownloadAttempts: undefined,
-    }),
+    setUpdateStatus(
+      isNewerVersion(info.version, app.getVersion())
+        ? {
+            state: "available",
+            latestVersion: info.version,
+            progress: undefined,
+            error: undefined,
+            downloadAttempt: undefined,
+            maxDownloadAttempts: undefined,
+          }
+        : {
+            state: "not-available",
+            latestVersion: undefined,
+            progress: undefined,
+            error: undefined,
+            downloadAttempt: undefined,
+            maxDownloadAttempts: undefined,
+          },
+    ),
   );
   autoUpdater.on("update-not-available", (info) =>
     setUpdateStatus({
       state: "not-available",
-      latestVersion: info.version,
+      latestVersion: isNewerVersion(info.version, app.getVersion()) ? info.version : undefined,
       progress: undefined,
       error: undefined,
       downloadAttempt: undefined,

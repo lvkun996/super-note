@@ -2,12 +2,12 @@ import { CodeOutlined, CopyOutlined, ScissorOutlined, SnippetsOutlined } from "@
 import { Button, Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import { useEffect, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactNode, WheelEvent as ReactWheelEvent } from "react";
 import type { FileDocumentMode, FileTab, ProgrammerAction, TextSearchTarget, TextSelection } from "../../appTypes";
 import {
   continueOrderedList,
   findHttpUrlAtOffset,
-  getMirrorTextOffsetAtPoint,
+  getTextOffsetAtPoint,
   getTextSelection,
   openExternalUrl,
   placeCaretAtEndForBlankArea,
@@ -36,6 +36,7 @@ type FileViewProps = {
   programmerMode: boolean;
   renderedMarkdown: string;
   onContentChange: (content: string) => void;
+  onFontSizeChange: (delta: number) => void;
   onProgrammerAction: (action: ProgrammerAction, selectionStart: number, selectionEnd: number) => void;
   onSearchTargetHandled: (requestId: number) => void;
 };
@@ -47,6 +48,7 @@ export function FileView({
   programmerMode,
   renderedMarkdown,
   onContentChange,
+  onFontSizeChange,
   onProgrammerAction,
   onSearchTargetHandled,
 }: FileViewProps) {
@@ -54,6 +56,7 @@ export function FileView({
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const [markdownMode, setMarkdownMode] = useState<"edit" | "preview">("preview");
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
+  const middleSelectionRef = useRef<{ anchor: number } | null>(null);
   const fontSize = tab.fontSize ?? 13;
   const documentMode = getFileDocumentMode(tab);
   const hasSelection = selection.end > selection.start;
@@ -62,7 +65,36 @@ export function FileView({
   useEffect(() => {
     setMarkdownMode("preview");
     setSelection(EMPTY_SELECTION);
-  }, [tab.id]);
+  }, [tab.id, documentMode]);
+
+  useEffect(() => {
+    const handleMiddleSelectionMove = (event: MouseEvent) => {
+      const middleSelection = middleSelectionRef.current;
+      const editor = editorRef.current;
+      if (!middleSelection || !editor) {
+        return;
+      }
+      event.preventDefault();
+      const offset = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY);
+      editor.focus({ preventScroll: true });
+      editor.setSelectionRange(middleSelection.anchor, offset);
+      setSelection(getTextSelection(editor));
+    };
+
+    const handleMiddleSelectionEnd = (event: MouseEvent) => {
+      if (event.button === 1) {
+        middleSelectionRef.current = null;
+      }
+    };
+
+    window.addEventListener("mousemove", handleMiddleSelectionMove, { passive: false });
+    window.addEventListener("mouseup", handleMiddleSelectionEnd);
+    return () => {
+      middleSelectionRef.current = null;
+      window.removeEventListener("mousemove", handleMiddleSelectionMove);
+      window.removeEventListener("mouseup", handleMiddleSelectionEnd);
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeSearchTarget) {
@@ -219,19 +251,43 @@ export function FileView({
   ];
 
   const handleTextAreaMouseDown = (event: ReactMouseEvent<HTMLTextAreaElement>) => {
+    if (event.button === 1) {
+      event.preventDefault();
+      event.stopPropagation();
+      const editor = event.currentTarget;
+      const offset = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY);
+      editor.focus({ preventScroll: true });
+      editor.setSelectionRange(offset, offset);
+      middleSelectionRef.current = { anchor: offset };
+      setSelection({ start: offset, end: offset });
+      return;
+    }
+
     const endMarker = highlightRef.current?.querySelector<HTMLElement>(".file-highlight-end-marker");
     if (placeCaretAtEndForBlankArea(event, endMarker)) {
       syncSelection(event.currentTarget);
     }
   };
 
+  const handleFontSizeWheel = (event: ReactWheelEvent<HTMLElement>) => {
+    if (!event.ctrlKey || event.deltaY === 0) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    onFontSizeChange(event.deltaY < 0 ? 1 : -1);
+  };
+
   const handleTextAreaMouseUp = (event: ReactMouseEvent<HTMLTextAreaElement>) => {
+    if (event.button === 1) {
+      return;
+    }
     const editor = event.currentTarget;
     syncSelection(editor);
     if (!event.ctrlKey) {
       return;
     }
-    const offset = getMirrorTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY) ?? editor.selectionStart;
+    const offset = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY) ?? editor.selectionStart;
     const url = findHttpUrlAtOffset(editor.value, offset);
     if (url) {
       event.preventDefault();
@@ -288,6 +344,7 @@ export function FileView({
         className={`file-view markdown-file ${markdownMode === "preview" ? "markdown-preview-mode" : "markdown-edit-mode"}`}
         data-tab-id={tab.id}
         style={{ ["--file-font-size" as string]: `${fontSize}px` }}
+        onWheel={handleFontSizeWheel}
       >
         <div className="markdown-toolbar">
           <span className="markdown-toolbar-title">Markdown</span>
@@ -359,7 +416,7 @@ export function FileView({
   );
 
   return (
-    <div className="file-view" data-tab-id={tab.id} style={{ ["--file-font-size" as string]: `${fontSize}px` }}>
+    <div className="file-view" data-tab-id={tab.id} style={{ ["--file-font-size" as string]: `${fontSize}px` }} onWheel={handleFontSizeWheel}>
       <Dropdown menu={{ items: contextMenuItems }} trigger={["contextMenu"]}>
         {textEditor}
       </Dropdown>
