@@ -44,6 +44,18 @@ type SaveFileResult = {
   error?: string;
 };
 
+type SaveCanvasImagePayload = {
+  dataUrl: string;
+  defaultName?: string;
+};
+
+type MindMapStyleIpcPayload = {
+  tabId: string;
+  title?: string;
+  style: unknown;
+  darkMode?: boolean;
+};
+
 type ReadFileResult = {
   ok: boolean;
   file?: OpenedFile;
@@ -101,6 +113,13 @@ interface Window {
     readFile: (filePath: string) => Promise<ReadFileResult>;
     getFileSnapshots: (filePaths: string[]) => Promise<FileSnapshot[]>;
     saveFile: (payload: SaveFilePayload) => Promise<SaveFileResult>;
+    saveCanvasImage: (payload: SaveCanvasImagePayload) => Promise<SaveFileResult>;
+    getInitialMindMapStyleState: () => unknown;
+    openMindMapStyle: (payload: MindMapStyleIpcPayload) => Promise<{ ok: boolean; error?: string }>;
+    syncMindMapStyle: (payload: MindMapStyleIpcPayload) => Promise<{ ok: boolean }>;
+    updateMindMapStyle: (payload: MindMapStyleIpcPayload) => Promise<{ ok: boolean }>;
+    onMindMapStyleState: (callback: (payload: unknown) => void) => () => void;
+    onMindMapStyleUpdate: (callback: (payload: MindMapStyleIpcPayload) => void) => () => void;
     setAlwaysOnTop: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>;
     minimizeWindow: () => Promise<{ ok: boolean }>;
     toggleMaximizeWindow: () => Promise<{ ok: boolean; maximized: boolean }>;

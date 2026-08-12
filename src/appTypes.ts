@@ -1,4 +1,5 @@
 import type { PluginSettings } from "./pluginSettings";
+import type { MindMapDocument } from "./features/mindmap/mindMapTypes";
 
 export type PaneKey = string;
 export type LegacyPaneKey = "left" | "right";
@@ -31,6 +32,10 @@ export type ImageCanvasItem = {
 };
 
 export type CanvasItem = TextCanvasItem | ImageCanvasItem;
+export type CanvasSnapshot = {
+  items: CanvasItem[];
+  mindMap?: MindMapDocument;
+};
 export type FileDocumentMode = "text" | "markdown";
 export type MarkdownRenderEnv = { filePath?: string };
 
@@ -44,7 +49,8 @@ export type CanvasTab = {
   panX: number;
   panY: number;
   items: CanvasItem[];
-  history: CanvasItem[][];
+  mindMap?: MindMapDocument;
+  history: CanvasSnapshot[];
   historyIndex: number;
   filePath?: string;
   lastKnownMtimeMs?: number;

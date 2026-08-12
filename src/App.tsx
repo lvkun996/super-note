@@ -70,6 +70,8 @@ import type {
 import { EmptyWorld } from "./components/EmptyWorld";
 import { HelpDocumentation } from "./components/HelpDocumentation";
 import { CanvasView } from "./features/canvas/CanvasView";
+import { renderCanvasToPng } from "./features/canvas/canvasExport";
+import { dispatchCanvasItemDrag, dispatchCanvasItemDragEnd } from "./features/canvas/canvasLiveDrag";
 import {
   DEFAULT_TEXT_FONT_SIZE,
   estimateTextHeight,
@@ -93,6 +95,24 @@ import {
 import { rememberTabVisit, removeTabVisit, resolveTabAfterClose } from "./features/tabs/tabHistory";
 import { FileView, getFileDocumentMode } from "./features/text/FileView";
 import { hasExternalFileChange } from "./features/files/fileState";
+import {
+  addMindMapChild,
+  addMindMapSibling,
+  cloneMindMap,
+  createMindMap,
+  deleteMindMapBranch,
+  deleteMindMapCanvasLink,
+  linkMindMapNodeToCanvasItem,
+  moveMindMapNode,
+  normalizeMindMap,
+  removeMindMapCanvasLinksForItem,
+  toggleMindMapNode,
+  updateMindMapCanvasLink,
+  updateMindMapNodeText,
+  updateMindMapStyle,
+} from "./features/mindmap/mindMapModel";
+import type { MindMapCanvasLink, MindMapDocument, MindMapStyle, SelectedMindMapNode } from "./features/mindmap/mindMapTypes";
+import type { ResolvedMindMapRelationAnchors } from "./features/mindmap/mindMapRelations";
 import {
   CURRENT_WORKSPACE_VERSION,
   normalizeRecentFiles,
@@ -140,6 +160,12 @@ markdownRenderer.renderer.rules.image = (tokens, index, options, env, self) => {
 };
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.13",
+    date: "2026.08.12",
+    title: "画板思维导图与内容关联",
+    description: "增加思维导图、主题跨层级拖动、文字与图片关联、连线吸附点拖拽和画板图片导出，并优化样式面板启动与夜间模式。",
+  },
   {
     version: "v0.1.12",
     date: "2026.08.11",
@@ -218,6 +244,10 @@ const makeId = () => crypto.randomUUID();
 
 function cloneItems(items: CanvasItem[]) {
   return items.map((item) => ({ ...item }));
+}
+
+function cloneCanvasSnapshot(items: CanvasItem[], mindMap?: MindMapDocument) {
+  return { items: cloneItems(items), mindMap: cloneMindMap(mindMap) };
 }
 
 function truncateTitle(value: string) {
@@ -310,17 +340,18 @@ function renderMarkdownContent(content: string, filePath?: string) {
   return markdownRenderer.render(content || "", { filePath });
 }
 
-function deriveCanvasTitle(tab: CanvasTab, items: CanvasItem[]) {
+function deriveCanvasTitle(tab: CanvasTab, items: CanvasItem[], mindMap = tab.mindMap) {
   if (!tab.autoTitle) {
     return tab.title;
   }
   const textItem = items.find((item): item is TextCanvasItem => item.type === "text" && item.text.trim().length > 0);
-  return textItem ? truncateTitle(textItem.text) : "未知";
+  const rootText = mindMap?.nodes.find((node) => node.id === mindMap.rootId)?.text;
+  return textItem ? truncateTitle(textItem.text) : rootText ? truncateTitle(rootText) : "未知";
 }
 
-function pushHistory(tab: CanvasTab, nextItems: CanvasItem[]) {
+function pushHistory(tab: CanvasTab, nextItems: CanvasItem[], nextMindMap = tab.mindMap) {
   const nextHistory = tab.history.slice(0, tab.historyIndex + 1);
-  nextHistory.push(cloneItems(nextItems));
+  nextHistory.push(cloneCanvasSnapshot(nextItems, nextMindMap));
   const limited = nextHistory.slice(-HISTORY_LIMIT);
   return {
     history: limited,
@@ -340,7 +371,7 @@ function createCanvasTab(themeIndex: number, dirty = true): CanvasTab {
     panX: 0,
     panY: 0,
     items,
-    history: [items],
+    history: [cloneCanvasSnapshot(items)],
     historyIndex: 0,
     dirty,
   };
@@ -394,6 +425,7 @@ function createMarkdownTab(themeIndex: number): FileTab {
 function restoreTab(tab: PersistedTab): NoteTab {
   if (tab.kind === "canvas") {
     const items = cloneItems(tab.items ?? []);
+    const mindMap = normalizeMindMap(tab.mindMap);
     return {
       ...tab,
       title: tab.title || "未知",
@@ -402,7 +434,8 @@ function restoreTab(tab: PersistedTab): NoteTab {
       panX: tab.panX ?? 0,
       panY: tab.panY ?? 0,
       items,
-      history: [items],
+      mindMap,
+      history: [cloneCanvasSnapshot(items, mindMap)],
       historyIndex: 0,
       dirty: tab.dirty ?? false,
     };
@@ -477,7 +510,7 @@ function isTabEmpty(tab: NoteTab) {
   if (tab.kind === "file") {
     return tab.content.trim().length === 0;
   }
-  return tab.items.every((item) => item.type === "text" && item.text.trim().length === 0);
+  return !tab.mindMap && tab.items.every((item) => item.type === "text" && item.text.trim().length === 0);
 }
 
 function getTabDisplayTitle(tab: NoteTab) {
@@ -577,18 +610,19 @@ function AppShell() {
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
   const [editingText, setEditingText] = useState<{ itemId: string; pane: PaneKey } | null>(null);
   const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
+  const [selectedMindMapNode, setSelectedMindMapNode] = useState<SelectedMindMapNode>(null);
   const [activeSearchResultId, setActiveSearchResultId] = useState<string | null>(null);
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.12",
+    version: "0.1.13",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.12",
+    currentVersion: "0.1.13",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -715,6 +749,14 @@ function AppShell() {
       const dy = dragging.currentY - dragging.originY;
       dragging.elements.forEach((element) => {
         element.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+      });
+      dispatchCanvasItemDrag({
+        tabId: dragging.tabId,
+        pane: dragging.pane,
+        itemId: dragging.itemId,
+        x: dragging.currentX,
+        y: dragging.currentY,
+        phase: "move",
       });
     });
   }, []);
@@ -971,6 +1013,42 @@ function AppShell() {
     },
     [activePane, activeTabId, focusTabInPane, paneTabs],
   );
+
+  const commitMindMap = useCallback(
+    (tabId: string, updater: (mindMap?: MindMapDocument) => MindMapDocument | undefined) => {
+      updateCanvasTab(tabId, (tab) => {
+        const nextMindMap = updater(cloneMindMap(tab.mindMap));
+        return {
+          ...tab,
+          title: deriveCanvasTitle(tab, tab.items, nextMindMap),
+          mindMap: nextMindMap,
+          dirty: true,
+          ...pushHistory(tab, tab.items, nextMindMap),
+        };
+      });
+    },
+    [updateCanvasTab],
+  );
+
+  useEffect(() => {
+    return window.superNote?.onMindMapStyleUpdate?.((payload) => {
+      if (!payload || typeof payload.tabId !== "string" || !payload.style || typeof payload.style !== "object") {
+        return;
+      }
+      commitMindMap(payload.tabId, (mindMap) => mindMap ? updateMindMapStyle(mindMap, payload.style as Partial<MindMapStyle>) : mindMap);
+    });
+  }, [commitMindMap]);
+
+  useEffect(() => {
+    if (activeTab?.kind === "canvas" && activeTab.mindMap) {
+      void window.superNote?.syncMindMapStyle?.({
+        tabId: activeTab.id,
+        title: getTabDisplayTitle(activeTab),
+        style: activeTab.mindMap.style,
+        darkMode: effectiveDarkMode,
+      });
+    }
+  }, [activeTab, effectiveDarkMode]);
 
   const openFilesAsTabs = useCallback(
     (files: OpenedFile[], targetPane?: PaneKey) => {
@@ -1437,11 +1515,14 @@ function AppShell() {
         return tab;
       }
       const nextIndex = tab.historyIndex - 1;
-      const nextItems = cloneItems(tab.history[nextIndex]);
+      const snapshot = tab.history[nextIndex];
+      const nextItems = cloneItems(snapshot.items);
+      const nextMindMap = cloneMindMap(snapshot.mindMap);
       return {
         ...tab,
-        title: deriveCanvasTitle(tab, nextItems),
+        title: deriveCanvasTitle(tab, nextItems, nextMindMap),
         items: nextItems,
+        mindMap: nextMindMap,
         dirty: true,
         historyIndex: nextIndex,
       };
@@ -1471,11 +1552,14 @@ function AppShell() {
         return tab;
       }
       const nextIndex = tab.historyIndex + 1;
-      const nextItems = cloneItems(tab.history[nextIndex]);
+      const snapshot = tab.history[nextIndex];
+      const nextItems = cloneItems(snapshot.items);
+      const nextMindMap = cloneMindMap(snapshot.mindMap);
       return {
         ...tab,
-        title: deriveCanvasTitle(tab, nextItems),
+        title: deriveCanvasTitle(tab, nextItems, nextMindMap),
         items: nextItems,
+        mindMap: nextMindMap,
         dirty: true,
         historyIndex: nextIndex,
       };
@@ -1487,6 +1571,7 @@ function AppShell() {
       const id = makeId();
       setEditingText({ itemId: id, pane });
       setSelectedItem({ tabId, itemId: id, pane });
+      setSelectedMindMapNode(null);
       commitCanvasItems(tabId, (items) => [
         ...items,
         {
@@ -1509,6 +1594,7 @@ function AppShell() {
     (tabId: string, pane: PaneKey, point: { x: number; y: number }, file: File, src: string) => {
       const id = makeId();
       setSelectedItem({ tabId, itemId: id, pane });
+      setSelectedMindMapNode(null);
       commitCanvasItems(tabId, (items) => [
         ...items,
         {
@@ -1526,9 +1612,154 @@ function AppShell() {
     [commitCanvasItems],
   );
 
+  const createCanvasMindMap = useCallback(
+    (tabId: string, pane: PaneKey, point: { x: number; y: number }) => {
+      const nextMindMap = createMindMap(point);
+      commitMindMap(tabId, (current) => current ?? nextMindMap);
+      setSelectedItem(null);
+      setEditingText(null);
+      setSelectedMindMapNode({ tabId, pane, nodeId: nextMindMap.rootId });
+    },
+    [commitMindMap],
+  );
+
+  const addCanvasMindMapChild = useCallback(
+    (tabId: string, pane: PaneKey, parentId: string) => {
+      const nodeId = makeId();
+      commitMindMap(tabId, (mindMap) => mindMap ? addMindMapChild(mindMap, parentId, () => nodeId).document : mindMap);
+      setSelectedItem(null);
+      setSelectedMindMapNode({ tabId, pane, nodeId });
+      return nodeId;
+    },
+    [commitMindMap],
+  );
+
+  const addCanvasMindMapSibling = useCallback(
+    (tabId: string, pane: PaneKey, siblingId: string) => {
+      const nodeId = makeId();
+      commitMindMap(tabId, (mindMap) => mindMap ? addMindMapSibling(mindMap, siblingId, () => nodeId).document : mindMap);
+      setSelectedItem(null);
+      setSelectedMindMapNode({ tabId, pane, nodeId });
+      return nodeId;
+    },
+    [commitMindMap],
+  );
+
+  const moveCanvasMindMapNode = useCallback(
+    (tabId: string, nodeId: string, targetNodeId: string, placement: "before" | "after" | "child") => {
+      commitMindMap(tabId, (mindMap) => mindMap ? moveMindMapNode(mindMap, nodeId, targetNodeId, placement) : mindMap);
+    },
+    [commitMindMap],
+  );
+
+  const createCanvasMindMapCanvasLink = useCallback(
+    (tabId: string, nodeId: string, itemId: string, anchors: ResolvedMindMapRelationAnchors) => {
+      const linkId = makeId();
+      commitMindMap(tabId, (mindMap) => mindMap
+        ? linkMindMapNodeToCanvasItem(mindMap, nodeId, itemId, () => linkId, anchors)
+        : mindMap);
+    },
+    [commitMindMap],
+  );
+
+  const updateCanvasMindMapCanvasLink = useCallback(
+    (tabId: string, linkId: string, patch: Partial<Pick<MindMapCanvasLink, "nodeAnchor" | "itemAnchor">>) => {
+      commitMindMap(tabId, (mindMap) => mindMap ? updateMindMapCanvasLink(mindMap, linkId, patch) : mindMap);
+    },
+    [commitMindMap],
+  );
+
+  const deleteCanvasMindMapCanvasLink = useCallback(
+    (tabId: string, linkId: string) => {
+      commitMindMap(tabId, (mindMap) => mindMap ? deleteMindMapCanvasLink(mindMap, linkId) : mindMap);
+    },
+    [commitMindMap],
+  );
+
+  const deleteCanvasMindMapBranch = useCallback(
+    (tabId: string, pane: PaneKey, nodeId: string) => {
+      const tab = tabs.find((candidate): candidate is CanvasTab => candidate.id === tabId && candidate.kind === "canvas");
+      const parentId = tab?.mindMap?.nodes.find((node) => node.id === nodeId)?.parentId;
+      if (!tab?.mindMap || nodeId === tab.mindMap.rootId) {
+        return;
+      }
+      commitMindMap(tabId, (mindMap) => mindMap ? deleteMindMapBranch(mindMap, nodeId) : mindMap);
+      setSelectedMindMapNode(parentId ? { tabId, pane, nodeId: parentId } : null);
+    },
+    [commitMindMap, tabs],
+  );
+
+  const removeCanvasMindMap = useCallback(
+    (tabId: string) => {
+      modal.confirm({
+        title: "删除整张思维导图？",
+        content: "中心主题和所有分支都会从当前画板移除，可使用撤销恢复。",
+        okText: "删除导图",
+        cancelText: "取消",
+        okButtonProps: { danger: true },
+        onOk: () => {
+          commitMindMap(tabId, () => undefined);
+          setSelectedMindMapNode(null);
+        },
+      });
+    },
+    [commitMindMap, modal],
+  );
+
+  const openMindMapStyleWindow = useCallback(async (tab: CanvasTab) => {
+    if (!tab.mindMap) {
+      return;
+    }
+    const result = await window.superNote?.openMindMapStyle?.({
+      tabId: tab.id,
+      title: getTabDisplayTitle(tab),
+      style: tab.mindMap.style,
+      darkMode: effectiveDarkMode,
+    });
+    if (result && !result.ok) {
+      message.error(result.error ?? "无法打开思维导图样式窗口");
+    }
+  }, [effectiveDarkMode, message]);
+
+  const exportCanvasImage = useCallback(async (tab: CanvasTab, pane: PaneKey, viewState: CanvasViewState) => {
+    try {
+      const rendered = await renderCanvasToPng(tab, viewState);
+      const defaultName = `${getTabDisplayTitle(tab).replace(/[\\/:*?"<>|]/g, "-") || "super-note-canvas"}.png`;
+      if (window.superNote?.saveCanvasImage) {
+        const result = await window.superNote.saveCanvasImage({ dataUrl: rendered.dataUrl, defaultName });
+        if (result.canceled) {
+          return;
+        }
+        if (!result.ok) {
+          throw new Error(result.error ?? "图片保存失败");
+        }
+        message.success(`已导出 ${rendered.width} × ${rendered.height} PNG`);
+        return;
+      }
+      const link = document.createElement("a");
+      link.href = rendered.dataUrl;
+      link.download = defaultName;
+      link.click();
+      message.success("画板图片已导出");
+    } catch (error) {
+      message.error(`导出图片失败：${String(error)}`);
+    }
+  }, [message]);
+
   const deleteCanvasItem = useCallback(
     (tabId: string, itemId: string) => {
-      commitCanvasItems(tabId, (items) => items.filter((item) => item.id !== itemId));
+      updateCanvasTab(tabId, (tab) => {
+        const nextItems = tab.items.filter((item) => item.id !== itemId);
+        const nextMindMap = tab.mindMap ? removeMindMapCanvasLinksForItem(tab.mindMap, itemId) : tab.mindMap;
+        return {
+          ...tab,
+          title: deriveCanvasTitle(tab, nextItems, nextMindMap),
+          items: nextItems,
+          mindMap: nextMindMap,
+          dirty: true,
+          ...pushHistory(tab, nextItems, nextMindMap),
+        };
+      });
       setCanvasViewStates((current) => {
         const currentForTab = current[tabId];
         if (!currentForTab) {
@@ -1550,7 +1781,7 @@ function AppShell() {
         setEditingText(null);
       }
     },
-    [commitCanvasItems, editingText, selectedItem],
+    [editingText, selectedItem, updateCanvasTab],
   );
 
   const editCanvasItem = useCallback(
@@ -1875,6 +2106,8 @@ function AppShell() {
         event.preventDefault();
         if (selectedItem) {
           deleteCanvasItem(selectedItem.tabId, selectedItem.itemId);
+        } else if (selectedMindMapNode) {
+          deleteCanvasMindMapBranch(selectedMindMapNode.tabId, selectedMindMapNode.pane, selectedMindMapNode.nodeId);
         }
       } else if ((!isTyping || canUndoFile) && shortcutMatches(event, settings.shortcuts.undo)) {
         event.preventDefault();
@@ -1894,6 +2127,7 @@ function AppShell() {
       closeQuickOpen,
       closeSearch,
       deleteCanvasItem,
+      deleteCanvasMindMapBranch,
       focusSiblingTab,
       pasteFromClipboard,
       quickOpenOpen,
@@ -1901,6 +2135,7 @@ function AppShell() {
       saveCurrentTab,
       searchOpen,
       selectedItem,
+      selectedMindMapNode,
       settings.shortcuts,
       settingsOpen,
       undo,
@@ -1919,6 +2154,7 @@ function AppShell() {
         document.activeElement.blur();
       }
       setEditingText(null);
+      setSelectedMindMapNode(null);
       focusTabInPane(tab.id, pane);
       setSelectedItem({ tabId: tab.id, itemId: item.id, pane });
       bringCanvasItemToFront(tab.id, item.id);
@@ -1947,6 +2183,14 @@ function AppShell() {
         currentY: layout.y,
         moved: false,
       };
+      dispatchCanvasItemDrag({
+        tabId: tab.id,
+        pane,
+        itemId: item.id,
+        x: layout.x,
+        y: layout.y,
+        phase: "start",
+      });
     },
     [bringCanvasItemToFront, clearHoldTimer, focusTabInPane],
   );
@@ -1958,6 +2202,7 @@ function AppShell() {
       }
       focusTabInPane(tab.id, pane);
       setSelectedItem(null);
+      setSelectedMindMapNode(null);
       clearHoldTimer();
       const surface = event.currentTarget;
 
@@ -2397,6 +2642,7 @@ function AppShell() {
           element.style.transform = "";
         });
       }
+      dispatchCanvasItemDragEnd({ tabId: dragging.tabId, pane: dragging.pane, itemId: dragging.itemId });
     };
 
     window.addEventListener("mousemove", handleMouseMove);
@@ -3042,6 +3288,7 @@ function AppShell() {
           viewState={viewState}
           editingTextId={editingText?.pane === pane ? editingText.itemId : null}
           selectedItem={selectedItem}
+          selectedMindMapNode={selectedMindMapNode}
           searchValue={searchValue}
           activeSearchItemId={activeSearchResultId?.startsWith(`${tab.id}:`) ? activeSearchResultId.split(":")[1] : null}
           handwritten={settings.handwritten}
@@ -3095,6 +3342,25 @@ function AppShell() {
           onEditItem={(item) => editCanvasItem(tab.id, item.id, pane)}
           onPreviewImage={(item) => setImagePreview({ src: item.src, name: item.name })}
           onProgrammerAction={(item, action) => applyProgrammerAction(tab.id, item.id, action)}
+          onCreateMindMap={(point) => createCanvasMindMap(tab.id, pane, point)}
+          onRemoveMindMap={() => removeCanvasMindMap(tab.id)}
+          onSelectMindMapNode={(nodeId) => {
+            focusTabInPane(tab.id, pane);
+            setSelectedItem(null);
+            setEditingText(null);
+            setSelectedMindMapNode({ tabId: tab.id, pane, nodeId });
+          }}
+          onAddMindMapChild={(nodeId) => addCanvasMindMapChild(tab.id, pane, nodeId)}
+          onAddMindMapSibling={(nodeId) => addCanvasMindMapSibling(tab.id, pane, nodeId)}
+          onDeleteMindMapBranch={(nodeId) => deleteCanvasMindMapBranch(tab.id, pane, nodeId)}
+          onToggleMindMapNode={(nodeId) => commitMindMap(tab.id, (mindMap) => mindMap ? toggleMindMapNode(mindMap, nodeId) : mindMap)}
+          onChangeMindMapText={(nodeId, text) => commitMindMap(tab.id, (mindMap) => mindMap ? updateMindMapNodeText(mindMap, nodeId, text) : mindMap)}
+          onMoveMindMapNode={(nodeId, targetNodeId, placement) => moveCanvasMindMapNode(tab.id, nodeId, targetNodeId, placement)}
+          onCreateMindMapCanvasLink={(nodeId, itemId, anchors) => createCanvasMindMapCanvasLink(tab.id, nodeId, itemId, anchors)}
+          onUpdateMindMapCanvasLink={(linkId, patch) => updateCanvasMindMapCanvasLink(tab.id, linkId, patch)}
+          onDeleteMindMapCanvasLink={(linkId) => deleteCanvasMindMapCanvasLink(tab.id, linkId)}
+          onOpenMindMapStyle={() => void openMindMapStyleWindow(tab)}
+          onExportImage={() => void exportCanvasImage(tab, pane, viewState)}
         />
       );
     }

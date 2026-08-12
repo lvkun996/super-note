@@ -2,6 +2,19 @@ import * as electron from "electron";
 
 const { contextBridge, ipcRenderer } = electron;
 
+function getInitialMindMapStyleState() {
+  const prefix = "--mindmap-style-state=";
+  const argument = process.argv.find((value) => value.startsWith(prefix));
+  if (!argument) {
+    return null;
+  }
+  try {
+    return JSON.parse(decodeURIComponent(argument.slice(prefix.length)));
+  } catch {
+    return null;
+  }
+}
+
 contextBridge.exposeInMainWorld("superNote", {
   loadWorkspace: () => ipcRenderer.invoke("workspace:load"),
   saveWorkspace: (workspace: unknown) => ipcRenderer.invoke("workspace:save", workspace),
@@ -21,6 +34,21 @@ contextBridge.exposeInMainWorld("superNote", {
   readFile: (filePath: string) => ipcRenderer.invoke("file:read", filePath),
   getFileSnapshots: (filePaths: string[]) => ipcRenderer.invoke("file:getSnapshots", filePaths),
   saveFile: (payload: unknown) => ipcRenderer.invoke("file:save", payload),
+  saveCanvasImage: (payload: unknown) => ipcRenderer.invoke("canvas:saveImage", payload),
+  getInitialMindMapStyleState,
+  openMindMapStyle: (payload: unknown) => ipcRenderer.invoke("mindmap-style:open", payload),
+  syncMindMapStyle: (payload: unknown) => ipcRenderer.invoke("mindmap-style:sync", payload),
+  updateMindMapStyle: (payload: unknown) => ipcRenderer.invoke("mindmap-style:update", payload),
+  onMindMapStyleState: (callback: (payload: unknown) => void) => {
+    const listener = (_event: electron.IpcRendererEvent, payload: unknown) => callback(payload);
+    ipcRenderer.on("mindmap-style:state", listener);
+    return () => ipcRenderer.removeListener("mindmap-style:state", listener);
+  },
+  onMindMapStyleUpdate: (callback: (payload: unknown) => void) => {
+    const listener = (_event: electron.IpcRendererEvent, payload: unknown) => callback(payload);
+    ipcRenderer.on("mindmap-style:update", listener);
+    return () => ipcRenderer.removeListener("mindmap-style:update", listener);
+  },
   setAlwaysOnTop: (enabled: boolean) => ipcRenderer.invoke("window:setAlwaysOnTop", enabled),
   minimizeWindow: () => ipcRenderer.invoke("window:minimize"),
   toggleMaximizeWindow: () => ipcRenderer.invoke("window:toggleMaximize"),

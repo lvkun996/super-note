@@ -625,6 +625,7 @@ input {
 }
 
 .canvas-frame {
+  position: relative;
   height: 100%;
   min-height: 0;
   display: flex;
@@ -781,52 +782,55 @@ input {
 
 .image-note {
   position: absolute;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border: 1px solid #d7dce5;
-  border-radius: 8px;
-  background: #fff;
+  padding: 0;
+  display: block;
+  overflow: visible;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
   cursor: move;
   user-select: none;
-  box-shadow: 0 8px 18px rgba(26, 35, 52, 0.12);
+  box-shadow: none;
 }
 
 .dark-mode .image-note {
-  border-color: #344258;
-  background: #182230;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  background: transparent;
+  box-shadow: none;
 }
 
 .image-note.selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), 0 8px 18px rgba(26, 35, 52, 0.12);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.image-note.relation-target,
+.text-note-view.relation-target {
+  cursor: crosshair;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 0 8px color-mix(in srgb, var(--accent) 10%, transparent);
+  animation: relation-target-pulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes relation-target-pulse {
+  from { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent), 0 0 0 7px color-mix(in srgb, var(--accent) 7%, transparent); }
+  to { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 42%, transparent), 0 0 0 11px color-mix(in srgb, var(--accent) 12%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-note.relation-target,
+  .text-note-view.relation-target {
+    animation: none;
+  }
 }
 
 .image-note img {
-  min-height: 0;
-  flex: 1;
+  height: 100%;
   width: 100%;
   object-fit: contain;
-  border-radius: 6px;
-  background: #f7f9fc;
+  border-radius: 4px;
+  background: transparent;
 }
 
 .dark-mode .image-note img {
-  background: #111821;
-}
-
-.image-note span {
-  overflow: hidden;
-  color: #5d6673;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dark-mode .image-note span {
-  color: #a8b5c7;
+  background: transparent;
 }
 
 .image-preview-layer {

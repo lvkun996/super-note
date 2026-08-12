@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, screen, shell } from "electron";
 import { autoUpdater } from "electron-updater";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { atomicWriteText, getFileMetadata, isWorkspaceJson, readJsonFileCandidate } from "./fileStorage";
 import { isNewerVersion } from "./versionUtils";
@@ -10,6 +10,8 @@ if (process.env.SUPER_NOTE_DEV_USER_DATA) {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let mindMapStyleWindow: BrowserWindow | null = null;
+let mindMapStylePayload: MindMapStylePayload | null = null;
 let tray: Tray | null = null;
 let trayMenuWindow: BrowserWindow | null = null;
 let forceQuit = false;
@@ -33,6 +35,30 @@ type TrayTab = { id: string; title: string; kind: "file" | "canvas" };
 let trayTabState: { activeTabId: string; tabs: TrayTab[] } = { activeTabId: "", tabs: [] };
 
 type OpenedFile = { path: string; name: string; content: string; mtimeMs?: number; size?: number };
+type MindMapStylePayload = { tabId: string; title?: string; style: Record<string, unknown>; darkMode: boolean };
+
+function parseMindMapStylePayload(value: unknown): MindMapStylePayload | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const candidate = value as { tabId?: unknown; title?: unknown; style?: unknown; darkMode?: unknown };
+  if (
+    typeof candidate.tabId !== "string" ||
+    candidate.tabId.length === 0 ||
+    candidate.tabId.length > 160 ||
+    !candidate.style ||
+    typeof candidate.style !== "object" ||
+    Array.isArray(candidate.style)
+  ) {
+    return null;
+  }
+  return {
+    tabId: candidate.tabId,
+    title: typeof candidate.title === "string" ? candidate.title.slice(0, 160) : undefined,
+    style: candidate.style as Record<string, unknown>,
+    darkMode: candidate.darkMode === true,
+  };
+}
 
 const trayMenuHtml = `<!doctype html>
 <html lang="zh-CN">
@@ -522,6 +548,63 @@ function createTray() {
   tray.on("double-click", showMainWindow);
 }
 
+function sendMindMapStyleState() {
+  if (mindMapStyleWindow && !mindMapStyleWindow.isDestroyed() && mindMapStylePayload) {
+    mindMapStyleWindow.webContents.send("mindmap-style:state", mindMapStylePayload);
+  }
+}
+
+function createMindMapStyleWindow() {
+  if (mindMapStyleWindow && !mindMapStyleWindow.isDestroyed()) {
+    mindMapStyleWindow.show();
+    mindMapStyleWindow.focus();
+    sendMindMapStyleState();
+    return mindMapStyleWindow;
+  }
+
+  const parentBounds = mainWindow?.getBounds();
+  mindMapStyleWindow = new BrowserWindow({
+    width: 350,
+    height: 760,
+    minWidth: 350,
+    minHeight: 560,
+    ...(parentBounds ? {
+      x: parentBounds.x + Math.max(24, parentBounds.width - 370),
+      y: parentBounds.y + 52,
+    } : {}),
+    title: "思维导图样式 - Super Note",
+    icon: getIconPath(),
+    autoHideMenuBar: true,
+    show: false,
+    backgroundColor: mindMapStylePayload?.darkMode ? "#141a22" : "#f4f6fa",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      additionalArguments: mindMapStylePayload
+        ? [`--mindmap-style-state=${encodeURIComponent(JSON.stringify(mindMapStylePayload))}`]
+        : [],
+    },
+  });
+  mindMapStyleWindow.setMenuBarVisibility(false);
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  if (devServerUrl) {
+    void mindMapStyleWindow.loadURL(`${devServerUrl.replace(/#.*$/, "")}#mindmap-style`);
+  } else {
+    void mindMapStyleWindow.loadFile(path.join(__dirname, "../dist/index.html"), { hash: "mindmap-style" });
+  }
+  mindMapStyleWindow.webContents.on("did-finish-load", sendMindMapStyleState);
+  mindMapStyleWindow.once("ready-to-show", () => {
+    mindMapStyleWindow?.show();
+    mindMapStyleWindow?.focus();
+  });
+  mindMapStyleWindow.on("closed", () => {
+    mindMapStyleWindow = null;
+  });
+  return mindMapStyleWindow;
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1320,
@@ -805,6 +888,88 @@ ipcMain.handle(
     }
   },
 );
+
+ipcMain.handle("canvas:saveImage", async (event, payload: { dataUrl?: unknown; defaultName?: unknown }) => {
+  if (event.sender !== mainWindow?.webContents || typeof payload?.dataUrl !== "string") {
+    return { ok: false, canceled: false, error: "Invalid image payload" };
+  }
+  const match = /^data:image\/png;base64,([a-z\d+/=]+)$/i.exec(payload.dataUrl);
+  if (!match) {
+    return { ok: false, canceled: false, error: "Only PNG image data is supported" };
+  }
+  const bytes = Buffer.from(match[1], "base64");
+  if (bytes.length === 0 || bytes.length > 100 * 1024 * 1024) {
+    return { ok: false, canceled: false, error: "Image data is empty or too large" };
+  }
+  const target = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
+  const dialogOptions = {
+    title: "导出画板图片",
+    defaultPath: typeof payload.defaultName === "string" ? payload.defaultName : "super-note-canvas.png",
+    filters: [{ name: "PNG Image", extensions: ["png"] }],
+  } satisfies Electron.SaveDialogOptions;
+  const result = target ? await dialog.showSaveDialog(target, dialogOptions) : await dialog.showSaveDialog(dialogOptions);
+  if (result.canceled || !result.filePath) {
+    return { ok: false, canceled: true };
+  }
+  try {
+    await writeFile(result.filePath, bytes);
+    const metadata = await getFileMetadata(result.filePath);
+    return {
+      ok: true,
+      canceled: false,
+      path: result.filePath,
+      name: path.basename(result.filePath),
+      mtimeMs: metadata.mtimeMs,
+      size: metadata.size,
+    };
+  } catch (error) {
+    return { ok: false, canceled: false, path: result.filePath, error: String(error) };
+  }
+});
+
+ipcMain.handle("mindmap-style:open", (event, value: unknown) => {
+  if (event.sender !== mainWindow?.webContents) {
+    return { ok: false, error: "Style window can only be opened from the main window" };
+  }
+  const payload = parseMindMapStylePayload(value);
+  if (!payload) {
+    return { ok: false, error: "Invalid mind map style payload" };
+  }
+  mindMapStylePayload = payload;
+  createMindMapStyleWindow();
+  sendMindMapStyleState();
+  return { ok: true };
+});
+
+ipcMain.handle("mindmap-style:sync", (event, value: unknown) => {
+  if (event.sender !== mainWindow?.webContents) {
+    return { ok: false };
+  }
+  const payload = parseMindMapStylePayload(value);
+  if (!payload || !mindMapStylePayload || payload.tabId !== mindMapStylePayload.tabId) {
+    return { ok: false };
+  }
+  mindMapStylePayload = payload;
+  sendMindMapStyleState();
+  return { ok: true };
+});
+
+ipcMain.handle("mindmap-style:update", (event, value: unknown) => {
+  if (event.sender !== mindMapStyleWindow?.webContents) {
+    return { ok: false };
+  }
+  const payload = parseMindMapStylePayload(value);
+  if (!payload || !mindMapStylePayload || payload.tabId !== mindMapStylePayload.tabId) {
+    return { ok: false };
+  }
+  mindMapStylePayload = {
+    ...payload,
+    title: mindMapStylePayload.title,
+    darkMode: mindMapStylePayload.darkMode,
+  };
+  mainWindow?.webContents.send("mindmap-style:update", mindMapStylePayload);
+  return { ok: true };
+});
 
 ipcMain.handle("window:setAlwaysOnTop", (_event, enabled: boolean) => {
   const target = mainWindow ?? BrowserWindow.getFocusedWindow();

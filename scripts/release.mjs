@@ -234,6 +234,16 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.13") {
+    return [
+      "Super Note v0.1.13",
+      "",
+      "- 画板模式新增思维导图、主题跨层级拖动和 PNG 图片导出。",
+      "- 思维导图主题支持关联文字或图片，关联线可拖拽调整吸附边，并支持 Delete 与右键删除。",
+      "- 图片和文字移动时关联线实时跟随且吸附边保持稳定，样式面板增加夜间模式并显著优化启动速度。",
+    ].join("\n");
+  }
+
   if (version === "0.1.12") {
     return [
       "Super Note v0.1.12",
