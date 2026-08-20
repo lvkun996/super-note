@@ -2,6 +2,7 @@ import type { PluginSettings } from "./pluginSettings";
 import type { MindMapDocument } from "./features/mindmap/mindMapTypes";
 
 export type PaneKey = string;
+export type TabLayout = "top" | "left";
 export type LegacyPaneKey = "left" | "right";
 export type LegacyTabPlacement = LegacyPaneKey | "both";
 
@@ -106,6 +107,7 @@ export type ShortcutAction =
   | "deleteSelected"
   | "previousTab"
   | "nextTab"
+  | "toggleTabLayout"
   | "splitLeft"
   | "splitRight";
 
@@ -116,6 +118,7 @@ export type AppSettings = {
   programmerMode: boolean;
   darkMode: boolean;
   followSystemTheme: boolean;
+  tabLayout: TabLayout;
   plugins: PluginSettings;
   shortcuts: ShortcutConfig;
 };

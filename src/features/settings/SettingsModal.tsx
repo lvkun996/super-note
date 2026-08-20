@@ -19,6 +19,7 @@ export const DEFAULT_SHORTCUTS: ShortcutConfig = {
   deleteSelected: "Backspace",
   previousTab: "Ctrl+Left",
   nextTab: "Ctrl+Right",
+  toggleTabLayout: "Ctrl+B",
   splitLeft: "Ctrl+Shift+Left",
   splitRight: "Ctrl+Shift+Right",
 };
@@ -28,6 +29,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   programmerMode: false,
   darkMode: false,
   followSystemTheme: false,
+  tabLayout: "top",
   plugins: DEFAULT_PLUGIN_SETTINGS,
   shortcuts: DEFAULT_SHORTCUTS,
 };
@@ -48,6 +50,7 @@ const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; desc: string
   { action: "deleteSelected", label: "删除选中元素", desc: "删除画板中选中的元素" },
   { action: "previousTab", label: "打开左侧标签", desc: "切换到当前标签左边的标签页" },
   { action: "nextTab", label: "打开右侧标签", desc: "切换到当前标签右边的标签页" },
+  { action: "toggleTabLayout", label: "切换标签栏位置", desc: "在顶部标签栏和左侧标签菜单之间切换" },
   { action: "splitLeft", label: "向左分割视图", desc: "把当前标签分割到左侧视图" },
   { action: "splitRight", label: "向右分割视图", desc: "把当前标签分割到右侧视图" },
 ];
@@ -164,6 +167,7 @@ export function normalizeSettings(value?: Partial<AppSettings>): AppSettings {
     programmerMode: Boolean(value?.programmerMode),
     darkMode: Boolean(value?.darkMode),
     followSystemTheme: Boolean(value?.followSystemTheme),
+    tabLayout: value?.tabLayout === "left" ? "left" : "top",
     plugins: normalizePluginSettings(value?.plugins),
     shortcuts,
   };
@@ -195,6 +199,14 @@ export function SettingsModal({ open, settings, onClose, onChange }: SettingsMod
       styles={{ body: { maxHeight: "min(72vh, calc(100vh - 140px))", overflowY: "auto", paddingRight: 8 } }}
     >
       <div className="settings-panel">
+        <label className="settings-row">
+          <span>
+            <strong>左侧标签菜单</strong>
+            <small>打开后标签在左侧纵向排列，也可以使用 {settings.shortcuts.toggleTabLayout} 快速切换。</small>
+          </span>
+          <Switch checked={settings.tabLayout === "left"} onChange={(checked) => onChange({ ...settings, tabLayout: checked ? "left" : "top" })} />
+        </label>
+
         <label className="settings-row">
           <span>
             <strong>手绘风格</strong>

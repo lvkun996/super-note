@@ -13,6 +13,7 @@ type HelpDocumentationShortcuts = {
   deleteSelected: string;
   previousTab: string;
   nextTab: string;
+  toggleTabLayout: string;
   splitLeft: string;
   splitRight: string;
 };
@@ -42,7 +43,7 @@ export function HelpDocumentation({ canvasPluginEnabled, shortcuts }: HelpDocume
     ["保存内容", "当前标签有文件路径时直接保存；新内容会弹出保存位置选择。"],
     ["搜索内容", "打开全局搜索后，可在文本模块和画板文字中定位匹配项。"],
     ["关闭标签", "关闭最后一个标签后会进入空工作区。"],
-    ["侧边栏与快捷键", "左边是侧边栏，可以选择通过侧边栏操作，也可以使用快捷键切换。"],
+    ["切换标签栏位置", "标签可以显示在窗口顶部，也可以切换成左侧紧凑菜单；标签支持按住鼠标左键拖拽排序。"],
   ];
 
   const shortcutRows = [
@@ -57,6 +58,7 @@ export function HelpDocumentation({ canvasPluginEnabled, shortcuts }: HelpDocume
     ["删除选中元素", shortcuts.deleteSelected],
     ["放大 / 缩小文本字号", `${shortcuts.fileFontIncrease} / ${shortcuts.fileFontDecrease}`],
     ["打开左侧 / 右侧标签", `${shortcuts.previousTab} / ${shortcuts.nextTab}`],
+    ["顶部 / 左侧标签栏", shortcuts.toggleTabLayout],
     ["向左 / 向右分割视图", `${shortcuts.splitLeft} / ${shortcuts.splitRight}`],
   ];
 

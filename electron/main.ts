@@ -807,7 +807,7 @@ ipcMain.handle("dialog:openFile", async () => {
     properties: ["openFile"],
     filters: [
       { name: "Super Note", extensions: ["snote"] },
-      { name: "Text", extensions: ["txt", "md", "json", "csv", "log", "ts", "tsx", "js", "jsx", "css", "html"] },
+      { name: "Text", extensions: ["txt", "md", "markdown", "json", "csv", "log", "ts", "tsx", "js", "jsx", "css", "html"] },
       { name: "All Files", extensions: ["*"] },
     ],
   } satisfies Electron.OpenDialogOptions;

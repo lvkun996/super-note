@@ -1,5 +1,6 @@
 node_modules
 .tmp-home
+.tmp-*.png
 .cache
 dist
 dist-electron

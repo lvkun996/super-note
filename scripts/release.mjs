@@ -234,6 +234,16 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.14") {
+    return [
+      "Super Note v0.1.14",
+      "",
+      "- 标签支持鼠标左键拖拽排序，新的顺序会随工作区自动保存。",
+      "- Ctrl + B 可在顶部标签栏与左侧紧凑标签菜单之间切换，并保留分栏、关闭历史和编辑状态。",
+      "- 优化标签导航代码层级与拖拽渲染性能，扩展 Windows 默认打开和资源管理器文本预览支持。",
+    ].join("\n");
+  }
+
   if (version === "0.1.13") {
     return [
       "Super Note v0.1.13",

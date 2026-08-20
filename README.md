@@ -5,10 +5,11 @@ Electron + React desktop note canvas.
 ## Current capabilities
 
 - Text, Markdown, and freeform canvas tabs with multi-pane layouts.
+- Mouse-drag tab reordering and a persistent `Ctrl+B` top/left tab layout.
 - Local workspace recovery with atomic writes and an automatic backup.
 - External file-change detection with reload or keep-current conflict handling.
 - Recent files, `Ctrl+P` quick open, and search across open tabs and recent file names.
-- Windows `.snote` file opening, tray controls, and in-app updates.
+- Windows default-app and Explorer preview registration for supported text formats, tray controls, and in-app updates.
 
 ## Scripts
 

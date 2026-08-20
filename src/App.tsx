@@ -5,11 +5,10 @@ import {
   Dropdown,
   Empty,
   Input,
-  Tabs,
   Tooltip,
   theme,
 } from "antd";
-import type { MenuProps, TabsProps } from "antd";
+import type { MenuProps } from "antd";
 import {
   BookOutlined,
   CheckOutlined,
@@ -26,6 +25,8 @@ import {
   BorderOutlined,
   MinusOutlined,
   MoonOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
   PlusOutlined,
   PushpinFilled,
   PushpinOutlined,
@@ -66,6 +67,7 @@ import type {
   SelectedItem,
   TextCanvasItem,
   TextSearchTarget,
+  TabLayout,
 } from "./appTypes";
 import { EmptyWorld } from "./components/EmptyWorld";
 import { HelpDocumentation } from "./components/HelpDocumentation";
@@ -93,6 +95,9 @@ import {
   shortcutMatches,
 } from "./features/settings/SettingsModal";
 import { rememberTabVisit, removeTabVisit, resolveTabAfterClose } from "./features/tabs/tabHistory";
+import { TabNavigation } from "./features/tabs/TabNavigation";
+import { reorderTabsById } from "./features/tabs/tabOrder";
+import type { TabDropPosition } from "./features/tabs/tabOrder";
 import { FileView, getFileDocumentMode } from "./features/text/FileView";
 import { hasExternalFileChange } from "./features/files/fileState";
 import {
@@ -160,6 +165,12 @@ markdownRenderer.renderer.rules.image = (tokens, index, options, env, self) => {
 };
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.14",
+    date: "2026.08.20",
+    title: "标签导航与 Windows 文件集成",
+    description: "新增标签拖拽排序和 Ctrl + B 左侧标签菜单，优化标签渲染与代码层级，并扩展 Windows 默认打开和资源管理器预览支持。",
+  },
   {
     version: "v0.1.13",
     date: "2026.08.12",
@@ -324,7 +335,7 @@ function resolveMarkdownAssetUrl(src: string, filePath?: string) {
 
 function getFileSaveFilters(tab: FileTab) {
   const textFilters = [
-    { name: "Text", extensions: ["txt", "md", "json", "csv", "log", "ts", "tsx", "js", "jsx", "css", "html"] },
+    { name: "Text", extensions: ["txt", "md", "markdown", "json", "csv", "log", "ts", "tsx", "js", "jsx", "css", "html"] },
     { name: "All Files", extensions: ["*"] },
   ];
   if (getFileDocumentMode(tab) !== "markdown") {
@@ -615,14 +626,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.13",
+    version: "0.1.14",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.13",
+    currentVersion: "0.1.14",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -656,13 +667,19 @@ function AppShell() {
     [paneIds, tabPaneIds],
   );
 
-  const paneTabs = useMemo<Record<PaneKey, NoteTab[]>>(() => {
-    const next: Record<PaneKey, NoteTab[]> = {};
-    paneIds.forEach((paneId) => {
-      next[paneId] = tabs.filter((tab) => getTabPanes(tab.id).includes(paneId));
+  const { paneTabs, paneTabIds } = useMemo(() => {
+    const nextTabs: Record<PaneKey, NoteTab[]> = Object.fromEntries(paneIds.map((paneId) => [paneId, []]));
+    const nextIds: Record<PaneKey, string[]> = Object.fromEntries(paneIds.map((paneId) => [paneId, []]));
+    const validPaneIds = new Set(paneIds);
+    tabs.forEach((tab) => {
+      const placements = tabPaneIds[tab.id]?.filter((paneId) => validPaneIds.has(paneId)) ?? [paneIds[0]];
+      placements.forEach((paneId) => {
+        nextTabs[paneId]?.push(tab);
+        nextIds[paneId]?.push(tab.id);
+      });
     });
-    return next;
-  }, [getTabPanes, paneIds, tabs]);
+    return { paneTabs: nextTabs, paneTabIds: nextIds };
+  }, [paneIds, tabPaneIds, tabs]);
 
   const activeTabsByPane = useMemo<Record<PaneKey, NoteTab | null>>(() => {
     const next: Record<PaneKey, NoteTab | null> = {};
@@ -808,6 +825,13 @@ function AppShell() {
       void persistWorkspaceRef.current().finally(() => window.superNote?.notifyWorkspaceFlushed());
     });
     return unsubscribe;
+  }, []);
+
+  const toggleTabLayout = useCallback(() => {
+    setSettings((current) => ({
+      ...current,
+      tabLayout: current.tabLayout === "left" ? "top" : "left",
+    }));
   }, []);
 
   useEffect(() => {
@@ -1287,6 +1311,22 @@ function AppShell() {
       focusTabInPane(tabId, targetPane);
     },
     [focusTabInPane],
+  );
+
+  const reorderTab = useCallback(
+    (movingId: string, targetId: string, position: TabDropPosition, pane?: PaneKey) => {
+      setTabs((current) => {
+        const scopeIds = pane
+          ? new Set(
+              current
+                .filter((tab) => (tabPaneIds[tab.id] ?? [paneIds[0]]).filter((paneId) => paneIds.includes(paneId)).includes(pane))
+                .map((tab) => tab.id),
+            )
+          : undefined;
+        return reorderTabsById(current, movingId, targetId, position, scopeIds);
+      });
+    },
+    [paneIds, tabPaneIds],
   );
 
   const closeTab = useCallback(
@@ -2064,6 +2104,9 @@ function AppShell() {
         window.setTimeout(() => document.getElementById("quick-open-input")?.focus(), 0);
       } else if (quickOpenOpen) {
         return;
+      } else if (!searchOpen && !settingsOpen && shortcutMatches(event, settings.shortcuts.toggleTabLayout)) {
+        event.preventDefault();
+        toggleTabLayout();
       } else if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontIncrease)) {
         event.preventDefault();
         updateFileFontSize(activeTab.id, (fontSize) => fontSize + 1);
@@ -2138,6 +2181,7 @@ function AppShell() {
       selectedMindMapNode,
       settings.shortcuts,
       settingsOpen,
+      toggleTabLayout,
       undo,
       updateFileFontSize,
     ],
@@ -2912,6 +2956,12 @@ function AppShell() {
       icon: <CloseOutlined />,
       onClick: closeCurrentTab,
     },
+    {
+      key: "toggle-tab-layout",
+      label: `${settings.tabLayout === "left" ? "切换到顶部标签栏" : "切换到左侧标签菜单"} (${settings.shortcuts.toggleTabLayout})`,
+      icon: settings.tabLayout === "left" ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />,
+      onClick: toggleTabLayout,
+    },
     { type: "divider" },
     {
       key: "search",
@@ -3131,151 +3181,9 @@ function AppShell() {
     }
   }, [message, updateStatus.latestVersion, updateStatus.state]);
 
-  const makeTabItems = useCallback(
-    (paneTabs: NoteTab[], pane: PaneKey): TabsProps["items"] =>
-      paneTabs.map((tab) => {
-        const activeTheme = canvasThemes[tab.themeIndex % canvasThemes.length];
-        const isActive = paneActiveTabIds[pane] === tab.id;
-        const tabPanes = getTabPanes(tab.id);
-        const tabContextMenu: MenuProps["items"] = [
-          {
-            key: "split-left",
-            label: "向左分割视图",
-            icon: <SplitCellsOutlined />,
-            onClick: () => splitTab(tab.id, pane, "left"),
-          },
-          {
-            key: "split-right",
-            label: "向右分割视图",
-            icon: <SplitCellsOutlined />,
-            onClick: () => splitTab(tab.id, pane, "right"),
-          },
-          ...(tabPanes.length > 1
-            ? [
-                {
-                  key: "cancel-split",
-                  label: "从当前分栏移除",
-                  icon: <CloseOutlined />,
-                  onClick: () => closeTab(tab.id, pane),
-                },
-              ]
-            : []),
-          ...(splitView
-            ? [
-                {
-                  key: "close-split",
-                  label: "关闭当前分栏",
-                  icon: <CloseOutlined />,
-                  onClick: () => closePane(pane),
-                },
-              ]
-            : []),
-        ];
-
-        return {
-          key: tab.id,
-          label: (
-            <Dropdown menu={{ items: tabContextMenu }} trigger={["contextMenu"]}>
-              <span
-                draggable={splitView}
-                className="tab-label"
-                style={{ ["--tab-accent" as string]: activeTheme.accent }}
-                onContextMenu={(event) => event.preventDefault()}
-                onDragStart={(event) => {
-                  event.dataTransfer.setData("text/super-note-tab", JSON.stringify({ tabId: tab.id, sourcePane: pane }));
-                  event.dataTransfer.effectAllowed = "move";
-                }}
-              >
-                <span className="tab-title">{getTabDisplayTitle(tab)}</span>
-                <button
-                  type="button"
-                  className={`tab-close${isActive ? " active" : ""}${tab.dirty ? " dirty" : ""}`}
-                  title={tab.dirty ? "未保存，点击关闭" : "关闭"}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    closeTab(tab.id, pane);
-                  }}
-                >
-                  {isActive || tab.dirty ? (
-                    <>
-                      <span className="tab-status-dot" />
-                      <CloseOutlined className="tab-status-close" />
-                    </>
-                  ) : (
-                    <CloseOutlined />
-                  )}
-                </button>
-              </span>
-            </Dropdown>
-          ),
-        };
-      }),
-    [closePane, closeTab, getTabPanes, paneActiveTabIds, splitTab, splitView],
-  );
-
-  const handleTabZoneDoubleClick = useCallback(
-    (pane: PaneKey, event: React.MouseEvent<HTMLDivElement>) => {
-      const target = event.target;
-      if (!(target instanceof Element)) {
-        return;
-      }
-      if (target.closest(".ant-tabs-tab, .ant-tabs-nav-more, .ant-tabs-nav-operations, .tab-close, button")) {
-        return;
-      }
-      addTextTab(pane);
-    },
-    [addTextTab],
-  );
-
-  const renderTabZone = (pane: PaneKey, paneTabs: NoteTab[], activeKey?: string | null, showAddButtons = false) => (
-    <div
-      key={pane}
-      className="tab-pane-zone"
-      onDoubleClick={(event) => handleTabZoneDoubleClick(pane, event)}
-      onDragOver={(event) => {
-        if (splitView && event.dataTransfer.types.includes("text/super-note-tab")) {
-          event.preventDefault();
-        }
-      }}
-      onDrop={(event) => {
-        const payload = event.dataTransfer.getData("text/super-note-tab");
-        if (splitView && payload) {
-          event.preventDefault();
-          try {
-            const parsed = JSON.parse(payload) as { tabId?: string; sourcePane?: PaneKey };
-            if (parsed.tabId && parsed.sourcePane) {
-              moveTabToPane(parsed.tabId, parsed.sourcePane, pane);
-            }
-          } catch {
-            const sourcePane = getTabPanes(payload)[0];
-            if (sourcePane) {
-              moveTabToPane(payload, sourcePane, pane);
-            }
-          }
-        }
-      }}
-    >
-      <Tabs
-        type="card"
-        activeKey={activeKey ?? undefined}
-        items={makeTabItems(paneTabs, pane)}
-        onChange={(key) => focusTabInPane(key, pane)}
-        tabBarExtraContent={
-          showAddButtons ? (
-            <div className="tabs-extra-actions">
-              {canvasPluginEnabled ? (
-                <Tooltip title={`新建画板 (${settings.shortcuts.newCanvas})`}>
-                  <Button className="tabs-canvas-add-button" type="text" aria-label="新建画板" icon={<BorderOutlined />} onClick={addCanvasTab} />
-                </Tooltip>
-              ) : null}
-              <Tooltip title={`新建文本模块 (${settings.shortcuts.newText})`}>
-                <Button className="tabs-add-button" type="text" aria-label="新建文本模块" icon={<PlusOutlined />} onClick={() => addTextTab()} />
-              </Tooltip>
-            </div>
-          ) : null
-        }
-      />
-    </div>
+  const tabNavigationItems = useMemo(
+    () => tabs.map((tab) => ({ id: tab.id, title: getTabDisplayTitle(tab), themeIndex: tab.themeIndex, dirty: tab.dirty })),
+    [tabs],
   );
 
   const renderPaneContent = (tab: NoteTab, pane: PaneKey) => {
@@ -3408,6 +3316,7 @@ function AppShell() {
     >
     <div
       className={`app-shell${settings.handwritten ? " handwritten-mode" : ""}${effectiveDarkMode ? " dark-mode" : ""}`}
+      data-tab-layout={settings.tabLayout}
       style={{ ["--pane-grid" as string]: makePaneGridTemplate(paneWidths) } as React.CSSProperties}
       onDragOver={handleAppDragOver}
       onDrop={handleAppDrop}
@@ -3486,37 +3395,46 @@ function AppShell() {
         </div>
       </header>
 
-      <div className={`${splitView ? "tabs-bar multi-pane" : "tabs-bar"}${canvasPluginEnabled ? " canvas-plugin-enabled" : ""}`}>
-        {paneIds.flatMap((paneId, index) => [
-          renderTabZone(paneId, paneTabs[paneId] ?? [], activeTabsByPane[paneId]?.id, index === paneIds.length - 1),
-          ...(index < paneIds.length - 1
-            ? [
-                <div
-                  key={`tab-divider-${paneId}`}
-                  className="tabs-split-gap"
-                  title="长按后左右拖拽调整分栏宽度"
-                  onMouseDown={(event) => startSplitResize(index, event)}
-                />,
-              ]
-            : []),
-        ])}
-      </div>
+      <div className={`app-content-shell tab-layout-${settings.tabLayout}`}>
+        <TabNavigation
+          layout={settings.tabLayout}
+          tabs={tabNavigationItems}
+          paneIds={paneIds}
+          paneTabIds={paneTabIds}
+          paneActiveTabIds={paneActiveTabIds}
+          activePane={activePane}
+          splitView={splitView}
+          canvasPluginEnabled={canvasPluginEnabled}
+          newCanvasShortcut={settings.shortcuts.newCanvas}
+          newTextShortcut={settings.shortcuts.newText}
+          getTabPanes={getTabPanes}
+          onFocusTab={focusTabInPane}
+          onCloseTab={closeTab}
+          onClosePane={closePane}
+          onSplitTab={splitTab}
+          onMoveTabToPane={moveTabToPane}
+          onReorderTab={reorderTab}
+          onAddCanvas={addCanvasTab}
+          onAddText={addTextTab}
+          onStartSplitResize={startSplitResize}
+        />
 
-      <main className={splitView ? "workspace multi-pane" : "workspace"}>
-        {paneIds.flatMap((paneId, index) => [
-          renderSurface(activeTabsByPane[paneId] ?? null, paneId),
-          ...(index < paneIds.length - 1
-            ? [
-                <div
-                  key={`workspace-divider-${paneId}`}
-                  className="split-resizer"
-                  title="长按后左右拖拽调整分栏宽度"
-                  onMouseDown={(event) => startSplitResize(index, event)}
-                />,
-              ]
-            : []),
-        ])}
-      </main>
+        <main className={splitView ? "workspace multi-pane" : "workspace"}>
+          {paneIds.flatMap((paneId, index) => [
+            renderSurface(activeTabsByPane[paneId] ?? null, paneId),
+            ...(index < paneIds.length - 1
+              ? [
+                  <div
+                    key={`workspace-divider-${paneId}`}
+                    className="split-resizer"
+                    title="长按后左右拖拽调整分栏宽度"
+                    onMouseDown={(event) => startSplitResize(index, event)}
+                  />,
+                ]
+              : []),
+          ])}
+        </main>
+      </div>
 
       {quickOpenOpen ? (
         <div className="global-search-layer">
