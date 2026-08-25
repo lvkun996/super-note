@@ -97,6 +97,8 @@ export type ShortcutAction =
   | "closeTab"
   | "fileFontIncrease"
   | "fileFontDecrease"
+  | "fileFontReset"
+  | "toggleFullscreen"
   | "save"
   | "search"
   | "quickOpen"
@@ -119,6 +121,7 @@ export type AppSettings = {
   darkMode: boolean;
   followSystemTheme: boolean;
   tabLayout: TabLayout;
+  sidebarWidth: number;
   plugins: PluginSettings;
   shortcuts: ShortcutConfig;
 };

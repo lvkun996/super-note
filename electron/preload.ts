@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld("superNote", {
   setAlwaysOnTop: (enabled: boolean) => ipcRenderer.invoke("window:setAlwaysOnTop", enabled),
   minimizeWindow: () => ipcRenderer.invoke("window:minimize"),
   toggleMaximizeWindow: () => ipcRenderer.invoke("window:toggleMaximize"),
+  toggleFullscreenWindow: () => ipcRenderer.invoke("window:toggleFullscreen"),
   closeWindow: () => ipcRenderer.invoke("window:close"),
   syncTrayTabs: (state: unknown) => ipcRenderer.invoke("tray:syncTabs", state),
   getTrayMenuState: () => ipcRenderer.invoke("tray:getMenuState"),

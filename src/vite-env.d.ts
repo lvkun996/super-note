@@ -123,6 +123,7 @@ interface Window {
     setAlwaysOnTop: (enabled: boolean) => Promise<{ ok: boolean; enabled: boolean }>;
     minimizeWindow: () => Promise<{ ok: boolean }>;
     toggleMaximizeWindow: () => Promise<{ ok: boolean; maximized: boolean }>;
+    toggleFullscreenWindow: () => Promise<{ ok: boolean; fullscreen: boolean }>;
     closeWindow: () => Promise<{ ok: boolean }>;
     syncTrayTabs: (state: TrayTabState) => Promise<{ ok: boolean }>;
     getTrayMenuState: () => Promise<{ tabs: TrayTabState["tabs"] }>;

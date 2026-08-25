@@ -166,6 +166,12 @@ markdownRenderer.renderer.rules.image = (tokens, index, options, env, self) => {
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.15",
+    date: "2026.08.25",
+    title: "可调侧栏、全屏与缩放反馈",
+    description: "左侧标签栏支持实时拖拽调宽并精简视觉元素，侧栏模式聚焦单栏编辑；新增 Ctrl + H 全屏、缩放倍率提示和 Ctrl + 0 恢复 100%。",
+  },
+  {
     version: "v0.1.14",
     date: "2026.08.20",
     title: "标签导航与 Windows 文件集成",
@@ -619,6 +625,8 @@ function AppShell() {
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [quickOpenValue, setQuickOpenValue] = useState("");
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
+  const [sidebarResizing, setSidebarResizing] = useState(false);
+  const [fileZoomPercent, setFileZoomPercent] = useState<number | null>(null);
   const [editingText, setEditingText] = useState<{ itemId: string; pane: PaneKey } | null>(null);
   const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
   const [selectedMindMapNode, setSelectedMindMapNode] = useState<SelectedMindMapNode>(null);
@@ -626,14 +634,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.14",
+    version: "0.1.15",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.14",
+    currentVersion: "0.1.15",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -647,6 +655,9 @@ function AppShell() {
   const pendingOpenedFilesRef = useRef<OpenedFile[]>([]);
   const tabsRef = useRef(tabs);
   const externalPromptedRef = useRef(new Set<string>());
+  const sidebarResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number; currentWidth: number } | null>(null);
+  const zoomFeedbackPendingRef = useRef(false);
+  const zoomFeedbackTimerRef = useRef<number | null>(null);
   tabsRef.current = tabs;
   const paneTabHistoryRef = useRef<Record<PaneKey, string[]>>({ [INITIAL_PANE_ID]: [tabs[0].id] });
   const effectiveDarkMode = settings.followSystemTheme ? systemDarkMode : settings.darkMode;
@@ -693,6 +704,7 @@ function AppShell() {
   const splitView = paneIds.length > 1;
   const activeTab = activeTabsByPane[activePane] ?? activeTabsByPane[paneIds[0]] ?? tabs[0];
   const activeTabId = activeTab?.id ?? tabs[0]?.id ?? "";
+  const activeFileFontSize = activeTab?.kind === "file" ? getFileFontSize(activeTab) : null;
 
   const getPaneViewState = useCallback(
     (tab: CanvasTab, pane: PaneKey) => normalizeViewState(tab, canvasViewStates[tab.id]?.[pane]),
@@ -936,6 +948,7 @@ function AppShell() {
   }, []);
 
   const updateFileFontSize = useCallback((tabId: string, updater: (fontSize: number) => number) => {
+    zoomFeedbackPendingRef.current = true;
     setTabs((current) =>
       current.map((tab) =>
         tab.id === tabId && tab.kind === "file"
@@ -1137,6 +1150,23 @@ function AppShell() {
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    if (!zoomFeedbackPendingRef.current || activeFileFontSize === null) {
+      return;
+    }
+    zoomFeedbackPendingRef.current = false;
+    setFileZoomPercent(Math.round((activeFileFontSize / DEFAULT_FILE_FONT_SIZE) * 100));
+    if (zoomFeedbackTimerRef.current !== null) {
+      window.clearTimeout(zoomFeedbackTimerRef.current);
+    }
+    zoomFeedbackTimerRef.current = window.setTimeout(() => setFileZoomPercent(null), 900);
+    return () => {
+      if (zoomFeedbackTimerRef.current !== null) {
+        window.clearTimeout(zoomFeedbackTimerRef.current);
+      }
+    };
+  }, [activeFileFontSize]);
+
   const openDroppedFilesAsTabs = useCallback(
     async (files: File[], targetPane?: PaneKey) => {
       const fileTabs: OpenedFile[] = [];
@@ -1226,6 +1256,9 @@ function AppShell() {
 
   const splitTab = useCallback(
     (tabId: string, sourcePane: PaneKey, direction: "left" | "right") => {
+      if (settings.tabLayout === "left") {
+        return;
+      }
       const sourceIndex = paneIds.indexOf(sourcePane);
       if (sourceIndex < 0) {
         return;
@@ -1246,7 +1279,7 @@ function AppShell() {
       setActivePane(nextPaneId);
       setSelectedItem(null);
     },
-    [paneIds],
+    [paneIds, settings.tabLayout],
   );
 
   const autoSplitTab = useCallback(
@@ -1312,6 +1345,22 @@ function AppShell() {
     },
     [focusTabInPane],
   );
+
+  useEffect(() => {
+    if (settings.tabLayout !== "left" || paneIds.length <= 1) {
+      return;
+    }
+    const retainedPane = paneIds.includes(activePane) ? activePane : paneIds[0];
+    setTabPaneIds(Object.fromEntries(tabs.map((tab) => [tab.id, [retainedPane]])));
+    setPaneIds([retainedPane]);
+    setPaneWidths([100]);
+    setPaneActiveTabIds({ [retainedPane]: activeTabId });
+    setActivePane(retainedPane);
+    setCanvasViewStates((current) => Object.fromEntries(
+      Object.entries(current).map(([tabId, states]) => [tabId, states[retainedPane] ? { [retainedPane]: states[retainedPane] } : {}]),
+    ));
+    paneTabHistoryRef.current = { [retainedPane]: paneTabHistoryRef.current[retainedPane] ?? [activeTabId] };
+  }, [activePane, activeTabId, paneIds, settings.tabLayout, tabs]);
 
   const reorderTab = useCallback(
     (movingId: string, targetId: string, position: TabDropPosition, pane?: PaneKey) => {
@@ -2107,12 +2156,18 @@ function AppShell() {
       } else if (!searchOpen && !settingsOpen && shortcutMatches(event, settings.shortcuts.toggleTabLayout)) {
         event.preventDefault();
         toggleTabLayout();
+      } else if (!searchOpen && !settingsOpen && shortcutMatches(event, settings.shortcuts.toggleFullscreen)) {
+        event.preventDefault();
+        void window.superNote?.toggleFullscreenWindow();
       } else if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontIncrease)) {
         event.preventDefault();
         updateFileFontSize(activeTab.id, (fontSize) => fontSize + 1);
       } else if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontDecrease)) {
         event.preventDefault();
         updateFileFontSize(activeTab.id, (fontSize) => fontSize - 1);
+      } else if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontReset)) {
+        event.preventDefault();
+        updateFileFontSize(activeTab.id, () => DEFAULT_FILE_FONT_SIZE);
       } else if (!searchOpen && canvasPluginEnabled && shortcutMatches(event, settings.shortcuts.newCanvas)) {
         event.preventDefault();
         addCanvasTab();
@@ -2136,10 +2191,10 @@ function AppShell() {
       } else if (!searchOpen && !settingsOpen && shortcutMatches(event, settings.shortcuts.nextTab)) {
         event.preventDefault();
         focusSiblingTab(1);
-      } else if (!searchOpen && shortcutMatches(event, settings.shortcuts.splitLeft)) {
+      } else if (!searchOpen && settings.tabLayout === "top" && shortcutMatches(event, settings.shortcuts.splitLeft)) {
         event.preventDefault();
         autoSplitTab("left");
-      } else if (!searchOpen && shortcutMatches(event, settings.shortcuts.splitRight)) {
+      } else if (!searchOpen && settings.tabLayout === "top" && shortcutMatches(event, settings.shortcuts.splitRight)) {
         event.preventDefault();
         autoSplitTab("right");
       } else if (!isTyping && shortcutMatches(event, settings.shortcuts.paste)) {
@@ -2180,6 +2235,7 @@ function AppShell() {
       selectedItem,
       selectedMindMapNode,
       settings.shortcuts,
+      settings.tabLayout,
       settingsOpen,
       toggleTabLayout,
       undo,
@@ -2579,6 +2635,51 @@ function AppShell() {
       window.removeEventListener("paste", handlePaste);
     };
   }, [handleGlobalKeyDown, handlePaste]);
+
+  const startSidebarResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    sidebarResizeRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidth: settings.sidebarWidth,
+      currentWidth: settings.sidebarWidth,
+    };
+    setSidebarResizing(true);
+  }, [settings.sidebarWidth]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const resize = sidebarResizeRef.current;
+      if (!resize || resize.pointerId !== event.pointerId) {
+        return;
+      }
+      event.preventDefault();
+      const maxWidth = Math.max(160, Math.min(480, window.innerWidth - 320));
+      resize.currentWidth = clamp(resize.startWidth + event.clientX - resize.startX, 160, maxWidth);
+      document.querySelector<HTMLElement>(".app-shell")?.style.setProperty("--sidebar-width", `${resize.currentWidth}px`);
+    };
+    const finishSidebarResize = (event: PointerEvent) => {
+      const resize = sidebarResizeRef.current;
+      if (!resize || resize.pointerId !== event.pointerId) {
+        return;
+      }
+      sidebarResizeRef.current = null;
+      setSidebarResizing(false);
+      setSettings((current) => ({ ...current, sidebarWidth: Math.round(resize.currentWidth) }));
+    };
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", finishSidebarResize);
+    window.addEventListener("pointercancel", finishSidebarResize);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", finishSidebarResize);
+      window.removeEventListener("pointercancel", finishSidebarResize);
+    };
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -3013,19 +3114,21 @@ function AppShell() {
         }
       },
     },
-    { type: "divider" },
-    {
-      key: "split-left",
-      label: `向左分割视图 (${settings.shortcuts.splitLeft})`,
-      icon: <SplitCellsOutlined />,
-      onClick: () => autoSplitTab("left"),
-    },
-    {
-      key: "split-right",
-      label: `向右分割视图 (${settings.shortcuts.splitRight})`,
-      icon: <SplitCellsOutlined />,
-      onClick: () => autoSplitTab("right"),
-    },
+    ...(settings.tabLayout === "top" ? [
+      { type: "divider" as const },
+      {
+        key: "split-left",
+        label: `向左分割视图 (${settings.shortcuts.splitLeft})`,
+        icon: <SplitCellsOutlined />,
+        onClick: () => autoSplitTab("left"),
+      },
+      {
+        key: "split-right",
+        label: `向右分割视图 (${settings.shortcuts.splitRight})`,
+        icon: <SplitCellsOutlined />,
+        onClick: () => autoSplitTab("right"),
+      },
+    ] : []),
   ];
 
   const topRightCloseModal = {
@@ -3300,6 +3403,9 @@ function AppShell() {
     </section>
   );
 
+  const renderedPaneIds = settings.tabLayout === "left" ? [activePane] : paneIds;
+  const renderedSplitView = settings.tabLayout === "top" && splitView;
+
   return (
     <ConfigProvider
       theme={{
@@ -3315,9 +3421,12 @@ function AppShell() {
       }}
     >
     <div
-      className={`app-shell${settings.handwritten ? " handwritten-mode" : ""}${effectiveDarkMode ? " dark-mode" : ""}`}
+      className={`app-shell${settings.handwritten ? " handwritten-mode" : ""}${effectiveDarkMode ? " dark-mode" : ""}${sidebarResizing ? " sidebar-resizing" : ""}`}
       data-tab-layout={settings.tabLayout}
-      style={{ ["--pane-grid" as string]: makePaneGridTemplate(paneWidths) } as React.CSSProperties}
+      style={{
+        ["--pane-grid" as string]: makePaneGridTemplate(paneWidths),
+        ["--sidebar-width" as string]: `${settings.sidebarWidth}px`,
+      } as React.CSSProperties}
       onDragOver={handleAppDragOver}
       onDrop={handleAppDrop}
     >
@@ -3399,11 +3508,11 @@ function AppShell() {
         <TabNavigation
           layout={settings.tabLayout}
           tabs={tabNavigationItems}
-          paneIds={paneIds}
+          paneIds={renderedPaneIds}
           paneTabIds={paneTabIds}
           paneActiveTabIds={paneActiveTabIds}
           activePane={activePane}
-          splitView={splitView}
+          splitView={renderedSplitView}
           canvasPluginEnabled={canvasPluginEnabled}
           newCanvasShortcut={settings.shortcuts.newCanvas}
           newTextShortcut={settings.shortcuts.newText}
@@ -3417,12 +3526,13 @@ function AppShell() {
           onAddCanvas={addCanvasTab}
           onAddText={addTextTab}
           onStartSplitResize={startSplitResize}
+          onStartSidebarResize={startSidebarResize}
         />
 
-        <main className={splitView ? "workspace multi-pane" : "workspace"}>
-          {paneIds.flatMap((paneId, index) => [
+        <main className={renderedSplitView ? "workspace multi-pane" : "workspace"}>
+          {renderedPaneIds.flatMap((paneId, index) => [
             renderSurface(activeTabsByPane[paneId] ?? null, paneId),
-            ...(index < paneIds.length - 1
+            ...(index < renderedPaneIds.length - 1
               ? [
                   <div
                     key={`workspace-divider-${paneId}`}
@@ -3435,6 +3545,8 @@ function AppShell() {
           ])}
         </main>
       </div>
+
+      {fileZoomPercent !== null ? <div className="file-zoom-indicator" role="status">{fileZoomPercent}%</div> : null}
 
       {quickOpenOpen ? (
         <div className="global-search-layer">

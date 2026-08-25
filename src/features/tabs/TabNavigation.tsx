@@ -51,6 +51,7 @@ type TabNavigationProps = {
   onAddCanvas: () => void;
   onAddText: (pane?: PaneKey) => void;
   onStartSplitResize: (dividerIndex: number, event: MouseEvent<HTMLDivElement>) => void;
+  onStartSidebarResize: (event: ReactPointerEvent<HTMLDivElement>) => void;
 };
 
 function getDropPosition(element: HTMLElement, clientX: number, clientY: number, layout: TabLayout): TabDropPosition {
@@ -81,6 +82,7 @@ function TabNavigationComponent({
   onAddCanvas,
   onAddText,
   onStartSplitResize,
+  onStartSidebarResize,
 }: TabNavigationProps) {
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [dropIndicator, setDropIndicator] = useState<DropIndicator>(null);
@@ -192,6 +194,9 @@ function TabNavigationComponent({
   }, []);
 
   const makeContextMenu = useCallback((tabId: string, pane: PaneKey): MenuProps["items"] => {
+    if (layout === "left") {
+      return [];
+    }
     const tabPanes = getTabPanes(tabId);
     return [
       {
@@ -213,7 +218,7 @@ function TabNavigationComponent({
         ? [{ key: "close-split", label: "关闭当前分栏", icon: <CloseOutlined />, onClick: () => onClosePane(pane) }]
         : []),
     ];
-  }, [getTabPanes, onClosePane, onCloseTab, onSplitTab, splitView]);
+  }, [getTabPanes, layout, onClosePane, onCloseTab, onSplitTab, splitView]);
 
   const renderCloseButton = (tab: TabNavigationItem, pane: PaneKey, isActive: boolean, closeGlobally = false) => (
     <button
@@ -302,9 +307,9 @@ function TabNavigationComponent({
   if (layout === "left") {
     const activeId = paneActiveTabIds[activePane];
     return (
+      <>
       <aside className="tabs-sidebar" data-tab-layout="left" aria-label="标签菜单">
         <div className="tabs-sidebar-header">
-          <span>标签</span>
           <div className="tabs-sidebar-actions">
             {canvasPluginEnabled ? (
               <Tooltip title={`新建画板 (${newCanvasShortcut})`}>
@@ -327,8 +332,8 @@ function TabNavigationComponent({
             const isActive = tab.id === activeId;
             const indicator = dropIndicator?.tabId === tab.id ? ` tab-drop-${dropIndicator.position}` : "";
             return (
-              <Dropdown key={tab.id} menu={{ items: makeContextMenu(tab.id, pane) }} trigger={["contextMenu"]}>
                 <div
+                  key={tab.id}
                   role="tab"
                   tabIndex={isActive ? 0 : -1}
                   aria-selected={isActive}
@@ -350,18 +355,23 @@ function TabNavigationComponent({
                       onFocusTab(tab.id, pane);
                     }
                   }}
-                  onContextMenu={(event) => event.preventDefault()}
                   onPointerDown={(event) => beginPointerDrag(event, tab.id, pane)}
                 >
-                  <span className="tabs-sidebar-accent" />
                   <span className="tab-title" title={tab.title}>{tab.title}</span>
                   {renderCloseButton(tab, pane, isActive, true)}
                 </div>
-              </Dropdown>
             );
           })}
         </div>
       </aside>
+      <div
+        className="tabs-sidebar-resizer"
+        role="separator"
+        aria-label="调整侧边栏宽度"
+        aria-orientation="vertical"
+        onPointerDown={onStartSidebarResize}
+      />
+      </>
     );
   }
 

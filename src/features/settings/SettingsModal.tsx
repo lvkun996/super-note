@@ -9,6 +9,8 @@ export const DEFAULT_SHORTCUTS: ShortcutConfig = {
   closeTab: "Ctrl+Q",
   fileFontIncrease: "Ctrl++",
   fileFontDecrease: "Ctrl+-",
+  fileFontReset: "Ctrl+0",
+  toggleFullscreen: "Ctrl+H",
   save: "Ctrl+S",
   search: "Ctrl+F",
   quickOpen: "Ctrl+P",
@@ -30,6 +32,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   darkMode: false,
   followSystemTheme: false,
   tabLayout: "top",
+  sidebarWidth: 220,
   plugins: DEFAULT_PLUGIN_SETTINGS,
   shortcuts: DEFAULT_SHORTCUTS,
 };
@@ -40,6 +43,8 @@ const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; desc: string
   { action: "closeTab", label: "关闭当前标签", desc: "关闭当前画板或文本模块" },
   { action: "fileFontIncrease", label: "放大文本模块字号", desc: "仅调整当前文本模块的编辑字号" },
   { action: "fileFontDecrease", label: "缩小文本模块字号", desc: "仅调整当前文本模块的编辑字号" },
+  { action: "fileFontReset", label: "恢复文本为 100%", desc: "将当前文本模块字号恢复为默认大小" },
+  { action: "toggleFullscreen", label: "切换全屏", desc: "进入或退出 Super Note 全屏模式" },
   { action: "save", label: "保存当前标签", desc: "保存当前文件或画板" },
   { action: "search", label: "全局搜索", desc: "打开全局搜索面板" },
   { action: "quickOpen", label: "快速打开", desc: "搜索已打开标签和最近文件" },
@@ -168,6 +173,7 @@ export function normalizeSettings(value?: Partial<AppSettings>): AppSettings {
     darkMode: Boolean(value?.darkMode),
     followSystemTheme: Boolean(value?.followSystemTheme),
     tabLayout: value?.tabLayout === "left" ? "left" : "top",
+    sidebarWidth: Math.min(480, Math.max(160, Number(value?.sidebarWidth) || DEFAULT_SETTINGS.sidebarWidth)),
     plugins: normalizePluginSettings(value?.plugins),
     shortcuts,
   };

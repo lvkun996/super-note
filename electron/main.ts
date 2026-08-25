@@ -1012,6 +1012,15 @@ ipcMain.handle("clipboard:writeText", (_event, text: unknown) => {
   return { ok: true };
 });
 
+ipcMain.handle("window:toggleFullscreen", () => {
+  const target = mainWindow ?? BrowserWindow.getFocusedWindow();
+  if (!target) {
+    return { ok: false, fullscreen: false };
+  }
+  target.setFullScreen(!target.isFullScreen());
+  return { ok: true, fullscreen: target.isFullScreen() };
+});
+
 ipcMain.handle("shell:openExternal", async (_event, url: unknown) => {
   if (typeof url !== "string" || !/^https?:\/\//i.test(url)) {
     return { ok: false };

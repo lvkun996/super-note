@@ -234,6 +234,16 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.15") {
+    return [
+      "Super Note v0.1.15",
+      "",
+      "- 左侧标签栏支持拖拽边界实时调整宽度，并隐藏标题文字与左侧颜色标识。",
+      "- 侧栏模式专注单栏编辑，不再提供分割视图入口或快捷键操作。",
+      "- 新增 Ctrl + H 切换全屏、文本缩放倍率提示，以及 Ctrl + 0 快速恢复 100%。",
+    ].join("\n");
+  }
+
   if (version === "0.1.14") {
     return [
       "Super Note v0.1.14",

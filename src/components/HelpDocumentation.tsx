@@ -4,6 +4,8 @@ type HelpDocumentationShortcuts = {
   closeTab: string;
   fileFontIncrease: string;
   fileFontDecrease: string;
+  fileFontReset: string;
+  toggleFullscreen: string;
   save: string;
   search: string;
   undo: string;
@@ -56,7 +58,8 @@ export function HelpDocumentation({ canvasPluginEnabled, shortcuts }: HelpDocume
     ["备用重做", shortcuts.redoAlt],
     ["粘贴", shortcuts.paste],
     ["删除选中元素", shortcuts.deleteSelected],
-    ["放大 / 缩小文本字号", `${shortcuts.fileFontIncrease} / ${shortcuts.fileFontDecrease}`],
+    ["放大 / 缩小 / 恢复文本字号", `${shortcuts.fileFontIncrease} / ${shortcuts.fileFontDecrease} / ${shortcuts.fileFontReset}`],
+    ["切换全屏", shortcuts.toggleFullscreen],
     ["打开左侧 / 右侧标签", `${shortcuts.previousTab} / ${shortcuts.nextTab}`],
     ["顶部 / 左侧标签栏", shortcuts.toggleTabLayout],
     ["向左 / 向右分割视图", `${shortcuts.splitLeft} / ${shortcuts.splitRight}`],
