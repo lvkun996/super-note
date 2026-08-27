@@ -41,6 +41,7 @@ import {
 } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import donationImageUrl from "../assets/wechat-donation.jpg";
 import { flushSync } from "react-dom";
 import MarkdownIt from "markdown-it";
 import type {
@@ -170,7 +171,7 @@ const releaseTimeline: Array<{ version: string; date: string; title: string; des
     version: "v0.1.16",
     date: "2026.08.27",
     title: "标签操作、保存位置与搜索入口",
-    description: "两种布局的标签右键菜单新增置顶、删除、编辑和资源管理器定位；设置可选择默认保存位置，并加入顶部搜索入口、长按竖向选择与打赏作者页面。",
+    description: "两种布局的标签右键菜单新增置顶、删除、编辑和资源管理器定位；设置可选择默认保存位置，并加入顶部搜索入口、长按竖向多光标同步输入与打赏作者页面。",
   },
   {
     version: "v0.1.15",
@@ -3622,7 +3623,7 @@ function AppShell() {
         <div className="donation-overlay" role="dialog" aria-modal="true" aria-label="打赏作者" onClick={() => setDonationOpen(false)}>
           <button type="button" className="donation-close" aria-label="关闭" onClick={() => setDonationOpen(false)}><CloseOutlined /></button>
           <div className="donation-panel" onClick={(event) => event.stopPropagation()}>
-            <img src="./assets/wechat-donation.jpg" alt="微信支付收款码" />
+            <img src={donationImageUrl} alt="微信支付收款码" />
           </div>
         </div>
       ) : null}

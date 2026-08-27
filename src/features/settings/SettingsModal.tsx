@@ -224,25 +224,23 @@ export function SettingsModal({ open, settings, onClose, onChange }: SettingsMod
             <strong>默认文件保存位置</strong>
             <small>新建内容首次保存时优先打开这个文件夹；留空则使用系统默认位置。</small>
           </span>
-          <Input
-            value={settings.defaultSaveDirectory}
-            readOnly
-            placeholder="使用系统默认位置"
-            addonAfter={
-              <Button
-                type="text"
-                size="small"
-                onClick={async () => {
-                  const result = await window.superNote?.selectDirectory(settings.defaultSaveDirectory);
-                  if (result?.path) onChange({ ...settings, defaultSaveDirectory: result.path });
-                }}
-              >
-                选择
-              </Button>
-            }
-            allowClear
-            onChange={(event) => onChange({ ...settings, defaultSaveDirectory: event.target.value })}
-          />
+          <div className="settings-directory-control">
+            <Input
+              value={settings.defaultSaveDirectory}
+              readOnly
+              placeholder="使用系统默认位置"
+              allowClear
+              onChange={(event) => onChange({ ...settings, defaultSaveDirectory: event.target.value })}
+            />
+            <Button
+              onClick={async () => {
+                const result = await window.superNote?.selectDirectory(settings.defaultSaveDirectory);
+                if (result?.path) onChange({ ...settings, defaultSaveDirectory: result.path });
+              }}
+            >
+              选择
+            </Button>
+          </div>
         </div>
 
         <label className="settings-row">

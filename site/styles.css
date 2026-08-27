@@ -912,21 +912,23 @@ html.updates-ring-ready .update-item {
   left: 50%;
   width: clamp(300px, 29vw, 370px);
   height: clamp(330px, 40vh, 370px);
-  opacity: 0.12;
+  opacity: 0.06;
+  filter: saturate(0.45) brightness(0.88);
   pointer-events: none;
   transform: translate(-50%, -50%) rotateY(var(--slot-angle)) translateZ(var(--ring-radius));
   transform-style: preserve-3d;
   backface-visibility: hidden;
-  transition: opacity 260ms ease;
+  transition: opacity 260ms ease, filter 260ms ease;
 }
 
 html.updates-ring-ready .update-item.is-near {
-  opacity: 0.42;
+  opacity: 0.16;
 }
 
 html.updates-ring-ready .update-item.is-active {
   z-index: 4;
   opacity: 1;
+  filter: none;
   pointer-events: auto;
 }
 

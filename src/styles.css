@@ -704,11 +704,15 @@ input {
 }
 
 .settings-directory-row {
-  align-items: flex-start;
+  align-items: center;
 }
 
-.settings-directory-row > .ant-input-group-wrapper {
+.settings-directory-control {
   width: min(330px, 48%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
 }
 
 .dark-mode .file-zoom-indicator {
@@ -1291,6 +1295,23 @@ input {
 
 .file-search-position-marker {
   width: 0;
+}
+
+.file-multi-caret {
+  display: inline-block;
+  width: 0;
+  height: 1.15em;
+  border-left: 2px solid #1677ff;
+  vertical-align: -0.16em;
+  animation: file-multi-caret-blink 1s steps(2, start) infinite;
+}
+
+@keyframes file-multi-caret-blink {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-multi-caret { animation: none; }
 }
 
 .dark-mode .file-highlight {

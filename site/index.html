@@ -118,7 +118,7 @@
           <div class="section-heading updates-heading">
             <p class="eyebrow">版本更新</p>
             <h2 id="updates-title">每一次迭代，都更接近顺手</h2>
-            <p>按时间顺序横向浏览，每个版本保持独立卡片，不再互相覆盖。</p>
+            <p>滚动滚轮，让版本沿着时间之环来到眼前。</p>
             <div class="update-scroll-hint" aria-hidden="true">
               <span class="update-wheel"><i></i></span>
               <span>滚动切换版本</span>
@@ -139,6 +139,7 @@
                <ul class="update-details">
                  <li>标签右键新增置顶、删除、编辑和资源管理器定位。</li>
                  <li>设置默认保存位置与布局模式，右上角新增搜索入口。</li>
+                 <li>文本长按竖向生成多光标并同步输入，修复反向拖选。</li>
                  <li>缩放提示停留 3 秒并可恢复 100%，帮助新增打赏作者。</li>
                </ul>
              </article>
@@ -415,7 +416,6 @@
       });
 
       const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const useNonOverlappingTimeline = true;
       const updatesSection = document.querySelector(".updates");
       const updateRing = document.querySelector(".update-timeline");
       const updateRingScene = document.querySelector(".update-ring-scene");
@@ -461,7 +461,7 @@
           });
         };
 
-        if (reduceMotion || useNonOverlappingTimeline) {
+        if (reduceMotion) {
           setActiveUpdate(0, 0);
         } else {
           root.classList.add("updates-ring-ready");

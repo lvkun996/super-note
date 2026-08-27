@@ -15,6 +15,7 @@ import {
   renderTextWithLinks,
   writeClipboardText,
 } from "../editor/editorUtils";
+import { deleteAtCarets, insertAtCarets } from "./multiCaret";
 
 const EMPTY_SELECTION: TextSelection = { start: 0, end: 0 };
 
@@ -58,7 +59,9 @@ export function FileView({
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
   const middleSelectionRef = useRef<{ anchor: number } | null>(null);
   const verticalSelectionHoldRef = useRef<number | null>(null);
-  const verticalSelectionRef = useRef<{ anchor: number } | null>(null);
+  const verticalSelectionPendingRef = useRef<{ x: number; y: number } | null>(null);
+  const verticalSelectionRef = useRef<{ anchorX: number; anchorY: number } | null>(null);
+  const [multiCarets, setMultiCarets] = useState<number[]>([]);
   const fontSize = tab.fontSize ?? 13;
   const documentMode = getFileDocumentMode(tab);
   const hasSelection = selection.end > selection.start;
@@ -67,20 +70,57 @@ export function FileView({
   useEffect(() => {
     setMarkdownMode("preview");
     setSelection(EMPTY_SELECTION);
+    setMultiCarets([]);
   }, [tab.id, documentMode]);
 
   useEffect(() => {
     const handleMiddleSelectionMove = (event: MouseEvent) => {
-      const middleSelection = middleSelectionRef.current ?? verticalSelectionRef.current;
+      const pendingVerticalSelection = verticalSelectionPendingRef.current;
+      if (
+        pendingVerticalSelection &&
+        Math.hypot(event.clientX - pendingVerticalSelection.x, event.clientY - pendingVerticalSelection.y) > 4
+      ) {
+        if (verticalSelectionHoldRef.current !== null) {
+          window.clearTimeout(verticalSelectionHoldRef.current);
+          verticalSelectionHoldRef.current = null;
+        }
+        verticalSelectionPendingRef.current = null;
+      }
+      const middleSelection = middleSelectionRef.current;
+      const verticalSelection = verticalSelectionRef.current;
       const editor = editorRef.current;
-      if (!middleSelection || !editor) {
+      if ((!middleSelection && !verticalSelection) || !editor) {
         return;
       }
       event.preventDefault();
-      const offset = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY);
       editor.focus({ preventScroll: true });
-      editor.setSelectionRange(middleSelection.anchor, offset);
-      setSelection(getTextSelection(editor));
+      if (verticalSelection) {
+        const styles = window.getComputedStyle(editor);
+        const lineHeight = Number.parseFloat(styles.lineHeight) || (Number.parseFloat(styles.fontSize) || 13) * 1.65;
+        const rowDelta = Math.round((event.clientY - verticalSelection.anchorY) / lineHeight);
+        const direction = rowDelta < 0 ? -1 : 1;
+        const carets = Array.from({ length: Math.abs(rowDelta) + 1 }, (_, index) =>
+          getTextOffsetAtPoint(
+            editor,
+            highlightRef.current,
+            verticalSelection.anchorX,
+            verticalSelection.anchorY + index * lineHeight * direction,
+          ),
+        );
+        const uniqueCarets = Array.from(new Set(carets)).sort((a, b) => a - b);
+        const primaryCaret = carets.at(-1) ?? 0;
+        setMultiCarets(uniqueCarets);
+        editor.setSelectionRange(primaryCaret, primaryCaret);
+        setSelection({ start: primaryCaret, end: primaryCaret });
+        return;
+      }
+
+      const offset = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY);
+      const start = Math.min(middleSelection!.anchor, offset);
+      const end = Math.max(middleSelection!.anchor, offset);
+      const selectionDirection = offset < middleSelection!.anchor ? "backward" : "forward";
+      editor.setSelectionRange(start, end, selectionDirection);
+      setSelection({ start, end });
     };
 
     const handleMiddleSelectionEnd = (event: MouseEvent) => {
@@ -92,6 +132,7 @@ export function FileView({
           window.clearTimeout(verticalSelectionHoldRef.current);
           verticalSelectionHoldRef.current = null;
         }
+        verticalSelectionPendingRef.current = null;
         verticalSelectionRef.current = null;
       }
     };
@@ -101,6 +142,7 @@ export function FileView({
     return () => {
       middleSelectionRef.current = null;
       verticalSelectionRef.current = null;
+      verticalSelectionPendingRef.current = null;
       if (verticalSelectionHoldRef.current !== null) window.clearTimeout(verticalSelectionHoldRef.current);
       window.removeEventListener("mousemove", handleMiddleSelectionMove);
       window.removeEventListener("mouseup", handleMiddleSelectionEnd);
@@ -148,6 +190,46 @@ export function FileView({
 
   const syncSelection = (editor: HTMLTextAreaElement) => {
     setSelection(getTextSelection(editor));
+  };
+
+  const commitMultiCaretEdit = (result: { content: string; carets: number[] }) => {
+    const editor = editorRef.current;
+    onContentChange(result.content);
+    setMultiCarets(result.carets);
+    const primaryCaret = result.carets.at(-1) ?? 0;
+    setSelection({ start: primaryCaret, end: primaryCaret });
+    window.requestAnimationFrame(() => {
+      editor?.focus({ preventScroll: true });
+      editor?.setSelectionRange(primaryCaret, primaryCaret);
+    });
+  };
+
+  const handleMultiCaretKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (multiCarets.length < 2) {
+      return false;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setMultiCarets([]);
+      return true;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey || event.nativeEvent.isComposing) {
+      return false;
+    }
+
+    if (event.key === "Backspace" || event.key === "Delete") {
+      event.preventDefault();
+      commitMultiCaretEdit(deleteAtCarets(tab.content, multiCarets, event.key === "Backspace" ? "backward" : "forward"));
+      return true;
+    }
+
+    const insertion = event.key === "Enter" ? "\n" : event.key === "Tab" ? "\t" : event.key.length === 1 ? event.key : null;
+    if (insertion !== null) {
+      event.preventDefault();
+      commitMultiCaretEdit(insertAtCarets(tab.content, multiCarets, insertion));
+      return true;
+    }
+    return false;
   };
 
   const replaceSelection = (insertion: string, removeSelection = true) => {
@@ -276,13 +358,20 @@ export function FileView({
 
     if (event.button === 0) {
       const editor = event.currentTarget;
+      setMultiCarets([]);
+      if (!highlightRef.current) {
+        return;
+      }
       const anchor = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY);
       if (verticalSelectionHoldRef.current !== null) window.clearTimeout(verticalSelectionHoldRef.current);
+      verticalSelectionPendingRef.current = { x: event.clientX, y: event.clientY };
       verticalSelectionHoldRef.current = window.setTimeout(() => {
         verticalSelectionHoldRef.current = null;
-        verticalSelectionRef.current = { anchor };
+        verticalSelectionPendingRef.current = null;
+        verticalSelectionRef.current = { anchorX: event.clientX, anchorY: event.clientY };
         editor.focus({ preventScroll: true });
         editor.setSelectionRange(anchor, anchor);
+        setMultiCarets([anchor]);
       }, 360);
     }
 
@@ -326,6 +415,18 @@ export function FileView({
     onContextMenu: (event: ReactMouseEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
   };
 
+  const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!handleMultiCaretKeyDown(event)) {
+      continueOrderedList(event, onContentChange);
+    }
+  };
+
+  const handleEditorPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (multiCarets.length < 2) return;
+    event.preventDefault();
+    commitMultiCaretEdit(insertAtCarets(tab.content, multiCarets, event.clipboardData.getData("text")));
+  };
+
   const handleMarkdownLinkClick = (event: ReactMouseEvent<HTMLElement>) => {
     const anchor = (event.target as HTMLElement).closest<HTMLAnchorElement>("a[href]");
     if (!anchor || !event.currentTarget.contains(anchor)) {
@@ -356,8 +457,12 @@ export function FileView({
         value={tab.content}
         spellCheck={false}
         placeholder={"# 标题\n\n开始编写 Markdown..."}
-        onKeyDown={(event) => continueOrderedList(event, onContentChange)}
-        onChange={(event) => onContentChange(event.target.value)}
+        onKeyDown={handleEditorKeyDown}
+        onPaste={handleEditorPaste}
+        onChange={(event) => {
+          setMultiCarets([]);
+          onContentChange(event.target.value);
+        }}
         {...editorEvents}
       />
     );
@@ -398,6 +503,17 @@ export function FileView({
   }
 
   const renderPlainHighlight = (): ReactNode => {
+    if (multiCarets.length > 0) {
+      const nodes: ReactNode[] = [];
+      let cursor = 0;
+      multiCarets.forEach((caret, index) => {
+        nodes.push(<span key={`multi-text-${index}`}>{renderTextWithLinks(tab.content.slice(cursor, caret), searchValue)}</span>);
+        nodes.push(<span key={`multi-caret-${index}`} className="file-multi-caret">{"\u200b"}</span>);
+        cursor = caret;
+      });
+      nodes.push(<span key="multi-text-end">{renderTextWithLinks(tab.content.slice(cursor), searchValue)}</span>);
+      return nodes;
+    }
     const start = activeSearchTarget?.selectionStart;
     const end = activeSearchTarget?.selectionEnd;
     if (start == null || end == null || start < 0 || end < start || start > tab.content.length) {
@@ -431,8 +547,12 @@ export function FileView({
             highlightRef.current.scrollLeft = event.currentTarget.scrollLeft;
           }
         }}
-        onKeyDown={(event) => continueOrderedList(event, onContentChange)}
-        onChange={(event) => onContentChange(event.target.value)}
+        onKeyDown={handleEditorKeyDown}
+        onPaste={handleEditorPaste}
+        onChange={(event) => {
+          setMultiCarets([]);
+          onContentChange(event.target.value);
+        }}
         {...editorEvents}
       />
     </div>
