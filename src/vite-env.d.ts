@@ -28,6 +28,7 @@ type SaveFilePayload = {
   path?: string;
   content: string;
   defaultName?: string;
+  defaultDirectory?: string;
   filters?: Array<{
     name: string;
     extensions: string[];
@@ -47,6 +48,7 @@ type SaveFileResult = {
 type SaveCanvasImagePayload = {
   dataUrl: string;
   defaultName?: string;
+  defaultDirectory?: string;
 };
 
 type MindMapStyleIpcPayload = {
@@ -113,6 +115,7 @@ interface Window {
     readFile: (filePath: string) => Promise<ReadFileResult>;
     getFileSnapshots: (filePaths: string[]) => Promise<FileSnapshot[]>;
     saveFile: (payload: SaveFilePayload) => Promise<SaveFileResult>;
+    selectDirectory: (defaultPath?: string) => Promise<{ canceled: boolean; path?: string }>;
     saveCanvasImage: (payload: SaveCanvasImagePayload) => Promise<SaveFileResult>;
     getInitialMindMapStyleState: () => unknown;
     openMindMapStyle: (payload: MindMapStyleIpcPayload) => Promise<{ ok: boolean; error?: string }>;
@@ -134,6 +137,7 @@ interface Window {
     readClipboardText: () => Promise<string>;
     writeClipboardText: (text: string) => Promise<{ ok: boolean }>;
     openExternal: (url: string) => Promise<{ ok: boolean }>;
+    showItemInFolder: (filePath: string) => Promise<{ ok: boolean }>;
     getAppInfo: () => Promise<AppInfo>;
     getUpdateStatus: () => Promise<UpdateStatus>;
     checkForUpdates: () => Promise<UpdateStatus>;

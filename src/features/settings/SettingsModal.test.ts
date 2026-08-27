@@ -6,9 +6,14 @@ describe("tab layout settings", () => {
     const settings = normalizeSettings({});
     expect(settings.tabLayout).toBe("top");
     expect(settings.sidebarWidth).toBe(220);
+    expect(settings.defaultSaveDirectory).toBe("");
     expect(settings.shortcuts.toggleTabLayout).toBe("Ctrl+B");
     expect(settings.shortcuts.toggleFullscreen).toBe("Ctrl+H");
     expect(settings.shortcuts.fileFontReset).toBe("Ctrl+0");
+  });
+
+  it("preserves the default save directory", () => {
+    expect(normalizeSettings({ ...DEFAULT_SETTINGS, defaultSaveDirectory: "D:\\Notes" }).defaultSaveDirectory).toBe("D:\\Notes");
   });
 
   it("preserves the left tab menu preference", () => {

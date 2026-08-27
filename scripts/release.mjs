@@ -234,6 +234,16 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.16") {
+    return [
+      "Super Note v0.1.16",
+      "",
+      "- 顶栏与侧栏标签右键支持置顶、删除、编辑名称和在资源管理器打开。",
+      "- 新增默认保存位置、显式布局模式设置、右上角搜索入口，以及 3 秒缩放反馈和一键恢复 100%。",
+      "- 文本支持长按后竖向选择，帮助菜单新增打赏作者全屏收款码；官网重写界面操作介绍并修复版本时间轴覆盖。",
+    ].join("\n");
+  }
+
   if (version === "0.1.15") {
     return [
       "Super Note v0.1.15",

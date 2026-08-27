@@ -57,6 +57,8 @@ export function FileView({
   const [markdownMode, setMarkdownMode] = useState<"edit" | "preview">("preview");
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
   const middleSelectionRef = useRef<{ anchor: number } | null>(null);
+  const verticalSelectionHoldRef = useRef<number | null>(null);
+  const verticalSelectionRef = useRef<{ anchor: number } | null>(null);
   const fontSize = tab.fontSize ?? 13;
   const documentMode = getFileDocumentMode(tab);
   const hasSelection = selection.end > selection.start;
@@ -69,7 +71,7 @@ export function FileView({
 
   useEffect(() => {
     const handleMiddleSelectionMove = (event: MouseEvent) => {
-      const middleSelection = middleSelectionRef.current;
+      const middleSelection = middleSelectionRef.current ?? verticalSelectionRef.current;
       const editor = editorRef.current;
       if (!middleSelection || !editor) {
         return;
@@ -85,12 +87,21 @@ export function FileView({
       if (event.button === 1) {
         middleSelectionRef.current = null;
       }
+      if (event.button === 0) {
+        if (verticalSelectionHoldRef.current !== null) {
+          window.clearTimeout(verticalSelectionHoldRef.current);
+          verticalSelectionHoldRef.current = null;
+        }
+        verticalSelectionRef.current = null;
+      }
     };
 
     window.addEventListener("mousemove", handleMiddleSelectionMove, { passive: false });
     window.addEventListener("mouseup", handleMiddleSelectionEnd);
     return () => {
       middleSelectionRef.current = null;
+      verticalSelectionRef.current = null;
+      if (verticalSelectionHoldRef.current !== null) window.clearTimeout(verticalSelectionHoldRef.current);
       window.removeEventListener("mousemove", handleMiddleSelectionMove);
       window.removeEventListener("mouseup", handleMiddleSelectionEnd);
     };
@@ -261,6 +272,18 @@ export function FileView({
       middleSelectionRef.current = { anchor: offset };
       setSelection({ start: offset, end: offset });
       return;
+    }
+
+    if (event.button === 0) {
+      const editor = event.currentTarget;
+      const anchor = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY);
+      if (verticalSelectionHoldRef.current !== null) window.clearTimeout(verticalSelectionHoldRef.current);
+      verticalSelectionHoldRef.current = window.setTimeout(() => {
+        verticalSelectionHoldRef.current = null;
+        verticalSelectionRef.current = { anchor };
+        editor.focus({ preventScroll: true });
+        editor.setSelectionRange(anchor, anchor);
+      }, 360);
     }
 
     const endMarker = highlightRef.current?.querySelector<HTMLElement>(".file-highlight-end-marker");

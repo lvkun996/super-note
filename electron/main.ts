@@ -854,6 +854,7 @@ ipcMain.handle(
       path?: string;
       content: string;
       defaultName?: string;
+      defaultDirectory?: string;
       filters?: Electron.FileFilter[];
     },
   ) => {
@@ -863,7 +864,9 @@ ipcMain.handle(
       const target = mainWindow ?? BrowserWindow.getFocusedWindow();
       const dialogOptions = {
         title: "保存文件",
-        defaultPath: payload.defaultName,
+        defaultPath: payload.defaultDirectory && path.isAbsolute(payload.defaultDirectory)
+          ? path.join(payload.defaultDirectory, payload.defaultName || "untitled.txt")
+          : payload.defaultName,
         filters: payload.filters ?? [{ name: "All Files", extensions: ["*"] }],
       } satisfies Electron.SaveDialogOptions;
       const result = target ? await dialog.showSaveDialog(target, dialogOptions) : await dialog.showSaveDialog(dialogOptions);
@@ -888,6 +891,17 @@ ipcMain.handle(
     }
   },
 );
+
+ipcMain.handle("dialog:selectDirectory", async (_event, defaultPath: unknown) => {
+  const target = mainWindow ?? BrowserWindow.getFocusedWindow();
+  const options: Electron.OpenDialogOptions = {
+    title: "选择默认文件保存位置",
+    properties: ["openDirectory", "createDirectory"],
+    ...(typeof defaultPath === "string" && path.isAbsolute(defaultPath) ? { defaultPath } : {}),
+  };
+  const result = target ? await dialog.showOpenDialog(target, options) : await dialog.showOpenDialog(options);
+  return { canceled: result.canceled, path: result.filePaths[0] };
+});
 
 ipcMain.handle("canvas:saveImage", async (event, payload: { dataUrl?: unknown; defaultName?: unknown }) => {
   if (event.sender !== mainWindow?.webContents || typeof payload?.dataUrl !== "string") {
@@ -1026,6 +1040,14 @@ ipcMain.handle("shell:openExternal", async (_event, url: unknown) => {
     return { ok: false };
   }
   await shell.openExternal(url);
+  return { ok: true };
+});
+
+ipcMain.handle("shell:showItemInFolder", async (_event, filePath: unknown) => {
+  if (typeof filePath !== "string" || !path.isAbsolute(filePath)) {
+    return { ok: false };
+  }
+  shell.showItemInFolder(filePath);
   return { ok: true };
 });
 

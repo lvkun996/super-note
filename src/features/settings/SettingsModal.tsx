@@ -1,4 +1,4 @@
-import { Button, Input, Modal, Switch } from "antd";
+import { Button, Input, Modal, Segmented, Switch } from "antd";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { AppSettings, ShortcutAction, ShortcutConfig } from "../../appTypes";
 import { DEFAULT_PLUGIN_SETTINGS, normalizePluginSettings } from "../../pluginSettings";
@@ -33,6 +33,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   followSystemTheme: false,
   tabLayout: "top",
   sidebarWidth: 220,
+  defaultSaveDirectory: "",
   plugins: DEFAULT_PLUGIN_SETTINGS,
   shortcuts: DEFAULT_SHORTCUTS,
 };
@@ -174,6 +175,7 @@ export function normalizeSettings(value?: Partial<AppSettings>): AppSettings {
     followSystemTheme: Boolean(value?.followSystemTheme),
     tabLayout: value?.tabLayout === "left" ? "left" : "top",
     sidebarWidth: Math.min(480, Math.max(160, Number(value?.sidebarWidth) || DEFAULT_SETTINGS.sidebarWidth)),
+    defaultSaveDirectory: typeof value?.defaultSaveDirectory === "string" ? value.defaultSaveDirectory : "",
     plugins: normalizePluginSettings(value?.plugins),
     shortcuts,
   };
@@ -205,13 +207,43 @@ export function SettingsModal({ open, settings, onClose, onChange }: SettingsMod
       styles={{ body: { maxHeight: "min(72vh, calc(100vh - 140px))", overflowY: "auto", paddingRight: 8 } }}
     >
       <div className="settings-panel">
-        <label className="settings-row">
+        <div className="settings-row">
           <span>
-            <strong>左侧标签菜单</strong>
-            <small>打开后标签在左侧纵向排列，也可以使用 {settings.shortcuts.toggleTabLayout} 快速切换。</small>
+            <strong>布局模式</strong>
+            <small>选择顶部标签栏或左侧标签栏，也可以使用 {settings.shortcuts.toggleTabLayout} 快速切换。</small>
           </span>
-          <Switch checked={settings.tabLayout === "left"} onChange={(checked) => onChange({ ...settings, tabLayout: checked ? "left" : "top" })} />
-        </label>
+          <Segmented
+            value={settings.tabLayout}
+            options={[{ label: "顶栏模式", value: "top" }, { label: "侧边模式", value: "left" }]}
+            onChange={(value) => onChange({ ...settings, tabLayout: value as AppSettings["tabLayout"] })}
+          />
+        </div>
+
+        <div className="settings-row settings-directory-row">
+          <span>
+            <strong>默认文件保存位置</strong>
+            <small>新建内容首次保存时优先打开这个文件夹；留空则使用系统默认位置。</small>
+          </span>
+          <Input
+            value={settings.defaultSaveDirectory}
+            readOnly
+            placeholder="使用系统默认位置"
+            addonAfter={
+              <Button
+                type="text"
+                size="small"
+                onClick={async () => {
+                  const result = await window.superNote?.selectDirectory(settings.defaultSaveDirectory);
+                  if (result?.path) onChange({ ...settings, defaultSaveDirectory: result.path });
+                }}
+              >
+                选择
+              </Button>
+            }
+            allowClear
+            onChange={(event) => onChange({ ...settings, defaultSaveDirectory: event.target.value })}
+          />
+        </div>
 
         <label className="settings-row">
           <span>

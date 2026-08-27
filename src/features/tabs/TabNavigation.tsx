@@ -1,4 +1,4 @@
-import { BorderOutlined, CloseOutlined, PlusOutlined, SplitCellsOutlined } from "@ant-design/icons";
+import { BorderOutlined, CloseOutlined, DeleteOutlined, EditOutlined, FolderOpenOutlined, PlusOutlined, SplitCellsOutlined, VerticalAlignTopOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Tabs, Tooltip } from "antd";
 import type { MenuProps, TabsProps } from "antd";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -13,6 +13,7 @@ export type TabNavigationItem = {
   title: string;
   themeIndex: number;
   dirty: boolean;
+  filePath?: string;
 };
 
 type PointerDrag = {
@@ -48,6 +49,9 @@ type TabNavigationProps = {
   onSplitTab: (tabId: string, pane: PaneKey, direction: "left" | "right") => void;
   onMoveTabToPane: (tabId: string, sourcePane: PaneKey, targetPane: PaneKey) => void;
   onReorderTab: (movingId: string, targetId: string, position: TabDropPosition, pane?: PaneKey) => void;
+  onPinTab: (tabId: string) => void;
+  onRenameTab: (tabId: string) => void;
+  onOpenTabInExplorer: (tabId: string) => void;
   onAddCanvas: () => void;
   onAddText: (pane?: PaneKey) => void;
   onStartSplitResize: (dividerIndex: number, event: MouseEvent<HTMLDivElement>) => void;
@@ -79,6 +83,9 @@ function TabNavigationComponent({
   onSplitTab,
   onMoveTabToPane,
   onReorderTab,
+  onPinTab,
+  onRenameTab,
+  onOpenTabInExplorer,
   onAddCanvas,
   onAddText,
   onStartSplitResize,
@@ -194,11 +201,21 @@ function TabNavigationComponent({
   }, []);
 
   const makeContextMenu = useCallback((tabId: string, pane: PaneKey): MenuProps["items"] => {
-    if (layout === "left") {
-      return [];
-    }
+    const tab = tabs.find((item) => item.id === tabId);
     const tabPanes = getTabPanes(tabId);
     return [
+      { key: "pin", label: "置顶", icon: <VerticalAlignTopOutlined />, onClick: () => onPinTab(tabId) },
+      { key: "delete", label: "删除", danger: true, icon: <DeleteOutlined />, onClick: () => onCloseTab(tabId) },
+      { key: "rename", label: "编辑", icon: <EditOutlined />, onClick: () => onRenameTab(tabId) },
+      {
+        key: "explorer",
+        label: "在资源管理器打开",
+        icon: <FolderOpenOutlined />,
+        disabled: !tab?.filePath,
+        onClick: () => onOpenTabInExplorer(tabId),
+      },
+      ...(layout === "top" ? [{ type: "divider" as const }] : []),
+      ...(layout === "top" ? [
       {
         key: "split-left",
         label: "向左分割视图",
@@ -217,8 +234,9 @@ function TabNavigationComponent({
       ...(splitView
         ? [{ key: "close-split", label: "关闭当前分栏", icon: <CloseOutlined />, onClick: () => onClosePane(pane) }]
         : []),
+      ] : []),
     ];
-  }, [getTabPanes, layout, onClosePane, onCloseTab, onSplitTab, splitView]);
+  }, [getTabPanes, layout, onClosePane, onCloseTab, onOpenTabInExplorer, onPinTab, onRenameTab, onSplitTab, splitView, tabs]);
 
   const renderCloseButton = (tab: TabNavigationItem, pane: PaneKey, isActive: boolean, closeGlobally = false) => (
     <button
@@ -332,8 +350,8 @@ function TabNavigationComponent({
             const isActive = tab.id === activeId;
             const indicator = dropIndicator?.tabId === tab.id ? ` tab-drop-${dropIndicator.position}` : "";
             return (
+                <Dropdown key={tab.id} menu={{ items: makeContextMenu(tab.id, pane) }} trigger={["contextMenu"]}>
                 <div
-                  key={tab.id}
                   role="tab"
                   tabIndex={isActive ? 0 : -1}
                   aria-selected={isActive}
@@ -356,10 +374,12 @@ function TabNavigationComponent({
                     }
                   }}
                   onPointerDown={(event) => beginPointerDrag(event, tab.id, pane)}
+                  onContextMenu={(event) => event.preventDefault()}
                 >
                   <span className="tab-title" title={tab.title}>{tab.title}</span>
                   {renderCloseButton(tab, pane, isActive, true)}
                 </div>
+                </Dropdown>
             );
           })}
         </div>

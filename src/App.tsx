@@ -37,6 +37,7 @@ import {
   SunOutlined,
   UndoOutlined,
   UserOutlined,
+  HeartOutlined,
 } from "@ant-design/icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -165,6 +166,12 @@ markdownRenderer.renderer.rules.image = (tokens, index, options, env, self) => {
 };
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.16",
+    date: "2026.08.27",
+    title: "标签操作、保存位置与搜索入口",
+    description: "两种布局的标签右键菜单新增置顶、删除、编辑和资源管理器定位；设置可选择默认保存位置，并加入顶部搜索入口、长按竖向选择与打赏作者页面。",
+  },
   {
     version: "v0.1.15",
     date: "2026.08.25",
@@ -627,6 +634,7 @@ function AppShell() {
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
   const [sidebarResizing, setSidebarResizing] = useState(false);
   const [fileZoomPercent, setFileZoomPercent] = useState<number | null>(null);
+  const [donationOpen, setDonationOpen] = useState(false);
   const [editingText, setEditingText] = useState<{ itemId: string; pane: PaneKey } | null>(null);
   const [selectedItem, setSelectedItem] = useState<SelectedItem>(null);
   const [selectedMindMapNode, setSelectedMindMapNode] = useState<SelectedMindMapNode>(null);
@@ -634,14 +642,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.15",
+    version: "0.1.16",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.15",
+    currentVersion: "0.1.16",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -1159,7 +1167,7 @@ function AppShell() {
     if (zoomFeedbackTimerRef.current !== null) {
       window.clearTimeout(zoomFeedbackTimerRef.current);
     }
-    zoomFeedbackTimerRef.current = window.setTimeout(() => setFileZoomPercent(null), 900);
+    zoomFeedbackTimerRef.current = window.setTimeout(() => setFileZoomPercent(null), 3000);
     return () => {
       if (zoomFeedbackTimerRef.current !== null) {
         window.clearTimeout(zoomFeedbackTimerRef.current);
@@ -1378,6 +1386,39 @@ function AppShell() {
     [paneIds, tabPaneIds],
   );
 
+  const pinTab = useCallback((tabId: string) => {
+    setTabs((current) => {
+      const index = current.findIndex((tab) => tab.id === tabId);
+      if (index <= 0) return current;
+      const next = [...current];
+      const [tab] = next.splice(index, 1);
+      next.unshift(tab);
+      return next;
+    });
+  }, []);
+
+  const renameTab = useCallback((tabId: string) => {
+    const tab = tabsRef.current.find((item) => item.id === tabId);
+    if (!tab) return;
+    let nextTitle = getTabDisplayTitle(tab);
+    modal.confirm({
+      title: "编辑栏目名称",
+      content: <Input autoFocus defaultValue={nextTitle} maxLength={80} onChange={(event) => { nextTitle = event.target.value; }} />,
+      okText: "保存",
+      cancelText: "取消",
+      onOk: () => {
+        const title = nextTitle.trim();
+        if (!title) return Promise.reject(new Error("栏目名称不能为空"));
+        setTabs((current) => current.map((item) => item.id === tabId ? { ...item, title, ...(item.kind === "canvas" ? { autoTitle: false } : {}) } : item));
+      },
+    });
+  }, [modal]);
+
+  const openTabInExplorer = useCallback((tabId: string) => {
+    const filePath = tabsRef.current.find((tab) => tab.id === tabId)?.filePath;
+    if (filePath) void window.superNote?.showItemInFolder(filePath);
+  }, []);
+
   const closeTab = useCallback(
     (targetId: string, pane?: PaneKey) => {
       const target = tabs.find((tab) => tab.id === targetId);
@@ -1506,6 +1547,7 @@ function AppShell() {
           path: activeTab.filePath,
           content: activeTab.content,
           defaultName: activeTab.fileName || (getFileDocumentMode(activeTab) === "markdown" ? "untitled.md" : "untitled.txt"),
+          defaultDirectory: settings.defaultSaveDirectory,
           filters: getFileSaveFilters(activeTab),
         });
         if (!result || result.canceled) {
@@ -1544,6 +1586,7 @@ function AppShell() {
         path: activeTab.filePath,
         content: payload,
         defaultName: `${activeTab.title === "未知" ? "untitled" : activeTab.title}.snote`,
+        defaultDirectory: settings.defaultSaveDirectory,
         filters: [
           { name: "Super Note", extensions: ["snote"] },
           { name: "All Files", extensions: ["*"] },
@@ -1579,7 +1622,7 @@ function AppShell() {
     } catch (error) {
       message.error(`保存失败：${String(error)}`);
     }
-  }, [activeTab, message]);
+  }, [activeTab, message, settings.defaultSaveDirectory]);
 
   const undo = useCallback(() => {
     if (activeTab?.kind === "file") {
@@ -3141,6 +3184,12 @@ function AppShell() {
 
   const helpMenu: MenuProps["items"] = [
     {
+      key: "donate",
+      label: "打赏作者",
+      icon: <HeartOutlined />,
+      onClick: () => setDonationOpen(true),
+    },
+    {
       key: "website",
       label: "官网",
       icon: <LinkOutlined />,
@@ -3285,7 +3334,7 @@ function AppShell() {
   }, [message, updateStatus.latestVersion, updateStatus.state]);
 
   const tabNavigationItems = useMemo(
-    () => tabs.map((tab) => ({ id: tab.id, title: getTabDisplayTitle(tab), themeIndex: tab.themeIndex, dirty: tab.dirty })),
+    () => tabs.map((tab) => ({ id: tab.id, title: getTabDisplayTitle(tab), themeIndex: tab.themeIndex, dirty: tab.dirty, filePath: tab.filePath })),
     [tabs],
   );
 
@@ -3472,6 +3521,19 @@ function AppShell() {
         </div>
 
         <div className="window-controls">
+          <Tooltip title={`搜索 (${settings.shortcuts.search})`}>
+            <Button
+              type="text"
+              className="window-control"
+              aria-label="搜索"
+              icon={<SearchOutlined />}
+              onClick={() => {
+                closeQuickOpen();
+                setSearchOpen(true);
+                window.setTimeout(() => document.getElementById("global-search-input")?.focus(), 0);
+              }}
+            />
+          </Tooltip>
           <Tooltip title={alwaysOnTop ? "取消置顶" : "窗口置顶"}>
             <Button
               type="text"
@@ -3523,6 +3585,9 @@ function AppShell() {
           onSplitTab={splitTab}
           onMoveTabToPane={moveTabToPane}
           onReorderTab={reorderTab}
+          onPinTab={pinTab}
+          onRenameTab={renameTab}
+          onOpenTabInExplorer={openTabInExplorer}
           onAddCanvas={addCanvasTab}
           onAddText={addTextTab}
           onStartSplitResize={startSplitResize}
@@ -3546,7 +3611,21 @@ function AppShell() {
         </main>
       </div>
 
-      {fileZoomPercent !== null ? <div className="file-zoom-indicator" role="status">{fileZoomPercent}%</div> : null}
+      {fileZoomPercent !== null ? (
+        <div className="file-zoom-indicator" role="status">
+          <span>{fileZoomPercent}%</span>
+          <Button size="small" type="text" onClick={() => activeTab?.kind === "file" && updateFileFontSize(activeTab.id, () => DEFAULT_FILE_FONT_SIZE)}>恢复 100%</Button>
+        </div>
+      ) : null}
+
+      {donationOpen ? (
+        <div className="donation-overlay" role="dialog" aria-modal="true" aria-label="打赏作者" onClick={() => setDonationOpen(false)}>
+          <button type="button" className="donation-close" aria-label="关闭" onClick={() => setDonationOpen(false)}><CloseOutlined /></button>
+          <div className="donation-panel" onClick={(event) => event.stopPropagation()}>
+            <img src="./assets/wechat-donation.jpg" alt="微信支付收款码" />
+          </div>
+        </div>
+      ) : null}
 
       {quickOpenOpen ? (
         <div className="global-search-layer">

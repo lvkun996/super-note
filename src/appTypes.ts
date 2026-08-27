@@ -122,6 +122,7 @@ export type AppSettings = {
   followSystemTheme: boolean;
   tabLayout: TabLayout;
   sidebarWidth: number;
+  defaultSaveDirectory: string;
   plugins: PluginSettings;
   shortcuts: ShortcutConfig;
 };
