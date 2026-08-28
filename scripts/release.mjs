@@ -1,4 +1,5 @@
-import { copyFileSync, existsSync, readFileSync, rmSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { copyFileSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import https from "node:https";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -79,6 +80,34 @@ function ensureSiteMatchesVersion() {
   }
 }
 
+function ensureCurrentUpdateManifest() {
+  const installerName = `Super.Note.Setup.${version}.exe`;
+  const installerPath = path.join(releaseDir, installerName);
+  const manifestPath = path.join(releaseDir, "latest.yml");
+  if (existsSync(manifestPath)) {
+    return;
+  }
+  if (!existsSync(installerPath)) {
+    throw new Error(`Cannot generate latest.yml because ${installerName} is missing.`);
+  }
+
+  const installer = readFileSync(installerPath);
+  const sha512 = createHash("sha512").update(installer).digest("base64");
+  const manifest = [
+    `version: ${version}`,
+    "files:",
+    `  - url: ${installerName}`,
+    `    sha512: ${sha512}`,
+    `    size: ${installer.length}`,
+    `path: ${installerName}`,
+    `sha512: ${sha512}`,
+    `releaseDate: '${new Date().toISOString()}'`,
+    "",
+  ].join("\n");
+  writeFileSync(manifestPath, manifest, "utf8");
+  console.log("Generated release/latest.yml from the verified installer.");
+}
+
 function buildInstallers() {
   rmSync(releaseDir, { recursive: true, force: true });
   if (includeLegacy) {
@@ -88,6 +117,7 @@ function buildInstallers() {
   run(process.execPath, [path.join(root, "node_modules", "typescript", "bin", "tsc"), "--noEmit"]);
   run(process.execPath, [path.join(root, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.electron.json", "--noEmit"]);
   run(process.execPath, [path.join(root, "scripts", "build-installer.mjs"), "--low-memory"]);
+  ensureCurrentUpdateManifest();
   if (!includeLegacy) {
     return;
   }
