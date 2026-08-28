@@ -856,6 +856,7 @@ ipcMain.handle(
       defaultName?: string;
       defaultDirectory?: string;
       filters?: Electron.FileFilter[];
+      requiredExtension?: string;
     },
   ) => {
     let filePath = payload.path;
@@ -873,7 +874,12 @@ ipcMain.handle(
       if (result.canceled || !result.filePath) {
         return { ok: false, canceled: true };
       }
-      filePath = result.filePath;
+      const requiredExtension = typeof payload.requiredExtension === "string" && /^[a-z\d]+$/i.test(payload.requiredExtension)
+        ? payload.requiredExtension.toLowerCase()
+        : undefined;
+      filePath = requiredExtension && !result.filePath.toLowerCase().endsWith(`.${requiredExtension}`)
+        ? `${result.filePath}.${requiredExtension}`
+        : result.filePath;
     }
 
     try {

@@ -102,6 +102,7 @@ import { reorderTabsById } from "./features/tabs/tabOrder";
 import type { TabDropPosition } from "./features/tabs/tabOrder";
 import { FileView, getFileDocumentMode } from "./features/text/FileView";
 import { hasExternalFileChange } from "./features/files/fileState";
+import { buildSnoteFileName } from "./features/files/saveFileName";
 import {
   addMindMapChild,
   addMindMapSibling,
@@ -167,6 +168,12 @@ markdownRenderer.renderer.rules.image = (tokens, index, options, env, self) => {
 };
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.17",
+    date: "2026.08.28",
+    title: "保存命名与标签菜单优化",
+    description: "首次保存文本时使用当前标签标题并统一为 .snote 文件，标签右键菜单同步收紧尺寸、间距与视觉层级。",
+  },
   {
     version: "v0.1.16",
     date: "2026.08.27",
@@ -424,7 +431,7 @@ function createTextTab(themeIndex: number): FileTab {
     id: makeId(),
     kind: "file",
     title: "未命名文本",
-    fileName: "未命名文本.txt",
+    fileName: "未命名文本.snote",
     content: "",
     documentMode: "text",
     fontSize: DEFAULT_FILE_FONT_SIZE,
@@ -1544,12 +1551,19 @@ function AppShell() {
 
     try {
       if (activeTab.kind === "file") {
+        const isNewSuperNoteFile = !activeTab.filePath;
         const result = await window.superNote?.saveFile({
           path: activeTab.filePath,
           content: activeTab.content,
-          defaultName: activeTab.fileName || (getFileDocumentMode(activeTab) === "markdown" ? "untitled.md" : "untitled.txt"),
+          defaultName: isNewSuperNoteFile ? buildSnoteFileName(getTabDisplayTitle(activeTab)) : activeTab.fileName,
           defaultDirectory: settings.defaultSaveDirectory,
-          filters: getFileSaveFilters(activeTab),
+          filters: isNewSuperNoteFile
+            ? [
+                { name: "Super Note", extensions: ["snote"] },
+                { name: "All Files", extensions: ["*"] },
+              ]
+            : getFileSaveFilters(activeTab),
+          requiredExtension: isNewSuperNoteFile ? "snote" : undefined,
         });
         if (!result || result.canceled) {
           return;
@@ -1592,6 +1606,7 @@ function AppShell() {
           { name: "Super Note", extensions: ["snote"] },
           { name: "All Files", extensions: ["*"] },
         ],
+        requiredExtension: "snote",
       });
       if (!result || result.canceled) {
         return;

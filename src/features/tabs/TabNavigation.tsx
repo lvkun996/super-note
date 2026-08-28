@@ -264,7 +264,7 @@ function TabNavigationComponent({
   const renderTabLabel = (tab: TabNavigationItem, pane: PaneKey, isActive: boolean) => {
     const indicator = dropIndicator?.pane === pane && dropIndicator.tabId === tab.id ? ` tab-drop-${dropIndicator.position}` : "";
     return (
-      <Dropdown menu={{ items: makeContextMenu(tab.id, pane) }} trigger={["contextMenu"]}>
+      <Dropdown overlayClassName="tab-context-menu" menu={{ items: makeContextMenu(tab.id, pane) }} trigger={["contextMenu"]}>
         <span
           data-tab-id={tab.id}
           data-pane-id={pane}
@@ -350,7 +350,7 @@ function TabNavigationComponent({
             const isActive = tab.id === activeId;
             const indicator = dropIndicator?.tabId === tab.id ? ` tab-drop-${dropIndicator.position}` : "";
             return (
-                <Dropdown key={tab.id} menu={{ items: makeContextMenu(tab.id, pane) }} trigger={["contextMenu"]}>
+                <Dropdown key={tab.id} overlayClassName="tab-context-menu" menu={{ items: makeContextMenu(tab.id, pane) }} trigger={["contextMenu"]}>
                 <div
                   role="tab"
                   tabIndex={isActive ? 0 : -1}

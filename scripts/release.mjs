@@ -234,6 +234,16 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.17") {
+    return [
+      "Super Note v0.1.17",
+      "",
+      "- 首次保存文本时使用当前标签标题作为文件名，没有可用标题时回退为“未命名文本”。",
+      "- 新建文本统一保存为 .snote 文件，已打开的外部文本文件继续按原路径保存。",
+      "- 缩小并重新润色顶部与侧栏标签的右键菜单。",
+    ].join("\n");
+  }
+
   if (version === "0.1.16") {
     return [
       "Super Note v0.1.16",

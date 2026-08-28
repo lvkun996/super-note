@@ -33,6 +33,7 @@ type SaveFilePayload = {
     name: string;
     extensions: string[];
   }>;
+  requiredExtension?: string;
 };
 
 type SaveFileResult = {
