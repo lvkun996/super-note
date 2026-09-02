@@ -3,6 +3,11 @@
   "productName": "Super Note",
   "electronVersion": "22.3.27",
   "electronDist": ".cache/electron/win7-8",
+  "publish": {
+    "provider": "generic",
+    "url": "https://github.com/lvkun996/super-note/releases/latest/download/",
+    "channel": "win7-8"
+  },
   "artifactName": "Super.Note.Setup.${version}.Win7-8.${ext}",
   "directories": {
     "output": "release-win7-8"

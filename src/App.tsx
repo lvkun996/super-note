@@ -151,6 +151,12 @@ const canvasThemes: CanvasTheme[] = [
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.19",
+    date: "2026.09.02",
+    title: "修复在线更新下载",
+    description: "安装包补齐自动更新配置与缓存目录，解决检测到新版本后下载时报 app-update.yml 缺失的问题，并加入打包配置校验。",
+  },
+  {
     version: "v0.1.18",
     date: "2026.09.02",
     title: "统一导航配色与置顶分组",
@@ -575,14 +581,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.18",
+    version: "0.1.19",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.18",
+    currentVersion: "0.1.19",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);

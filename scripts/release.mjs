@@ -264,6 +264,18 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.19") {
+    return [
+      "Super Note v0.1.19",
+      "",
+      "- 修复客户端检测到新版本后，下载时报 resources/app-update.yml 缺失的问题。",
+      "- 安装包包含自动更新源与缓存目录配置，打包校验会拦截缺失或无效配置。",
+      "- 新增真实更新器缓存回归测试和在线下载验收脚本。",
+      "",
+      "旧客户端如已缺少 app-update.yml，需要先补齐本地配置并完全退出重启，才能通过客户端在线更新。",
+    ].join("\n");
+  }
+
   if (version === "0.1.18") {
     return [
       "Super Note v0.1.18",

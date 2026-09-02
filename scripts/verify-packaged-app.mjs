@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { extractFile, listPackage } from "@electron/asar";
+import { verifyUpdateConfig } from "./update-config.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const root = path.resolve(path.dirname(scriptPath), "..");
@@ -84,6 +85,11 @@ if (appArchives.length === 0) {
 const runtimeManifests = collectRuntimeManifests();
 
 for (const archivePath of appArchives) {
+  const packagedConfig = verifyUpdateConfig(
+    path.join(path.dirname(archivePath), "app-update.yml"),
+    path.basename(outputDir).includes("win7-8") ? "win7-8" : "latest",
+  );
+  console.log(`Verified updater configuration and cache directory: ${packagedConfig.updaterCacheDirName}`);
   const archiveEntries = listPackage(archivePath);
   const rawEntryByNormalized = new Map(
     archiveEntries.map((entry) => [normalizeEntry(entry), entry.replace(/^[\\/]+/, "")]),
