@@ -3,8 +3,22 @@ export type MultiCaretEditResult = {
   carets: number[];
 };
 
+export type DirectionalSelectionRange = {
+  start: number;
+  end: number;
+  direction: "forward" | "backward";
+};
+
 function normalizeCarets(carets: number[], contentLength: number) {
   return Array.from(new Set(carets.map((caret) => Math.max(0, Math.min(contentLength, caret))))).sort((a, b) => a - b);
+}
+
+export function getDirectionalSelectionRange(anchor: number, offset: number): DirectionalSelectionRange {
+  return {
+    start: Math.min(anchor, offset),
+    end: Math.max(anchor, offset),
+    direction: offset < anchor ? "backward" : "forward",
+  };
 }
 
 export function insertAtCarets(content: string, carets: number[], insertion: string): MultiCaretEditResult {
@@ -35,7 +49,11 @@ export function deleteAtCarets(content: string, carets: number[], direction: "ba
   ).sort((a, b) => a - b);
   const deleted = new Set(deletedIndexes);
   const nextContent = content.split("").filter((_, index) => !deleted.has(index)).join("");
-  const nextCarets = positions.map((position) => position - deletedIndexes.filter((index) => index < position).length);
+  let deletedBefore = 0;
+  const nextCarets = positions.map((position) => {
+    while (deletedBefore < deletedIndexes.length && deletedIndexes[deletedBefore] < position) deletedBefore += 1;
+    return position - deletedBefore;
+  });
 
   return { content: nextContent, carets: Array.from(new Set(nextCarets)) };
 }

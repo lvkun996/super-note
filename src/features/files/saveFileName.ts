@@ -1,12 +1,13 @@
 const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
-export function buildSnoteFileName(title?: string) {
+export function buildSaveFileName(title: string | undefined, extension: string, fallbackTitle = "未命名文本") {
+  const normalizedExtension = extension.replace(/^\.+/, "").toLowerCase() || "txt";
   const normalized = (title ?? "")
     .trim()
-    .replace(/\.snote$/i, "")
+    .replace(new RegExp(`\\.${normalizedExtension}$`, "i"), "")
     .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "-")
     .replace(/[. ]+$/g, "")
     .trim();
-  const baseName = normalized && !WINDOWS_RESERVED_NAME.test(normalized) ? normalized : "未命名文本";
-  return `${baseName}.snote`;
+  const baseName = normalized && !WINDOWS_RESERVED_NAME.test(normalized) ? normalized : fallbackTitle;
+  return `${baseName}.${normalizedExtension}`;
 }

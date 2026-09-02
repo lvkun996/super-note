@@ -51,6 +51,7 @@ input {
 }
 
 .app-shell {
+  --navigation-background: linear-gradient(180deg, #edf9f4 0%, #f7fbef 52%, #fffdf1 100%);
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -58,19 +59,21 @@ input {
 }
 
 .app-shell.dark-mode {
+  --navigation-background: linear-gradient(180deg, #172621 0%, #1b241f 52%, #25251d 100%);
   color: #e6edf7;
   background: #121820;
 }
 
 .app-titlebar {
-  height: 36px;
+  height: 32px;
+  flex: 0 0 32px;
   padding: 0 0 0 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   border-bottom: 1px solid #e5e8ef;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--navigation-background);
   -webkit-app-region: drag;
   user-select: none;
 }
@@ -98,7 +101,7 @@ input {
 }
 
 .menu-left .ant-btn {
-  height: 28px;
+  height: 26px;
   padding-inline: 8px;
 }
 
@@ -120,7 +123,7 @@ input {
 
 .window-control.ant-btn {
   width: 42px;
-  height: 36px;
+  height: 31px;
   border-radius: 0;
 }
 
@@ -131,7 +134,6 @@ input {
 
 .dark-mode .app-titlebar {
   border-bottom-color: #253142;
-  background: rgba(18, 24, 32, 0.96);
 }
 
 .dark-mode .app-title {
@@ -172,12 +174,11 @@ input {
   align-items: stretch;
   gap: 0;
   border-bottom: 1px solid #e5e8ef;
-  background: #fff;
+  background: var(--navigation-background);
 }
 
 .dark-mode .tabs-bar {
   border-bottom-color: #263344;
-  background: #151d28;
 }
 
 .tabs-bar.multi-pane {
@@ -246,12 +247,11 @@ input {
   flex: none;
   align-items: stretch;
   border-left: 1px solid #e5e8ef;
-  background: #fff;
+  background: transparent;
 }
 
 .dark-mode .tabs-extra-actions {
   border-left-color: #263344;
-  background: #151d28;
 }
 
 .tab-pane-zone .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
@@ -260,7 +260,7 @@ input {
   border-bottom: 0 !important;
   border-left: 0;
   border-radius: 0 !important;
-  background: #f7f9fc;
+  background: transparent;
   margin: 0 !important;
   height: 31px;
   padding: 3px 8px;
@@ -269,7 +269,6 @@ input {
 
 .dark-mode .tab-pane-zone .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
   border-right-color: #2d3a4d;
-  background: #182230;
 }
 
 .tab-pane-zone .ant-tabs-nav::before {
@@ -282,13 +281,13 @@ input {
 
 .tab-pane-zone .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
   border-right-color: #cfd9e8;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.78);
   box-shadow: none;
 }
 
 .dark-mode .tab-pane-zone .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
   border-right-color: #3a8bff;
-  background: #101722;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .tab-label {
@@ -398,7 +397,7 @@ input {
   display: flex;
   flex-direction: column;
   border-right: 1px solid #dfe7e5;
-  background: linear-gradient(180deg, #edf9f4 0%, #f7fbef 52%, #fffdf1 100%);
+  background: var(--navigation-background);
   color: #27312f;
   user-select: none;
 }
@@ -435,6 +434,27 @@ input {
   padding: 4px 5px 8px;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+.tabs-sidebar-group-label {
+  padding: 7px 10px 4px;
+  color: #8a9b95;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.tabs-sidebar-group-label.unpinned {
+  margin-top: 6px;
+  border-top: 1px solid rgba(93, 123, 116, 0.12);
+}
+
+.dark-mode .tabs-sidebar-group-label {
+  color: #90a69d;
+}
+
+.dark-mode .tabs-sidebar-group-label.unpinned {
+  border-top-color: rgba(205, 228, 220, 0.1);
 }
 
 .tabs-sidebar-item {
@@ -545,7 +565,6 @@ input {
 
 .dark-mode .tabs-sidebar {
   border-right-color: #293748;
-  background: linear-gradient(180deg, #172621 0%, #1b241f 52%, #25251d 100%);
   color: #dce8e4;
 }
 
@@ -662,6 +681,20 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   flex: 1;
 }
 
+.feature-loading {
+  width: 100%;
+  height: 100%;
+  min-height: 72px;
+  display: grid;
+  place-items: center;
+  color: #8c96a8;
+  font-size: 12px;
+}
+
+.dark-mode .feature-loading {
+  color: #748297;
+}
+
 .tab-layout-left .workspace {
   min-width: 0;
 }
@@ -679,19 +712,19 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   z-index: 1200;
   top: 46px;
   left: 50%;
-  min-width: 148px;
-  padding: 5px 7px 5px 13px;
+  min-width: 126px;
+  padding: 5px 6px 5px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   transform: translateX(-50%);
   border: 1px solid rgba(30, 42, 60, 0.1);
-  border-radius: 9px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 8px 24px rgba(23, 36, 56, 0.16);
   color: #1e2a3c;
-  font-size: 13px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   font-weight: 650;
   text-align: center;
@@ -700,11 +733,49 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   animation: file-zoom-feedback 140ms ease-out;
 }
 
-.file-zoom-indicator .ant-btn {
+.file-zoom-value {
+  min-width: 34px;
+  font-size: 13px;
+}
+
+.file-zoom-reset {
   height: 24px;
-  padding-inline: 7px;
-  color: #5b5bd6;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(30, 42, 60, 0.1);
+  border-radius: 7px;
+  background: rgba(240, 243, 248, 0.9);
+  color: #526078;
+  font: inherit;
   font-size: 11px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.file-zoom-reset:hover {
+  border-color: rgba(91, 91, 214, 0.24);
+  background: #eef0ff;
+  color: #4f52c8;
+}
+
+.file-zoom-reset:focus-visible {
+  outline: 2px solid rgba(91, 91, 214, 0.28);
+  outline-offset: 1px;
+}
+
+.dark-mode .file-zoom-indicator {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(27, 32, 42, 0.92);
+  color: #eef2f8;
+}
+
+.dark-mode .file-zoom-reset {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.07);
+  color: #cbd3df;
 }
 
 .donation-overlay {
@@ -1501,11 +1572,13 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   color: #edf3fb;
 }
 
-.markdown-body.markdown-empty {
+.markdown-body.markdown-empty,
+.markdown-body.markdown-loading {
   color: #8c96a8;
 }
 
-.dark-mode .markdown-body.markdown-empty {
+.dark-mode .markdown-body.markdown-empty,
+.dark-mode .markdown-body.markdown-loading {
   color: #748297;
 }
 
@@ -2071,17 +2144,6 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 @media (max-width: 980px) {
   body {
     min-width: 0;
-  }
-
-  .app-titlebar {
-    height: auto;
-    min-height: 52px;
-    flex-wrap: wrap;
-    padding: 8px 0 8px 10px;
-  }
-
-  .titlebar-left {
-    flex-wrap: wrap;
   }
 
   .empty-world-title {

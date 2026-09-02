@@ -264,6 +264,18 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.18") {
+    return [
+      "Super Note v0.1.18",
+      "",
+      "- 顶部操作栏、顶部标签栏与左侧标签栏统一渐变配色，操作栏高度缩小为 32px。",
+      "- 左侧标签新增 Pinned 置顶分组，支持取消置顶，并在重启后保留置顶状态。",
+      "- 纯文本首次保存使用当前标签标题和 .txt 后缀；侧栏使用 Ctrl+↑/↓ 切换标签。",
+      "- 切换标签后保留文本滚动和光标位置；Ctrl+F 搜索当前页，再按一次搜索全部标签。",
+      "- 移除搜索空态留白，优化缩放恢复按钮，并改进中键纵向多光标操作。",
+    ].join("\n");
+  }
+
   if (version === "0.1.17") {
     return [
       "Super Note v0.1.17",
