@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { deleteAtCarets, insertAtCarets } from "./multiCaret";
+import { deleteAtCarets, getDirectionalSelectionRange, insertAtCarets } from "./multiCaret";
 
 describe("multi-caret editing", () => {
+  it("preserves forward and backward selection direction", () => {
+    expect(getDirectionalSelectionRange(3, 9)).toEqual({ start: 3, end: 9, direction: "forward" });
+    expect(getDirectionalSelectionRange(9, 3)).toEqual({ start: 3, end: 9, direction: "backward" });
+  });
+
   it("inserts the same text at every caret", () => {
     expect(insertAtCarets("one\ntwo\nthree", [1, 5, 9], "A")).toEqual({
       content: "oAne\ntAwo\ntAhree",

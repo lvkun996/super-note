@@ -1,42 +1,6 @@
 import { Button, Input, Modal, Segmented, Switch } from "antd";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { AppSettings, ShortcutAction, ShortcutConfig } from "../../appTypes";
-import { DEFAULT_PLUGIN_SETTINGS, normalizePluginSettings } from "../../pluginSettings";
-
-export const DEFAULT_SHORTCUTS: ShortcutConfig = {
-  newCanvas: "Ctrl+D",
-  newText: "Ctrl+T",
-  closeTab: "Ctrl+Q",
-  fileFontIncrease: "Ctrl++",
-  fileFontDecrease: "Ctrl+-",
-  fileFontReset: "Ctrl+0",
-  toggleFullscreen: "Ctrl+H",
-  save: "Ctrl+S",
-  search: "Ctrl+F",
-  quickOpen: "Ctrl+P",
-  undo: "Ctrl+Z",
-  redo: "Ctrl+Y",
-  redoAlt: "Ctrl+Shift+Z",
-  paste: "Ctrl+V",
-  deleteSelected: "Backspace",
-  previousTab: "Ctrl+Left",
-  nextTab: "Ctrl+Right",
-  toggleTabLayout: "Ctrl+B",
-  splitLeft: "Ctrl+Shift+Left",
-  splitRight: "Ctrl+Shift+Right",
-};
-
-export const DEFAULT_SETTINGS: AppSettings = {
-  handwritten: false,
-  programmerMode: false,
-  darkMode: false,
-  followSystemTheme: false,
-  tabLayout: "top",
-  sidebarWidth: 220,
-  defaultSaveDirectory: "",
-  plugins: DEFAULT_PLUGIN_SETTINGS,
-  shortcuts: DEFAULT_SHORTCUTS,
-};
+import type { AppSettings, ShortcutAction } from "../../appTypes";
+import { DEFAULT_SHORTCUTS, normalizeShortcut, shortcutFromEvent } from "./settingsModel";
 
 const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; desc: string }> = [
   { action: "newCanvas", label: "新建画板", desc: "仅在画板插件启用后生效" },
@@ -47,139 +11,19 @@ const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; desc: string
   { action: "fileFontReset", label: "恢复文本为 100%", desc: "将当前文本模块字号恢复为默认大小" },
   { action: "toggleFullscreen", label: "切换全屏", desc: "进入或退出 Super Note 全屏模式" },
   { action: "save", label: "保存当前标签", desc: "保存当前文件或画板" },
-  { action: "search", label: "全局搜索", desc: "打开全局搜索面板" },
+  { action: "search", label: "搜索当前页", desc: "再次按下快捷键后切换为搜索全部标签" },
   { action: "quickOpen", label: "快速打开", desc: "搜索已打开标签和最近文件" },
   { action: "undo", label: "撤销", desc: "撤销当前模块变更" },
   { action: "redo", label: "重做", desc: "重做当前模块变更" },
   { action: "redoAlt", label: "重做备用", desc: "兼容常见编辑器快捷键" },
   { action: "paste", label: "粘贴", desc: "粘贴文字或图片" },
   { action: "deleteSelected", label: "删除选中元素", desc: "删除画板中选中的元素" },
-  { action: "previousTab", label: "打开左侧标签", desc: "切换到当前标签左边的标签页" },
-  { action: "nextTab", label: "打开右侧标签", desc: "切换到当前标签右边的标签页" },
+  { action: "previousTab", label: "打开上一个标签", desc: "顶部布局使用当前设置；左侧布局固定使用 Ctrl+↑" },
+  { action: "nextTab", label: "打开下一个标签", desc: "顶部布局使用当前设置；左侧布局固定使用 Ctrl+↓" },
   { action: "toggleTabLayout", label: "切换标签栏位置", desc: "在顶部标签栏和左侧标签菜单之间切换" },
   { action: "splitLeft", label: "向左分割视图", desc: "把当前标签分割到左侧视图" },
   { action: "splitRight", label: "向右分割视图", desc: "把当前标签分割到右侧视图" },
 ];
-
-function splitShortcutParts(value: string) {
-  const clean = value.replace(/Command/gi, "Meta").replace(/Cmd/gi, "Meta");
-  const parts = clean
-    .split("+")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (clean.trim().endsWith("+")) {
-    parts.push("+");
-  }
-  return parts;
-}
-
-function normalizeShortcutKey(part: string) {
-  const lower = part.toLowerCase();
-  if (lower === "plus" || lower === "add" || lower === "numpadadd" || part === "+" || part === "=") {
-    return "+";
-  }
-  if (lower === "minus" || lower === "subtract" || lower === "numpadsubtract" || part === "-" || part === "_") {
-    return "-";
-  }
-  if (lower === "left" || lower === "arrowleft") {
-    return "Left";
-  }
-  if (lower === "right" || lower === "arrowright") {
-    return "Right";
-  }
-  if (part.length === 1) {
-    return part.toUpperCase();
-  }
-  return part[0].toUpperCase() + part.slice(1);
-}
-
-export function normalizeShortcut(value: string) {
-  const clean = value.trim();
-  if (!clean) {
-    return "";
-  }
-  const rawParts = splitShortcutParts(clean);
-  const modifiers = new Set<string>();
-  let key = "";
-  rawParts.forEach((part) => {
-    const lower = part.toLowerCase();
-    if (lower === "ctrl" || lower === "control") {
-      modifiers.add("Ctrl");
-    } else if (lower === "meta" || lower === "win" || lower === "super") {
-      modifiers.add("Meta");
-    } else if (lower === "alt" || lower === "option") {
-      modifiers.add("Alt");
-    } else if (lower === "shift") {
-      modifiers.add("Shift");
-    } else {
-      key = normalizeShortcutKey(part);
-    }
-  });
-  return ["Ctrl", "Meta", "Alt", "Shift"]
-    .filter((part) => modifiers.has(part))
-    .concat(key ? [key] : [])
-    .join("+");
-}
-
-export function shortcutFromEvent(event: KeyboardEvent | ReactKeyboardEvent) {
-  const key = event.key;
-  if (["Control", "Meta", "Alt", "Shift"].includes(key)) {
-    return "";
-  }
-  const normalizedKey =
-    event.code === "Equal" || event.code === "NumpadAdd" || key === "+" || key === "="
-      ? "+"
-      : event.code === "Minus" || event.code === "NumpadSubtract" || key === "-" || key === "_"
-        ? "-"
-        : key === " "
-          ? "Space"
-          : key === "ArrowLeft"
-            ? "Left"
-            : key === "ArrowRight"
-              ? "Right"
-              : key.length === 1
-                ? key.toUpperCase()
-                : key;
-  const includeShift = event.shiftKey && normalizedKey !== "+";
-  return [
-    event.ctrlKey ? "Ctrl" : "",
-    event.metaKey ? "Meta" : "",
-    event.altKey ? "Alt" : "",
-    includeShift ? "Shift" : "",
-    normalizedKey,
-  ]
-    .filter(Boolean)
-    .join("+");
-}
-
-export function shortcutMatches(event: KeyboardEvent, shortcut: string) {
-  return normalizeShortcut(shortcutFromEvent(event)) === normalizeShortcut(shortcut);
-}
-
-export function normalizeSettings(value?: Partial<AppSettings>): AppSettings {
-  const shortcuts = { ...DEFAULT_SHORTCUTS, ...(value?.shortcuts ?? {}) };
-  if (!value?.shortcuts?.deleteSelected || value.shortcuts.deleteSelected === "Delete") {
-    shortcuts.deleteSelected = DEFAULT_SHORTCUTS.deleteSelected;
-  }
-  if (!value?.shortcuts?.previousTab && value?.shortcuts?.splitLeft === "Ctrl+Left") {
-    shortcuts.splitLeft = DEFAULT_SHORTCUTS.splitLeft;
-  }
-  if (!value?.shortcuts?.nextTab && value?.shortcuts?.splitRight === "Ctrl+Right") {
-    shortcuts.splitRight = DEFAULT_SHORTCUTS.splitRight;
-  }
-
-  return {
-    handwritten: Boolean(value?.handwritten),
-    programmerMode: Boolean(value?.programmerMode),
-    darkMode: Boolean(value?.darkMode),
-    followSystemTheme: Boolean(value?.followSystemTheme),
-    tabLayout: value?.tabLayout === "left" ? "left" : "top",
-    sidebarWidth: Math.min(480, Math.max(160, Number(value?.sidebarWidth) || DEFAULT_SETTINGS.sidebarWidth)),
-    defaultSaveDirectory: typeof value?.defaultSaveDirectory === "string" ? value.defaultSaveDirectory : "",
-    plugins: normalizePluginSettings(value?.plugins),
-    shortcuts,
-  };
-}
 
 type SettingsModalProps = {
   open: boolean;

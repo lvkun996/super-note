@@ -1,17 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { buildSnoteFileName } from "./saveFileName";
+import { buildSaveFileName } from "./saveFileName";
 
-describe("buildSnoteFileName", () => {
-  it("uses the current tab title for a new Super Note file", () => {
-    expect(buildSnoteFileName("本周计划")).toBe("本周计划.snote");
+describe("buildSaveFileName", () => {
+  it("uses the current tab title for a new text file", () => {
+    expect(buildSaveFileName("本周计划", "txt")).toBe("本周计划.txt");
   });
 
   it("falls back to the unnamed text title when no usable title exists", () => {
-    expect(buildSnoteFileName("  ")).toBe("未命名文本.snote");
-    expect(buildSnoteFileName("CON")).toBe("未命名文本.snote");
+    expect(buildSaveFileName("  ", "txt")).toBe("未命名文本.txt");
+    expect(buildSaveFileName("CON", "txt")).toBe("未命名文本.txt");
   });
 
   it("sanitizes Windows file names and does not duplicate the extension", () => {
-    expect(buildSnoteFileName('需求:第一版?.snote')).toBe("需求-第一版-.snote");
+    expect(buildSaveFileName('需求:第一版?.txt', ".txt")).toBe("需求-第一版-.txt");
+    expect(buildSaveFileName("说明.md", "md", "未命名 Markdown")).toBe("说明.md");
   });
 });

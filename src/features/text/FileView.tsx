@@ -1,9 +1,9 @@
 import { CodeOutlined, CopyOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
 import { Button, Dropdown } from "antd";
 import type { MenuProps } from "antd";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode, WheelEvent as ReactWheelEvent } from "react";
-import type { FileDocumentMode, FileTab, ProgrammerAction, TextSearchTarget, TextSelection } from "../../appTypes";
+import type { FileTab, FileViewState, ProgrammerAction, TextSearchTarget, TextSelection } from "../../appTypes";
 import {
   continueOrderedList,
   findHttpUrlAtOffset,
@@ -15,27 +15,18 @@ import {
   renderTextWithLinks,
   writeClipboardText,
 } from "../editor/editorUtils";
-import { deleteAtCarets, insertAtCarets } from "./multiCaret";
+import { useTextEditorSelection } from "./useTextEditorSelection";
+import { getFileDocumentMode } from "./fileDocument";
 
 const EMPTY_SELECTION: TextSelection = { start: 0, end: 0 };
-
-function isMarkdownFileName(fileName?: string) {
-  return Boolean(fileName && /\.(md|markdown|mdown|mkd)$/i.test(fileName));
-}
-
-export function getFileDocumentMode(file: Pick<FileTab, "fileName" | "filePath" | "documentMode">): FileDocumentMode {
-  if (file.documentMode) {
-    return file.documentMode;
-  }
-  return isMarkdownFileName(file.fileName) || isMarkdownFileName(file.filePath) ? "markdown" : "text";
-}
 
 type FileViewProps = {
   tab: FileTab;
   searchValue: string;
   searchTarget: TextSearchTarget | null;
   programmerMode: boolean;
-  renderedMarkdown: string;
+  viewState?: FileViewState;
+  onViewStateChange: (patch: Partial<FileViewState>) => void;
   onContentChange: (content: string) => void;
   onFontSizeChange: (delta: number) => void;
   onProgrammerAction: (action: ProgrammerAction, selectionStart: number, selectionEnd: number) => void;
@@ -47,7 +38,8 @@ export function FileView({
   searchValue,
   searchTarget,
   programmerMode,
-  renderedMarkdown,
+  viewState,
+  onViewStateChange,
   onContentChange,
   onFontSizeChange,
   onProgrammerAction,
@@ -55,99 +47,83 @@ export function FileView({
 }: FileViewProps) {
   const highlightRef = useRef<HTMLPreElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
-  const [markdownMode, setMarkdownMode] = useState<"edit" | "preview">("preview");
+  const markdownPreviewRef = useRef<HTMLDivElement>(null);
+  const markdownLivePreviewRef = useRef<HTMLDivElement>(null);
+  const [markdownMode, setMarkdownMode] = useState<"edit" | "preview">(viewState?.markdownMode ?? "preview");
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
-  const middleSelectionRef = useRef<{ anchor: number } | null>(null);
-  const verticalSelectionHoldRef = useRef<number | null>(null);
-  const verticalSelectionPendingRef = useRef<{ x: number; y: number } | null>(null);
-  const verticalSelectionRef = useRef<{ anchorX: number; anchorY: number } | null>(null);
-  const [multiCarets, setMultiCarets] = useState<number[]>([]);
+  const [markdownRender, setMarkdownRender] = useState<{
+    tabId: string;
+    content: string;
+    filePath?: string;
+    html: string;
+  } | null>(null);
   const fontSize = tab.fontSize ?? 13;
   const documentMode = getFileDocumentMode(tab);
   const hasSelection = selection.end > selection.start;
   const activeSearchTarget = searchTarget?.tabId === tab.id ? searchTarget : null;
 
+  const {
+    multiCarets,
+    clearMultiCarets,
+    handleSelectionMouseDown,
+    handleMultiCaretKeyDown,
+    handleMultiCaretPaste,
+  } = useTextEditorSelection({
+    editorRef,
+    mirrorRef: highlightRef,
+    content: tab.content,
+    onContentChange,
+    onSelectionChange: setSelection,
+  });
+
   useEffect(() => {
-    setMarkdownMode("preview");
+    setMarkdownMode(viewState?.markdownMode ?? "preview");
     setSelection(EMPTY_SELECTION);
-    setMultiCarets([]);
-  }, [tab.id, documentMode]);
+    clearMultiCarets();
+  }, [clearMultiCarets, documentMode, tab.id, viewState?.markdownMode]);
+
+  useLayoutEffect(() => {
+    const editor = editorRef.current;
+    if (editor && viewState) {
+      editor.scrollTop = viewState.editorScrollTop;
+      editor.scrollLeft = viewState.editorScrollLeft;
+      const start = Math.max(0, Math.min(viewState.selectionStart, editor.value.length));
+      const end = Math.max(start, Math.min(viewState.selectionEnd, editor.value.length));
+      editor.setSelectionRange(start, end, viewState.selectionDirection);
+      setSelection({ start, end });
+      if (highlightRef.current) {
+        highlightRef.current.scrollTop = viewState.editorScrollTop;
+        highlightRef.current.scrollLeft = viewState.editorScrollLeft;
+      }
+    }
+    if (markdownPreviewRef.current && viewState) {
+      markdownPreviewRef.current.scrollTop = viewState.previewScrollTop;
+    }
+    if (markdownLivePreviewRef.current && viewState) {
+      markdownLivePreviewRef.current.scrollTop = viewState.livePreviewScrollTop;
+    }
+  }, [documentMode, markdownMode, tab.id, viewState]);
 
   useEffect(() => {
-    const handleMiddleSelectionMove = (event: MouseEvent) => {
-      const pendingVerticalSelection = verticalSelectionPendingRef.current;
-      if (
-        pendingVerticalSelection &&
-        Math.hypot(event.clientX - pendingVerticalSelection.x, event.clientY - pendingVerticalSelection.y) > 4
-      ) {
-        if (verticalSelectionHoldRef.current !== null) {
-          window.clearTimeout(verticalSelectionHoldRef.current);
-          verticalSelectionHoldRef.current = null;
-        }
-        verticalSelectionPendingRef.current = null;
+    if (documentMode !== "markdown") {
+      setMarkdownRender(null);
+      return;
+    }
+    let active = true;
+    void import("./markdownRenderer").then(({ renderMarkdownContent }) => {
+      if (active) {
+        setMarkdownRender({
+          tabId: tab.id,
+          content: tab.content,
+          filePath: tab.filePath,
+          html: renderMarkdownContent(tab.content, tab.filePath),
+        });
       }
-      const middleSelection = middleSelectionRef.current;
-      const verticalSelection = verticalSelectionRef.current;
-      const editor = editorRef.current;
-      if ((!middleSelection && !verticalSelection) || !editor) {
-        return;
-      }
-      event.preventDefault();
-      editor.focus({ preventScroll: true });
-      if (verticalSelection) {
-        const styles = window.getComputedStyle(editor);
-        const lineHeight = Number.parseFloat(styles.lineHeight) || (Number.parseFloat(styles.fontSize) || 13) * 1.65;
-        const rowDelta = Math.round((event.clientY - verticalSelection.anchorY) / lineHeight);
-        const direction = rowDelta < 0 ? -1 : 1;
-        const carets = Array.from({ length: Math.abs(rowDelta) + 1 }, (_, index) =>
-          getTextOffsetAtPoint(
-            editor,
-            highlightRef.current,
-            verticalSelection.anchorX,
-            verticalSelection.anchorY + index * lineHeight * direction,
-          ),
-        );
-        const uniqueCarets = Array.from(new Set(carets)).sort((a, b) => a - b);
-        const primaryCaret = carets.at(-1) ?? 0;
-        setMultiCarets(uniqueCarets);
-        editor.setSelectionRange(primaryCaret, primaryCaret);
-        setSelection({ start: primaryCaret, end: primaryCaret });
-        return;
-      }
-
-      const offset = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY);
-      const start = Math.min(middleSelection!.anchor, offset);
-      const end = Math.max(middleSelection!.anchor, offset);
-      const selectionDirection = offset < middleSelection!.anchor ? "backward" : "forward";
-      editor.setSelectionRange(start, end, selectionDirection);
-      setSelection({ start, end });
-    };
-
-    const handleMiddleSelectionEnd = (event: MouseEvent) => {
-      if (event.button === 1) {
-        middleSelectionRef.current = null;
-      }
-      if (event.button === 0) {
-        if (verticalSelectionHoldRef.current !== null) {
-          window.clearTimeout(verticalSelectionHoldRef.current);
-          verticalSelectionHoldRef.current = null;
-        }
-        verticalSelectionPendingRef.current = null;
-        verticalSelectionRef.current = null;
-      }
-    };
-
-    window.addEventListener("mousemove", handleMiddleSelectionMove, { passive: false });
-    window.addEventListener("mouseup", handleMiddleSelectionEnd);
+    });
     return () => {
-      middleSelectionRef.current = null;
-      verticalSelectionRef.current = null;
-      verticalSelectionPendingRef.current = null;
-      if (verticalSelectionHoldRef.current !== null) window.clearTimeout(verticalSelectionHoldRef.current);
-      window.removeEventListener("mousemove", handleMiddleSelectionMove);
-      window.removeEventListener("mouseup", handleMiddleSelectionEnd);
+      active = false;
     };
-  }, []);
+  }, [documentMode, tab.content, tab.filePath, tab.id]);
 
   useEffect(() => {
     if (!activeSearchTarget) {
@@ -189,47 +165,26 @@ export function FileView({
   }, [activeSearchTarget?.requestId, documentMode, fontSize, markdownMode]);
 
   const syncSelection = (editor: HTMLTextAreaElement) => {
-    setSelection(getTextSelection(editor));
-  };
-
-  const commitMultiCaretEdit = (result: { content: string; carets: number[] }) => {
-    const editor = editorRef.current;
-    onContentChange(result.content);
-    setMultiCarets(result.carets);
-    const primaryCaret = result.carets.at(-1) ?? 0;
-    setSelection({ start: primaryCaret, end: primaryCaret });
-    window.requestAnimationFrame(() => {
-      editor?.focus({ preventScroll: true });
-      editor?.setSelectionRange(primaryCaret, primaryCaret);
+    const nextSelection = getTextSelection(editor);
+    setSelection(nextSelection);
+    onViewStateChange({
+      selectionStart: editor.selectionStart,
+      selectionEnd: editor.selectionEnd,
+      selectionDirection: editor.selectionDirection,
     });
   };
 
-  const handleMultiCaretKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (multiCarets.length < 2) {
-      return false;
+  const syncEditorScroll = (editor: HTMLTextAreaElement) => {
+    if (highlightRef.current) {
+      highlightRef.current.scrollTop = editor.scrollTop;
+      highlightRef.current.scrollLeft = editor.scrollLeft;
     }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      setMultiCarets([]);
-      return true;
-    }
-    if (event.ctrlKey || event.metaKey || event.altKey || event.nativeEvent.isComposing) {
-      return false;
-    }
+    onViewStateChange({ editorScrollTop: editor.scrollTop, editorScrollLeft: editor.scrollLeft });
+  };
 
-    if (event.key === "Backspace" || event.key === "Delete") {
-      event.preventDefault();
-      commitMultiCaretEdit(deleteAtCarets(tab.content, multiCarets, event.key === "Backspace" ? "backward" : "forward"));
-      return true;
-    }
-
-    const insertion = event.key === "Enter" ? "\n" : event.key === "Tab" ? "\t" : event.key.length === 1 ? event.key : null;
-    if (insertion !== null) {
-      event.preventDefault();
-      commitMultiCaretEdit(insertAtCarets(tab.content, multiCarets, insertion));
-      return true;
-    }
-    return false;
+  const changeMarkdownMode = (mode: "edit" | "preview") => {
+    setMarkdownMode(mode);
+    onViewStateChange({ markdownMode: mode });
   };
 
   const replaceSelection = (insertion: string, removeSelection = true) => {
@@ -344,36 +299,7 @@ export function FileView({
   ];
 
   const handleTextAreaMouseDown = (event: ReactMouseEvent<HTMLTextAreaElement>) => {
-    if (event.button === 1) {
-      event.preventDefault();
-      event.stopPropagation();
-      const editor = event.currentTarget;
-      const offset = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY);
-      editor.focus({ preventScroll: true });
-      editor.setSelectionRange(offset, offset);
-      middleSelectionRef.current = { anchor: offset };
-      setSelection({ start: offset, end: offset });
-      return;
-    }
-
-    if (event.button === 0) {
-      const editor = event.currentTarget;
-      setMultiCarets([]);
-      if (!highlightRef.current) {
-        return;
-      }
-      const anchor = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY);
-      if (verticalSelectionHoldRef.current !== null) window.clearTimeout(verticalSelectionHoldRef.current);
-      verticalSelectionPendingRef.current = { x: event.clientX, y: event.clientY };
-      verticalSelectionHoldRef.current = window.setTimeout(() => {
-        verticalSelectionHoldRef.current = null;
-        verticalSelectionPendingRef.current = null;
-        verticalSelectionRef.current = { anchorX: event.clientX, anchorY: event.clientY };
-        editor.focus({ preventScroll: true });
-        editor.setSelectionRange(anchor, anchor);
-        setMultiCarets([anchor]);
-      }, 360);
-    }
+    if (handleSelectionMouseDown(event)) return;
 
     const endMarker = highlightRef.current?.querySelector<HTMLElement>(".file-highlight-end-marker");
     if (placeCaretAtEndForBlankArea(event, endMarker)) {
@@ -413,6 +339,9 @@ export function FileView({
     onSelect: (event: React.SyntheticEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
     onKeyUp: (event: React.KeyboardEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
     onContextMenu: (event: ReactMouseEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
+    onAuxClick: (event: ReactMouseEvent<HTMLTextAreaElement>) => {
+      if (event.button === 1) event.preventDefault();
+    },
   };
 
   const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -422,9 +351,7 @@ export function FileView({
   };
 
   const handleEditorPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    if (multiCarets.length < 2) return;
-    event.preventDefault();
-    commitMultiCaretEdit(insertAtCarets(tab.content, multiCarets, event.clipboardData.getData("text")));
+    handleMultiCaretPaste(event);
   };
 
   const handleMarkdownLinkClick = (event: ReactMouseEvent<HTMLElement>) => {
@@ -438,12 +365,21 @@ export function FileView({
     }
   };
 
+  const renderedMarkdown =
+    markdownRender?.tabId === tab.id &&
+    markdownRender.content === tab.content &&
+    markdownRender.filePath === tab.filePath
+      ? markdownRender.html
+      : null;
+
   const renderMarkdownPreview = (className = "") =>
-    tab.content.trim() ? (
+    tab.content.trim() && renderedMarkdown === null ? (
+      <article className={`markdown-body markdown-loading ${className}`}>正在加载 Markdown...</article>
+    ) : tab.content.trim() ? (
       <article
         className={`markdown-body ${className}`}
         onClick={handleMarkdownLinkClick}
-        dangerouslySetInnerHTML={{ __html: renderedMarkdown }}
+        dangerouslySetInnerHTML={{ __html: renderedMarkdown ?? "" }}
       />
     ) : (
       <article className={`markdown-body markdown-empty ${className}`}>开始写 Markdown...</article>
@@ -459,8 +395,9 @@ export function FileView({
         placeholder={"# 标题\n\n开始编写 Markdown..."}
         onKeyDown={handleEditorKeyDown}
         onPaste={handleEditorPaste}
+        onScroll={(event) => syncEditorScroll(event.currentTarget)}
         onChange={(event) => {
-          setMultiCarets([]);
+          clearMultiCarets();
           onContentChange(event.target.value);
         }}
         {...editorEvents}
@@ -477,17 +414,22 @@ export function FileView({
         <div className="markdown-toolbar">
           <span className="markdown-toolbar-title">Markdown</span>
           <Button.Group size="small">
-            <Button type={markdownMode === "edit" ? "primary" : "default"} onClick={() => setMarkdownMode("edit")}>
+            <Button type={markdownMode === "edit" ? "primary" : "default"} onClick={() => changeMarkdownMode("edit")}>
               编辑
             </Button>
-            <Button type={markdownMode === "preview" ? "primary" : "default"} onClick={() => setMarkdownMode("preview")}>
+            <Button type={markdownMode === "preview" ? "primary" : "default"} onClick={() => changeMarkdownMode("preview")}>
               预览
             </Button>
           </Button.Group>
         </div>
 
         {markdownMode === "preview" ? (
-          <div className="markdown-preview-scroll" onDoubleClick={() => setMarkdownMode("edit")}>
+          <div
+            ref={markdownPreviewRef}
+            className="markdown-preview-scroll"
+            onScroll={(event) => onViewStateChange({ previewScrollTop: event.currentTarget.scrollTop })}
+            onDoubleClick={() => changeMarkdownMode("edit")}
+          >
             {renderMarkdownPreview("markdown-preview")}
           </div>
         ) : (
@@ -495,7 +437,13 @@ export function FileView({
             <Dropdown menu={{ items: contextMenuItems }} trigger={["contextMenu"]}>
               <div className="markdown-source-pane">{markdownEditor}</div>
             </Dropdown>
-            <div className="markdown-live-pane">{renderMarkdownPreview("markdown-live-preview")}</div>
+            <div
+              ref={markdownLivePreviewRef}
+              className="markdown-live-pane"
+              onScroll={(event) => onViewStateChange({ livePreviewScrollTop: event.currentTarget.scrollTop })}
+            >
+              {renderMarkdownPreview("markdown-live-preview")}
+            </div>
           </div>
         )}
       </div>
@@ -542,15 +490,12 @@ export function FileView({
         spellCheck={false}
         placeholder="文件为空，可以直接编辑"
         onScroll={(event) => {
-          if (highlightRef.current) {
-            highlightRef.current.scrollTop = event.currentTarget.scrollTop;
-            highlightRef.current.scrollLeft = event.currentTarget.scrollLeft;
-          }
+          syncEditorScroll(event.currentTarget);
         }}
         onKeyDown={handleEditorKeyDown}
         onPaste={handleEditorPaste}
         onChange={(event) => {
-          setMultiCarets([]);
+          clearMultiCarets();
           onContentChange(event.target.value);
         }}
         {...editorEvents}

@@ -42,6 +42,7 @@ export type MarkdownRenderEnv = { filePath?: string };
 
 export type CanvasTab = {
   id: string;
+  pinned?: boolean;
   kind: "canvas";
   title: string;
   autoTitle: boolean;
@@ -61,6 +62,7 @@ export type CanvasTab = {
 
 export type FileTab = {
   id: string;
+  pinned?: boolean;
   kind: "file";
   title: string;
   fileName: string;
@@ -72,6 +74,17 @@ export type FileTab = {
   lastKnownMtimeMs?: number;
   lastKnownSize?: number;
   dirty: boolean;
+};
+
+export type FileViewState = {
+  editorScrollTop: number;
+  editorScrollLeft: number;
+  selectionStart: number;
+  selectionEnd: number;
+  selectionDirection: "forward" | "backward" | "none";
+  markdownMode: "edit" | "preview";
+  previewScrollTop: number;
+  livePreviewScrollTop: number;
 };
 
 export type NoteTab = CanvasTab | FileTab;

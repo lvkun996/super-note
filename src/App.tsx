@@ -39,11 +39,10 @@ import {
   UserOutlined,
   HeartOutlined,
 } from "@ant-design/icons";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import donationImageUrl from "../assets/wechat-donation.jpg";
 import { flushSync } from "react-dom";
-import MarkdownIt from "markdown-it";
 import type {
   AppSettings,
   CanvasItem,
@@ -54,9 +53,9 @@ import type {
   DragState,
   FileDocumentMode,
   FileTab,
+  FileViewState,
   ImageCanvasItem,
   LegacyTabPlacement,
-  MarkdownRenderEnv,
   NoteFilePayload,
   NoteTab,
   PaneKey,
@@ -72,9 +71,6 @@ import type {
   TabLayout,
 } from "./appTypes";
 import { EmptyWorld } from "./components/EmptyWorld";
-import { HelpDocumentation } from "./components/HelpDocumentation";
-import { CanvasView } from "./features/canvas/CanvasView";
-import { renderCanvasToPng } from "./features/canvas/canvasExport";
 import { dispatchCanvasItemDrag, dispatchCanvasItemDragEnd } from "./features/canvas/canvasLiveDrag";
 import {
   DEFAULT_TEXT_FONT_SIZE,
@@ -90,19 +86,14 @@ import {
   renderHighlightedText,
   transformJsonText,
 } from "./features/editor/editorUtils";
-import {
-  DEFAULT_SETTINGS,
-  SettingsModal,
-  normalizeSettings,
-  shortcutMatches,
-} from "./features/settings/SettingsModal";
+import { DEFAULT_SETTINGS, normalizeSettings, shortcutMatches } from "./features/settings/settingsModel";
 import { rememberTabVisit, removeTabVisit, resolveTabAfterClose } from "./features/tabs/tabHistory";
 import { TabNavigation } from "./features/tabs/TabNavigation";
-import { reorderTabsById } from "./features/tabs/tabOrder";
+import { reorderTabsById, sortPinnedTabs, toggleTabPinned } from "./features/tabs/tabOrder";
 import type { TabDropPosition } from "./features/tabs/tabOrder";
-import { FileView, getFileDocumentMode } from "./features/text/FileView";
+import { getFileDocumentMode, isMarkdownFileName } from "./features/text/fileDocument";
 import { hasExternalFileChange } from "./features/files/fileState";
-import { buildSnoteFileName } from "./features/files/saveFileName";
+import { buildSaveFileName } from "./features/files/saveFileName";
 import {
   addMindMapChild,
   addMindMapSibling,
@@ -132,8 +123,22 @@ const HISTORY_LIMIT = 80;
 const LONG_PRESS_MS = 160;
 const STORAGE_KEY = "super-note-workspace";
 const DEFAULT_FILE_FONT_SIZE = 13;
+const SEARCH_RESULT_LIMIT = 80;
 const INITIAL_PANE_ID = "pane-main";
 const SITE_URL = "https://lvkun996.github.io/super-note/";
+
+const LazyCanvasView = lazy(() => import("./features/canvas/CanvasView").then(({ CanvasView }) => ({ default: CanvasView })));
+const LazyFileView = lazy(() => import("./features/text/FileView").then(({ FileView }) => ({ default: FileView })));
+const LazyHelpDocumentation = lazy(() =>
+  import("./components/HelpDocumentation").then(({ HelpDocumentation }) => ({ default: HelpDocumentation })),
+);
+const LazySettingsModal = lazy(() =>
+  import("./features/settings/SettingsModal").then(({ SettingsModal }) => ({ default: SettingsModal })),
+);
+
+function FeatureLoading({ label = "正在加载..." }: { label?: string }) {
+  return <div className="feature-loading" role="status">{label}</div>;
+}
 
 const canvasThemes: CanvasTheme[] = [
   { accent: "#1677ff" },
@@ -144,30 +149,13 @@ const canvasThemes: CanvasTheme[] = [
   { accent: "#52c41a" },
 ];
 
-const markdownRenderer = new MarkdownIt({
-  html: false,
-  linkify: true,
-  typographer: true,
-});
-const defaultMarkdownLinkOpen = markdownRenderer.renderer.rules.link_open;
-const defaultMarkdownImage = markdownRenderer.renderer.rules.image;
-
-markdownRenderer.renderer.rules.link_open = (tokens, index, options, env, self) => {
-  tokens[index].attrSet("target", "_blank");
-  tokens[index].attrSet("rel", "noreferrer");
-  return defaultMarkdownLinkOpen ? defaultMarkdownLinkOpen(tokens, index, options, env, self) : self.renderToken(tokens, index, options);
-};
-
-markdownRenderer.renderer.rules.image = (tokens, index, options, env, self) => {
-  const src = tokens[index].attrGet("src");
-  if (src) {
-    tokens[index].attrSet("src", resolveMarkdownAssetUrl(src, (env as MarkdownRenderEnv).filePath));
-    tokens[index].attrSet("loading", "lazy");
-  }
-  return defaultMarkdownImage ? defaultMarkdownImage(tokens, index, options, env, self) : self.renderToken(tokens, index, options);
-};
-
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.18",
+    date: "2026.09.02",
+    title: "统一导航配色与置顶分组",
+    description: "顶栏与顶部标签沿用侧栏配色，操作栏更紧凑；左侧新增可持久化的 Pinned 分组与取消置顶。同步改进文本保存、标签位置恢复、搜索范围和缩放提示。",
+  },
   {
     version: "v0.1.17",
     date: "2026.08.28",
@@ -294,66 +282,6 @@ function getFileName(filePath: string) {
   return filePath.split(/[\\/]/).pop() || filePath;
 }
 
-function isMarkdownFileName(fileName?: string) {
-  return Boolean(fileName && /\.(md|markdown|mdown|mkd)$/i.test(fileName));
-}
-
-function isAbsoluteWindowsPath(filePath: string) {
-  return /^[a-z]:[\\/]/i.test(filePath) || filePath.startsWith("\\\\");
-}
-
-function encodeFileUrlPath(filePath: string) {
-  const normalized = filePath.replace(/\\/g, "/");
-  return normalized
-    .split("/")
-    .map((part, index) => (index === 0 && /^[a-z]:$/i.test(part) ? part : encodeURIComponent(part)))
-    .join("/");
-}
-
-function joinMarkdownAssetPath(baseDir: string, assetPath: string) {
-  const parts = `${baseDir.replace(/\\/g, "/")}/${assetPath.replace(/\\/g, "/")}`.split("/");
-  const normalized: string[] = [];
-  parts.forEach((part) => {
-    if (!part || part === ".") {
-      return;
-    }
-    if (part === "..") {
-      if (normalized.length > 1) {
-        normalized.pop();
-      }
-      return;
-    }
-    normalized.push(part);
-  });
-  return normalized.join("/");
-}
-
-function resolveMarkdownAssetUrl(src: string, filePath?: string) {
-  if (/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(src) || src.startsWith("/")) {
-    return src;
-  }
-
-  const suffixStart = src.search(/[?#]/);
-  const assetPath = suffixStart >= 0 ? src.slice(0, suffixStart) : src;
-  const suffix = suffixStart >= 0 ? src.slice(suffixStart) : "";
-  if (!assetPath) {
-    return src;
-  }
-
-  if (isAbsoluteWindowsPath(assetPath)) {
-    return `file:///${encodeFileUrlPath(assetPath)}${suffix}`;
-  }
-  if (!filePath) {
-    return src;
-  }
-
-  const baseDir = filePath.replace(/[\\/][^\\/]*$/, "");
-  if (!baseDir) {
-    return src;
-  }
-  return `file:///${encodeFileUrlPath(joinMarkdownAssetPath(baseDir, assetPath))}${suffix}`;
-}
-
 function getFileSaveFilters(tab: FileTab) {
   const textFilters = [
     { name: "Text", extensions: ["txt", "md", "markdown", "json", "csv", "log", "ts", "tsx", "js", "jsx", "css", "html"] },
@@ -366,10 +294,6 @@ function getFileSaveFilters(tab: FileTab) {
     { name: "Markdown", extensions: ["md", "markdown"] },
     ...textFilters,
   ];
-}
-
-function renderMarkdownContent(content: string, filePath?: string) {
-  return markdownRenderer.render(content || "", { filePath });
 }
 
 function deriveCanvasTitle(tab: CanvasTab, items: CanvasItem[], mindMap = tab.mindMap) {
@@ -431,7 +355,7 @@ function createTextTab(themeIndex: number): FileTab {
     id: makeId(),
     kind: "file",
     title: "未命名文本",
-    fileName: "未命名文本.snote",
+    fileName: "未命名文本.txt",
     content: "",
     documentMode: "text",
     fontSize: DEFAULT_FILE_FONT_SIZE,
@@ -637,6 +561,7 @@ function AppShell() {
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [searchScope, setSearchScope] = useState<"current" | "all">("current");
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [quickOpenValue, setQuickOpenValue] = useState("");
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
@@ -650,14 +575,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.16",
+    version: "0.1.18",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.16",
+    currentVersion: "0.1.18",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -666,6 +591,7 @@ function AppShell() {
   const rafRef = useRef<number | null>(null);
   const fileUndoRef = useRef<Record<string, string[]>>({});
   const fileRedoRef = useRef<Record<string, string[]>>({});
+  const fileViewStatesRef = useRef<Record<string, FileViewState>>({});
   const workspaceSaveErrorRef = useRef("");
   const workspaceLoadedRef = useRef(false);
   const pendingOpenedFilesRef = useRef<OpenedFile[]>([]);
@@ -682,12 +608,23 @@ function AppShell() {
   const closeSearch = useCallback(() => {
     setSearchOpen(false);
     setSearchValue("");
+    setSearchScope("current");
   }, []);
 
   const closeQuickOpen = useCallback(() => {
     setQuickOpenOpen(false);
     setQuickOpenValue("");
   }, []);
+
+  const openSearch = useCallback(
+    (scope: "current" | "all") => {
+      closeQuickOpen();
+      setSearchScope(scope);
+      setSearchOpen(true);
+      window.setTimeout(() => document.getElementById("global-search-input")?.focus(), 0);
+    },
+    [closeQuickOpen],
+  );
 
   const getTabPanes = useCallback(
     (tabId: string) => tabPaneIds[tabId]?.filter((paneId) => paneIds.includes(paneId)) ?? [paneIds[0]],
@@ -1395,14 +1332,7 @@ function AppShell() {
   );
 
   const pinTab = useCallback((tabId: string) => {
-    setTabs((current) => {
-      const index = current.findIndex((tab) => tab.id === tabId);
-      if (index <= 0) return current;
-      const next = [...current];
-      const [tab] = next.splice(index, 1);
-      next.unshift(tab);
-      return next;
-    });
+    setTabs((current) => toggleTabPinned(current, tabId));
   }, []);
 
   const renameTab = useCallback((tabId: string) => {
@@ -1551,19 +1481,22 @@ function AppShell() {
 
     try {
       if (activeTab.kind === "file") {
-        const isNewSuperNoteFile = !activeTab.filePath;
+        const isNewFile = !activeTab.filePath;
+        const documentMode = getFileDocumentMode(activeTab);
+        const requiredExtension = documentMode === "markdown" ? "md" : "txt";
         const result = await window.superNote?.saveFile({
           path: activeTab.filePath,
           content: activeTab.content,
-          defaultName: isNewSuperNoteFile ? buildSnoteFileName(getTabDisplayTitle(activeTab)) : activeTab.fileName,
+          defaultName: isNewFile
+            ? buildSaveFileName(
+                getTabDisplayTitle(activeTab),
+                requiredExtension,
+                documentMode === "markdown" ? "未命名 Markdown" : "未命名文本",
+              )
+            : activeTab.fileName,
           defaultDirectory: settings.defaultSaveDirectory,
-          filters: isNewSuperNoteFile
-            ? [
-                { name: "Super Note", extensions: ["snote"] },
-                { name: "All Files", extensions: ["*"] },
-              ]
-            : getFileSaveFilters(activeTab),
-          requiredExtension: isNewSuperNoteFile ? "snote" : undefined,
+          filters: getFileSaveFilters(activeTab),
+          requiredExtension: isNewFile ? requiredExtension : undefined,
         });
         if (!result || result.canceled) {
           return;
@@ -1871,6 +1804,7 @@ function AppShell() {
 
   const exportCanvasImage = useCallback(async (tab: CanvasTab, pane: PaneKey, viewState: CanvasViewState) => {
     try {
+      const { renderCanvasToPng } = await import("./features/canvas/canvasExport");
       const rendered = await renderCanvasToPng(tab, viewState);
       const defaultName = `${getTabDisplayTitle(tab).replace(/[\\/:*?"<>|]/g, "-") || "super-note-canvas"}.png`;
       if (window.superNote?.saveCanvasImage) {
@@ -2241,13 +2175,19 @@ function AppShell() {
         saveCurrentTab();
       } else if (shortcutMatches(event, settings.shortcuts.search)) {
         event.preventDefault();
-        closeQuickOpen();
-        setSearchOpen(true);
-        window.setTimeout(() => document.getElementById("global-search-input")?.focus(), 0);
-      } else if (!searchOpen && !settingsOpen && shortcutMatches(event, settings.shortcuts.previousTab)) {
+        openSearch(searchOpen && searchScope === "current" ? "all" : "current");
+      } else if (
+        !searchOpen &&
+        !settingsOpen &&
+        shortcutMatches(event, settings.tabLayout === "left" ? "Ctrl+Up" : settings.shortcuts.previousTab)
+      ) {
         event.preventDefault();
         focusSiblingTab(-1);
-      } else if (!searchOpen && !settingsOpen && shortcutMatches(event, settings.shortcuts.nextTab)) {
+      } else if (
+        !searchOpen &&
+        !settingsOpen &&
+        shortcutMatches(event, settings.tabLayout === "left" ? "Ctrl+Down" : settings.shortcuts.nextTab)
+      ) {
         event.preventDefault();
         focusSiblingTab(1);
       } else if (!searchOpen && settings.tabLayout === "top" && shortcutMatches(event, settings.shortcuts.splitLeft)) {
@@ -2287,10 +2227,12 @@ function AppShell() {
       deleteCanvasMindMapBranch,
       focusSiblingTab,
       pasteFromClipboard,
+      openSearch,
       quickOpenOpen,
       redo,
       saveCurrentTab,
       searchOpen,
+      searchScope,
       selectedItem,
       selectedMindMapNode,
       settings.shortcuts,
@@ -2454,7 +2396,7 @@ function AppShell() {
             return;
           }
 
-          const restored = workspace.tabs.map(restoreTab);
+          const restored = sortPinnedTabs(workspace.tabs.map(restoreTab));
           let restoredPaneIds: PaneKey[];
           let restoredTabPaneIds: Record<string, PaneKey[]> = {};
           let restoredActiveTabIds: Record<PaneKey, string> = {};
@@ -2887,15 +2829,18 @@ function AppShell() {
     return [...openTabs, ...recent].slice(0, 40);
   }, [quickOpenValue, recentFiles, tabs]);
 
+  const deferredSearchValue = useDeferredValue(searchValue);
   const searchResults = useMemo<SearchResult[]>(() => {
-    const needle = searchValue.trim();
+    const needle = deferredSearchValue.trim();
     if (!needle) {
       return [];
     }
 
     const results: SearchResult[] = [];
     const lowerNeedle = needle.toLowerCase();
-    tabs.forEach((tab) => {
+    const searchableTabs = searchScope === "current" ? tabs.filter((tab) => tab.id === activeTabId) : tabs;
+    searchableTabs.forEach((tab) => {
+      if (results.length >= SEARCH_RESULT_LIMIT) return;
       if (getTabDisplayTitle(tab).toLowerCase().includes(lowerNeedle)) {
         results.push({
           id: `${tab.id}:title`,
@@ -2907,7 +2852,7 @@ function AppShell() {
       }
       if (tab.kind === "canvas") {
         tab.items.forEach((item) => {
-          if (item.type === "text" && item.text.toLowerCase().includes(needle.toLowerCase())) {
+          if (results.length < SEARCH_RESULT_LIMIT && item.type === "text" && item.text.toLowerCase().includes(lowerNeedle)) {
             results.push({
               id: `${tab.id}:${item.id}`,
               tabId: tab.id,
@@ -2924,6 +2869,7 @@ function AppShell() {
       const lines = tab.content.split(/\r\n|\r|\n/);
       let lineStart = 0;
       lines.forEach((line, index) => {
+        if (results.length >= SEARCH_RESULT_LIMIT) return;
         const lowerLine = line.toLowerCase();
         let searchFrom = 0;
         let localIndex = lowerLine.indexOf(lowerNeedle, searchFrom);
@@ -2939,6 +2885,7 @@ function AppShell() {
             selectionStart,
             selectionEnd: selectionStart + needle.length,
           });
+          if (results.length >= SEARCH_RESULT_LIMIT) break;
           searchFrom = localIndex + Math.max(1, lowerNeedle.length);
           localIndex = lowerLine.indexOf(lowerNeedle, searchFrom);
         }
@@ -2946,23 +2893,26 @@ function AppShell() {
         lineStart += line.length + separator.length;
       });
     });
-    const openPaths = new Set(tabs.flatMap((tab) => (tab.filePath ? [tab.filePath.toLowerCase()] : [])));
-    recentFiles.forEach((file) => {
-      if (
-        !openPaths.has(file.path.toLowerCase()) &&
-        (file.name.toLowerCase().includes(lowerNeedle) || file.path.toLowerCase().includes(lowerNeedle))
-      ) {
-        results.push({
-          id: `recent:${file.path.toLowerCase()}`,
-          filePath: file.path,
-          kind: "recent-file",
-          title: file.name,
-          preview: file.path,
-        });
-      }
-    });
+    if (searchScope === "all") {
+      const openPaths = new Set(tabs.flatMap((tab) => (tab.filePath ? [tab.filePath.toLowerCase()] : [])));
+      recentFiles.forEach((file) => {
+        if (
+          results.length < SEARCH_RESULT_LIMIT &&
+          !openPaths.has(file.path.toLowerCase()) &&
+          (file.name.toLowerCase().includes(lowerNeedle) || file.path.toLowerCase().includes(lowerNeedle))
+        ) {
+          results.push({
+            id: `recent:${file.path.toLowerCase()}`,
+            filePath: file.path,
+            kind: "recent-file",
+            title: file.name,
+            preview: file.path,
+          });
+        }
+      });
+    }
     return results;
-  }, [recentFiles, searchValue, tabs]);
+  }, [activeTabId, deferredSearchValue, recentFiles, searchScope, tabs]);
 
   const openSearchResult = useCallback(
     async (result: SearchResult) => {
@@ -3125,13 +3075,9 @@ function AppShell() {
     { type: "divider" },
     {
       key: "search",
-      label: `搜索 (${settings.shortcuts.search})`,
+      label: `搜索当前页 (${settings.shortcuts.search})`,
       icon: <SearchOutlined />,
-      onClick: () => {
-        closeQuickOpen();
-        setSearchOpen(true);
-        window.setTimeout(() => document.getElementById("global-search-input")?.focus(), 0);
-      },
+      onClick: () => openSearch("current"),
     },
     {
       key: "quick-open",
@@ -3222,7 +3168,9 @@ function AppShell() {
           width: 760,
           content: (
             <div className="scrollable-modal-content">
-              <HelpDocumentation canvasPluginEnabled={canvasPluginEnabled} shortcuts={settings.shortcuts} />
+              <Suspense fallback={<FeatureLoading label="正在加载文档..." />}>
+                <LazyHelpDocumentation canvasPluginEnabled={canvasPluginEnabled} shortcuts={settings.shortcuts} />
+              </Suspense>
             </div>
           ),
         }),
@@ -3350,7 +3298,7 @@ function AppShell() {
   }, [message, updateStatus.latestVersion, updateStatus.state]);
 
   const tabNavigationItems = useMemo(
-    () => tabs.map((tab) => ({ id: tab.id, title: getTabDisplayTitle(tab), themeIndex: tab.themeIndex, dirty: tab.dirty, filePath: tab.filePath })),
+    () => tabs.map((tab) => ({ id: tab.id, title: getTabDisplayTitle(tab), themeIndex: tab.themeIndex, dirty: tab.dirty, filePath: tab.filePath, pinned: tab.pinned })),
     [tabs],
   );
 
@@ -3358,14 +3306,15 @@ function AppShell() {
     if (tab.kind === "canvas") {
       const viewState = getPaneViewState(tab, pane);
       return (
-        <CanvasView
+        <Suspense fallback={<FeatureLoading label="正在加载画板..." />}>
+        <LazyCanvasView
           tab={tab}
           pane={pane}
           viewState={viewState}
           editingTextId={editingText?.pane === pane ? editingText.itemId : null}
           selectedItem={selectedItem}
           selectedMindMapNode={selectedMindMapNode}
-          searchValue={searchValue}
+          searchValue={deferredSearchValue}
           activeSearchItemId={activeSearchResultId?.startsWith(`${tab.id}:`) ? activeSearchResultId.split(":")[1] : null}
           handwritten={settings.handwritten}
           programmerMode={settings.programmerMode}
@@ -3438,16 +3387,32 @@ function AppShell() {
           onOpenMindMapStyle={() => void openMindMapStyleWindow(tab)}
           onExportImage={() => void exportCanvasImage(tab, pane, viewState)}
         />
+        </Suspense>
       );
     }
 
     return (
-      <FileView
+      <Suspense fallback={<FeatureLoading label="正在加载文本模块..." />}>
+      <LazyFileView
         tab={tab}
-        searchValue={searchValue}
+        searchValue={deferredSearchValue}
         searchTarget={fileSearchTarget}
         programmerMode={settings.programmerMode}
-        renderedMarkdown={getFileDocumentMode(tab) === "markdown" ? renderMarkdownContent(tab.content, tab.filePath) : ""}
+        viewState={fileViewStatesRef.current[`${pane}:${tab.id}`]}
+        onViewStateChange={(patch) => {
+          const key = `${pane}:${tab.id}`;
+          const currentViewState = fileViewStatesRef.current[key] ?? {
+            editorScrollTop: 0,
+            editorScrollLeft: 0,
+            selectionStart: 0,
+            selectionEnd: 0,
+            selectionDirection: "none",
+            markdownMode: "preview",
+            previewScrollTop: 0,
+            livePreviewScrollTop: 0,
+          };
+          fileViewStatesRef.current[key] = { ...currentViewState, ...patch };
+        }}
         onContentChange={(content) => updateFileContent(tab.id, content)}
         onFontSizeChange={(delta) => updateFileFontSize(tab.id, (fontSize) => fontSize + delta)}
         onProgrammerAction={(action, selectionStart, selectionEnd) =>
@@ -3457,6 +3422,7 @@ function AppShell() {
           setFileSearchTarget((current) => (current?.requestId === requestId ? null : current))
         }
       />
+      </Suspense>
     );
   };
 
@@ -3537,17 +3503,13 @@ function AppShell() {
         </div>
 
         <div className="window-controls">
-          <Tooltip title={`搜索 (${settings.shortcuts.search})`}>
+          <Tooltip title="搜索全部标签">
             <Button
               type="text"
               className="window-control"
               aria-label="搜索"
               icon={<SearchOutlined />}
-              onClick={() => {
-                closeQuickOpen();
-                setSearchOpen(true);
-                window.setTimeout(() => document.getElementById("global-search-input")?.focus(), 0);
-              }}
+              onClick={() => openSearch("all")}
             />
           </Tooltip>
           <Tooltip title={alwaysOnTop ? "取消置顶" : "窗口置顶"}>
@@ -3629,8 +3591,15 @@ function AppShell() {
 
       {fileZoomPercent !== null ? (
         <div className="file-zoom-indicator" role="status">
-          <span>{fileZoomPercent}%</span>
-          <Button size="small" type="text" onClick={() => activeTab?.kind === "file" && updateFileFontSize(activeTab.id, () => DEFAULT_FILE_FONT_SIZE)}>恢复 100%</Button>
+          <span className="file-zoom-value">{fileZoomPercent}%</span>
+          <button
+            type="button"
+            className="file-zoom-reset"
+            onClick={() => activeTab?.kind === "file" && updateFileFontSize(activeTab.id, () => DEFAULT_FILE_FONT_SIZE)}
+          >
+            <UndoOutlined />
+            恢复
+          </button>
         </div>
       ) : null}
 
@@ -3691,42 +3660,55 @@ function AppShell() {
               autoFocus
               allowClear
               prefix={<SearchOutlined />}
-              placeholder="搜索所有标签内容"
+              placeholder={searchScope === "current" ? "搜索当前页内容，再按一次 Ctrl+F 搜索全部标签" : "搜索所有标签内容"}
               value={searchValue}
               onChange={(event) => setSearchValue(event.target.value)}
-              suffix={searchValue ? `${searchResults.length} 个匹配` : null}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && searchResults[0]) {
+                  event.preventDefault();
+                  void openSearchResult(searchResults[0]);
+                  closeSearch();
+                }
+              }}
+              suffix={searchValue ? `${searchScope === "current" ? "当前页" : "全部标签"} · ${searchResults.length} 个匹配` : null}
             />
-            <div className="search-results">
-              {searchValue.trim() && searchResults.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有匹配内容" /> : null}
-              {searchResults.slice(0, 80).map((result) => (
-                <button
-                  key={result.id}
-                  type="button"
-                  className="search-result"
-                  onClick={() => {
-                    void openSearchResult(result);
-                    closeSearch();
-                  }}
-                >
-                  <span className="search-result-title">
-                    {result.kind !== "canvas-text" ? <FileTextOutlined /> : null}
-                    {result.title}
-                    {result.line ? ` · 第 ${result.line} 行` : ""}
-                  </span>
-                  <span className="search-result-preview">{renderHighlightedText(result.preview, searchValue)}</span>
-                </button>
-              ))}
-            </div>
+            {searchValue.trim() ? (
+              <div className="search-results">
+                {searchResults.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有匹配内容" /> : null}
+                {searchResults.map((result) => (
+                  <button
+                    key={result.id}
+                    type="button"
+                    className="search-result"
+                    onClick={() => {
+                      void openSearchResult(result);
+                      closeSearch();
+                    }}
+                  >
+                    <span className="search-result-title">
+                      {result.kind !== "canvas-text" ? <FileTextOutlined /> : null}
+                      {result.title}
+                      {result.line ? ` · 第 ${result.line} 行` : ""}
+                    </span>
+                    <span className="search-result-preview">{renderHighlightedText(result.preview, deferredSearchValue)}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
 
-      <SettingsModal
-        open={settingsOpen}
-        settings={settings}
-        onClose={() => setSettingsOpen(false)}
-        onChange={setSettings}
-      />
+      {settingsOpen ? (
+        <Suspense fallback={<FeatureLoading label="正在加载设置..." />}>
+          <LazySettingsModal
+            open
+            settings={settings}
+            onClose={() => setSettingsOpen(false)}
+            onChange={setSettings}
+          />
+        </Suspense>
+      ) : null}
       {imagePreview ? (
         <div className="image-preview-layer" role="dialog" aria-modal="true" onClick={() => setImagePreview(null)}>
           <button type="button" className="image-preview-close" aria-label="关闭预览" onClick={() => setImagePreview(null)}>

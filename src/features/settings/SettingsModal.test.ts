@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, normalizeSettings } from "./SettingsModal";
+import { DEFAULT_SETTINGS, normalizeSettings, normalizeShortcut } from "./settingsModel";
 
 describe("tab layout settings", () => {
   it("restores old workspaces to the top tab bar with Ctrl+B available", () => {
@@ -25,5 +25,10 @@ describe("tab layout settings", () => {
   it("keeps restored sidebar widths inside the usable range", () => {
     expect(normalizeSettings({ ...DEFAULT_SETTINGS, sidebarWidth: 80 }).sidebarWidth).toBe(160);
     expect(normalizeSettings({ ...DEFAULT_SETTINGS, sidebarWidth: 900 }).sidebarWidth).toBe(480);
+  });
+
+  it("normalizes vertical tab navigation shortcuts", () => {
+    expect(normalizeShortcut("Ctrl+ArrowUp")).toBe("Ctrl+Up");
+    expect(normalizeShortcut("Ctrl+ArrowDown")).toBe("Ctrl+Down");
   });
 });

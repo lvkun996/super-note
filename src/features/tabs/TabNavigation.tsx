@@ -1,7 +1,7 @@
 import { BorderOutlined, CloseOutlined, DeleteOutlined, EditOutlined, FolderOpenOutlined, PlusOutlined, SplitCellsOutlined, VerticalAlignTopOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Tabs, Tooltip } from "antd";
 import type { MenuProps, TabsProps } from "antd";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import type { PaneKey, TabLayout } from "../../appTypes";
 import type { TabDropPosition } from "./tabOrder";
@@ -13,6 +13,7 @@ export type TabNavigationItem = {
   title: string;
   themeIndex: number;
   dirty: boolean;
+  pinned?: boolean;
   filePath?: string;
 };
 
@@ -204,7 +205,7 @@ function TabNavigationComponent({
     const tab = tabs.find((item) => item.id === tabId);
     const tabPanes = getTabPanes(tabId);
     return [
-      { key: "pin", label: "置顶", icon: <VerticalAlignTopOutlined />, onClick: () => onPinTab(tabId) },
+      { key: "pin", label: tab?.pinned ? "取消置顶" : "置顶", icon: <VerticalAlignTopOutlined />, onClick: () => onPinTab(tabId) },
       { key: "delete", label: "删除", danger: true, icon: <DeleteOutlined />, onClick: () => onCloseTab(tabId) },
       { key: "rename", label: "编辑", icon: <EditOutlined />, onClick: () => onRenameTab(tabId) },
       {
@@ -344,12 +345,15 @@ function TabNavigationComponent({
             onAddText(activePane);
           }
         }}>
-          {tabs.map((tab) => {
+          {tabs.map((tab, index) => {
             const panes = getTabPanes(tab.id);
             const pane = panes.includes(activePane) ? activePane : panes[0] ?? activePane;
             const isActive = tab.id === activeId;
             const indicator = dropIndicator?.tabId === tab.id ? ` tab-drop-${dropIndicator.position}` : "";
             return (
+              <Fragment key={tab.id}>
+                {index === 0 && tab.pinned ? <div className="tabs-sidebar-group-label" role="presentation">Pinned</div> : null}
+                {index > 0 && tabs[index - 1].pinned && !tab.pinned ? <div className="tabs-sidebar-group-label unpinned" role="presentation">标签</div> : null}
                 <Dropdown key={tab.id} overlayClassName="tab-context-menu" menu={{ items: makeContextMenu(tab.id, pane) }} trigger={["contextMenu"]}>
                 <div
                   role="tab"
@@ -380,6 +384,7 @@ function TabNavigationComponent({
                   {renderCloseButton(tab, pane, isActive, true)}
                 </div>
                 </Dropdown>
+              </Fragment>
             );
           })}
         </div>

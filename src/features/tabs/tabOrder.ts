@@ -1,6 +1,20 @@
 export type TabDropPosition = "before" | "after";
 
-export function reorderTabsById<T extends { id: string }>(
+type PinnableTab = { id: string; pinned?: boolean };
+
+export function sortPinnedTabs<T extends PinnableTab>(tabs: T[]): T[] {
+  const sorted = [...tabs.filter((tab) => tab.pinned), ...tabs.filter((tab) => !tab.pinned)];
+  return sorted.every((tab, index) => tab === tabs[index]) ? tabs : sorted;
+}
+
+export function toggleTabPinned<T extends PinnableTab>(tabs: T[], tabId: string): T[] {
+  const tab = tabs.find((item) => item.id === tabId);
+  if (!tab) return tabs;
+  const updated = { ...tab, pinned: !tab.pinned };
+  return sortPinnedTabs([updated, ...tabs.filter((item) => item.id !== tabId)]);
+}
+
+export function reorderTabsById<T extends PinnableTab>(
   tabs: T[],
   movingId: string,
   targetId: string,
@@ -15,6 +29,10 @@ export function reorderTabsById<T extends { id: string }>(
   const movingIndex = scopedTabs.findIndex((tab) => tab.id === movingId);
   const targetIndex = scopedTabs.findIndex((tab) => tab.id === targetId);
   if (movingIndex < 0 || targetIndex < 0) {
+    return tabs;
+  }
+  // Dragging changes order inside a group, never the persisted pin state.
+  if (Boolean(scopedTabs[movingIndex].pinned) !== Boolean(scopedTabs[targetIndex].pinned)) {
     return tabs;
   }
 
