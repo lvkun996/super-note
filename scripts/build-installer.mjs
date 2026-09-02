@@ -267,10 +267,11 @@ if (args.has("--skip-build")) {
   run(process.execPath, [path.join(root, "node_modules", "vite", "bin", "vite.js"), "build"]);
 }
 
-const builderArgs = [path.join(root, "node_modules", "electron-builder", "cli.js")];
+// Build updater metadata, but leave all uploads to the verified release flow.
+const builderArgs = [path.join(root, "node_modules", "electron-builder", "cli.js"), "--publish", "never"];
 
 if (args.has("--win7-8")) {
-  builderArgs.push("--config", "electron-builder.win7-8.json", "--publish", "never");
+  builderArgs.push("--config", "electron-builder.win7-8.json");
 }
 
 if (args.has("--dir")) {

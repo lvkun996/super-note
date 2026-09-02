@@ -1,6 +1,6 @@
 {
   "name": "super-note",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "private": true,
   "description": "编辑你的世界",
   "author": "kunkun",
@@ -48,6 +48,11 @@
     "appId": "com.supernote.desktop",
     "productName": "Super Note",
     "electronDist": "node_modules/electron/dist",
+    "publish": {
+      "provider": "generic",
+      "url": "https://github.com/lvkun996/super-note/releases/latest/download/",
+      "channel": "latest"
+    },
     "directories": {
       "output": "release"
     },
