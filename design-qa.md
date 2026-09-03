@@ -1,4 +1,43 @@
-# Super Note left tab menu design QA
+# Super Note v0.1.20 text title bar QA — 2026-09-03
+
+## Scope and evidence
+
+- Source: `C:/Users/lv_ku/AppData/Local/Temp/codex-clipboard-4d51d3c7-269d-43e7-b9f9-998855e4f46f.png` (636 × 260 pixels).
+- Browser-rendered detail: `D:/code/super/super-note/.cache/title-detail-020.png` (343 × 906 pixels).
+- Full app / dark top tabs: `D:/code/super/super-note/.cache/title-dark-020.png` (343 × 906 pixels).
+- Full app / light left tabs was inspected before the focused comparison; existing 220px sidebar is intentionally preserved instead of cloning the unrelated source sidebar.
+- Comparison used the source and implementation images together in the same tool output. Compare their native-scale title regions: source x=94,y=46 and implementation x=0,y=8. Both title rows are 46px high. Only the title region is the visual target, not the source app's outer chrome or blank-page height.
+- State: light theme, same Chinese/English document title, empty editor. The fixture renders the production FileView and styles. Full application testing additionally covers top/left layouts and dark theme.
+
+## Findings and comparison history
+
+- Initial fixture capture had a white parent because it did not inherit the app navigation token. Corrected the fixture to use the existing app shell; the final capture exposes the same pale navigation background behind both 16px top corners. No production palette was replaced.
+- Final comparison: no actionable P0/P1/P2 differences in the requested title region. Round upper corners, folder icon, single-line title, nearby ellipsis and fine divider match the reference structure.
+- Typography: existing system sans font, 14px/600 title with 20px line height. Narrow panes ellipsize the title while keeping the menu visible.
+- Spacing: 20px horizontal inset, 12px icon/title gap, 46px header, 16px upper radii; lower editor corners remain square.
+- Colors: white title surface and fine gray divider, existing light navigation background around the corners. Dark mode uses the existing text/editor colors.
+- Assets: no raster assets are required by this UI. Folder and ellipsis use existing Ant Design icons, not custom drawings.
+- Copy: title follows the same display name as the tab; empty title fallback is 未命名文本. Source screenshot wording was used only as test data.
+
+## Interaction and regression verification
+
+- In-app browser: title menu opens; rename updates both title and tab; pin appears in the left Pinned group; unsaved documents disable Open containing folder; top/left and light/dark presentation inspected.
+- Isolated Electron fixture: continuous typing, Unicode insertion, selection replacement, tab return/scroll restoration, middle-button multi-caret glyph coordinates, scrolling, insertion/deletion and Escape pass. Title height/radius/menu assertions added.
+- Renderer logs checked by the regression runner; only existing development/deprecation warnings, no application error in the passing run.
+- Remaining acceptance gap: no installation over the user's running client and no native Explorer launch from the browser-only preview. Existing Explorer handler is reused.
+
+## Implementation checklist
+
+- [x] Title bar with current name and functional menu.
+- [x] Rounded top edge and independent text scrolling.
+- [x] Static, out-of-flow multi-carets and typing fix included.
+- [x] Narrow-pane and dark-mode checks.
+
+final result: passed
+
+---
+
+# Archived: Super Note left tab menu design QA
 
 ## Evidence
 

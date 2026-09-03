@@ -1,7 +1,7 @@
-import { CodeOutlined, CopyOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
+import { CodeOutlined, CopyOutlined, EllipsisOutlined, FolderOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
 import { Button, Dropdown } from "antd";
 import type { MenuProps } from "antd";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode, WheelEvent as ReactWheelEvent } from "react";
 import type { FileTab, FileViewState, ProgrammerAction, TextSearchTarget, TextSelection } from "../../appTypes";
 import {
@@ -17,11 +17,14 @@ import {
 } from "../editor/editorUtils";
 import { useTextEditorSelection } from "./useTextEditorSelection";
 import { getFileDocumentMode } from "./fileDocument";
+import { getTextCaretPositions, type TextCaretPosition } from "./textCaretLayout";
 
 const EMPTY_SELECTION: TextSelection = { start: 0, end: 0 };
 
 type FileViewProps = {
   tab: FileTab;
+  title?: string;
+  titleMenuItems?: MenuProps["items"];
   searchValue: string;
   searchTarget: TextSearchTarget | null;
   programmerMode: boolean;
@@ -35,6 +38,8 @@ type FileViewProps = {
 
 export function FileView({
   tab,
+  title,
+  titleMenuItems,
   searchValue,
   searchTarget,
   programmerMode,
@@ -49,6 +54,7 @@ export function FileView({
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const markdownPreviewRef = useRef<HTMLDivElement>(null);
   const markdownLivePreviewRef = useRef<HTMLDivElement>(null);
+  const restoredViewRef = useRef<string | null>(null);
   const [markdownMode, setMarkdownMode] = useState<"edit" | "preview">(viewState?.markdownMode ?? "preview");
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
   const [markdownRender, setMarkdownRender] = useState<{
@@ -61,6 +67,18 @@ export function FileView({
   const documentMode = getFileDocumentMode(tab);
   const hasSelection = selection.end > selection.start;
   const activeSearchTarget = searchTarget?.tabId === tab.id ? searchTarget : null;
+  const displayTitle = title?.trim() || tab.title.trim() || "未命名文本";
+  const titleBar = (
+    <header className="file-title-bar" aria-label="文档标题栏">
+      <FolderOutlined className="file-title-icon" aria-hidden />
+      <h1 className="file-title" title={displayTitle}>{displayTitle}</h1>
+      {titleMenuItems?.length ? (
+        <Dropdown menu={{ items: titleMenuItems }} trigger={["click"]} overlayClassName="tab-context-menu" placement="bottomLeft">
+          <Button type="text" className="file-title-more" icon={<EllipsisOutlined />} aria-label="文档操作" title="文档操作" />
+        </Dropdown>
+      ) : null}
+    </header>
+  );
 
   const {
     multiCarets,
@@ -76,6 +94,20 @@ export function FileView({
     onSelectionChange: setSelection,
   });
 
+  const [caretPositions, setCaretPositions] = useState<TextCaretPosition[]>([]);
+  const syncCaretPositions = useCallback(() => {
+    setCaretPositions(getTextCaretPositions(highlightRef.current, multiCarets, tab.content.length));
+  }, [multiCarets, tab.content.length]);
+
+  useLayoutEffect(() => {
+    syncCaretPositions();
+    const mirror = highlightRef.current;
+    if (!mirror || multiCarets.length === 0) return;
+    const observer = new ResizeObserver(syncCaretPositions);
+    observer.observe(mirror);
+    return () => observer.disconnect();
+  }, [syncCaretPositions, multiCarets.length, tab.content, fontSize, searchValue, documentMode]);
+
   useEffect(() => {
     setMarkdownMode(viewState?.markdownMode ?? "preview");
     setSelection(EMPTY_SELECTION);
@@ -83,6 +115,11 @@ export function FileView({
   }, [clearMultiCarets, documentMode, tab.id, viewState?.markdownMode]);
 
   useLayoutEffect(() => {
+    // Saved state is a tab/mode entry snapshot, not a controlled caret value.
+    // Reapplying it after input rewinds the native caret to the previous keystroke.
+    const viewKey = JSON.stringify([tab.id, documentMode, markdownMode]);
+    if (restoredViewRef.current === viewKey) return;
+    restoredViewRef.current = viewKey;
     const editor = editorRef.current;
     if (editor && viewState) {
       editor.scrollTop = viewState.editorScrollTop;
@@ -179,6 +216,7 @@ export function FileView({
       highlightRef.current.scrollTop = editor.scrollTop;
       highlightRef.current.scrollLeft = editor.scrollLeft;
     }
+    syncCaretPositions();
     onViewStateChange({ editorScrollTop: editor.scrollTop, editorScrollLeft: editor.scrollLeft });
   };
 
@@ -411,6 +449,7 @@ export function FileView({
         style={{ ["--file-font-size" as string]: `${fontSize}px` }}
         onWheel={handleFontSizeWheel}
       >
+        {titleBar}
         <div className="markdown-toolbar">
           <span className="markdown-toolbar-title">Markdown</span>
           <Button.Group size="small">
@@ -451,17 +490,6 @@ export function FileView({
   }
 
   const renderPlainHighlight = (): ReactNode => {
-    if (multiCarets.length > 0) {
-      const nodes: ReactNode[] = [];
-      let cursor = 0;
-      multiCarets.forEach((caret, index) => {
-        nodes.push(<span key={`multi-text-${index}`}>{renderTextWithLinks(tab.content.slice(cursor, caret), searchValue)}</span>);
-        nodes.push(<span key={`multi-caret-${index}`} className="file-multi-caret">{"\u200b"}</span>);
-        cursor = caret;
-      });
-      nodes.push(<span key="multi-text-end">{renderTextWithLinks(tab.content.slice(cursor), searchValue)}</span>);
-      return nodes;
-    }
     const start = activeSearchTarget?.selectionStart;
     const end = activeSearchTarget?.selectionEnd;
     if (start == null || end == null || start < 0 || end < start || start > tab.content.length) {
@@ -479,10 +507,15 @@ export function FileView({
   };
 
   const textEditor = (
-    <div className="file-editor-wrap">
+    <div className={`file-editor-wrap${multiCarets.length > 0 ? " has-multi-carets" : ""}`}>
       <pre ref={highlightRef} className="file-highlight" aria-hidden>
         {renderPlainHighlight()}<span className="file-highlight-end-marker">{"\u200b"}</span>
       </pre>
+      <div className="file-caret-layer" aria-hidden>
+        {caretPositions.map(caret => (
+          <span key={caret.offset} className="file-multi-caret" style={{ left: caret.left, top: caret.top, height: caret.height }} />
+        ))}
+      </div>
       <textarea
         ref={editorRef}
         className="file-editor"
@@ -505,6 +538,7 @@ export function FileView({
 
   return (
     <div className="file-view" data-tab-id={tab.id} style={{ ["--file-font-size" as string]: `${fontSize}px` }} onWheel={handleFontSizeWheel}>
+      {titleBar}
       <Dropdown menu={{ items: contextMenuItems }} trigger={["contextMenu"]}>
         {textEditor}
       </Dropdown>
