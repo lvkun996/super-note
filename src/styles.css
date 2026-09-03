@@ -1360,7 +1360,75 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   min-height: 0;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 16px 16px 0 0;
   background: #fff;
+}
+
+.pane-content:has(> .file-view) {
+  padding-top: 8px;
+  background: var(--navigation-background);
+}
+
+.work-pane.focused:has(.file-view) {
+  box-shadow: none;
+}
+
+.file-title-bar {
+  min-width: 0;
+  height: 46px;
+  flex: 0 0 46px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  color: #1e2228;
+}
+
+.file-title-icon {
+  flex: none;
+  font-size: 14px;
+}
+
+.file-title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--content-font-family);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.file-title-more.ant-btn {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  flex: none;
+  margin-left: -6px;
+  padding: 0;
+  border-radius: 6px;
+  color: #737a83;
+}
+
+.file-title-more.ant-btn:focus-visible {
+  outline: 2px solid #1677ff;
+  outline-offset: 2px;
+}
+
+.dark-mode .file-title-bar {
+  border-bottom-color: #283648;
+  background: #101722;
+  color: #e8eef7;
+}
+
+.dark-mode .file-title-more.ant-btn {
+  color: #a9b6c8;
 }
 
 .dark-mode .file-view {
@@ -1411,21 +1479,18 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   width: 0;
 }
 
+.file-caret-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .file-multi-caret {
-  display: inline-block;
-  width: 0;
-  height: 1.15em;
-  border-left: 2px solid #1677ff;
-  vertical-align: -0.16em;
-  animation: file-multi-caret-blink 1s steps(2, start) infinite;
-}
-
-@keyframes file-multi-caret-blink {
-  50% { opacity: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .file-multi-caret { animation: none; }
+  position: absolute;
+  width: 2px;
+  background: #1677ff;
+  pointer-events: none;
 }
 
 .dark-mode .file-highlight {
@@ -1443,6 +1508,12 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 
 .dark-mode .file-editor {
   caret-color: #e8eef7;
+}
+
+/* The static markers already include the primary caret; do not overlay a
+   second, blinking native caret while column editing. */
+.file-editor-wrap.has-multi-carets .file-editor {
+  caret-color: transparent;
 }
 
 .file-editor::placeholder {

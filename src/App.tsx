@@ -151,6 +151,12 @@ const canvasThemes: CanvasTheme[] = [
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.20",
+    date: "2026.09.03",
+    title: "文本标题栏与光标修复",
+    description: "文本模块采用顶部圆角与独立文档标题栏，支持标题菜单操作；修复输入时光标回退，多光标改为不闪烁、不挤占文字空间的独立覆盖层。",
+  },
+  {
     version: "v0.1.19",
     date: "2026.09.02",
     title: "修复在线更新下载",
@@ -581,14 +587,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.19",
+    version: "0.1.20",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.19",
+    currentVersion: "0.1.20",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -3401,6 +3407,12 @@ function AppShell() {
       <Suspense fallback={<FeatureLoading label="正在加载文本模块..." />}>
       <LazyFileView
         tab={tab}
+        title={getTabDisplayTitle(tab)}
+        titleMenuItems={[
+          { key: "rename", label: "编辑名称", onClick: () => renameTab(tab.id) },
+          { key: "pin", label: tab.pinned ? "取消置顶" : "置顶", onClick: () => pinTab(tab.id) },
+          { key: "explorer", label: "打开所在文件夹", disabled: !tab.filePath, onClick: () => openTabInExplorer(tab.id) },
+        ]}
         searchValue={deferredSearchValue}
         searchTarget={fileSearchTarget}
         programmerMode={settings.programmerMode}

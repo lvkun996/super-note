@@ -264,6 +264,18 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.20") {
+    return [
+      "Super Note v0.1.20",
+      "",
+      "- 文本与 Markdown 模块新增顶部圆角和文档标题栏，标题同步当前标签名称。",
+      "- 标题栏更多菜单支持编辑名称、置顶和打开所在文件夹。",
+      "- 修复连续输入时光标回退、文字出现在光标右侧的问题。",
+      "- 中键拖选多光标采用静态独立覆盖层，不再闪烁或挤动文字，保留多行输入与删除。",
+      "- 保留标签切换后的选区和滚动位置，并增加真实编辑器回归测试。",
+    ].join("\n");
+  }
+
   if (version === "0.1.19") {
     return [
       "Super Note v0.1.19",
