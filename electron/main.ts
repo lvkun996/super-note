@@ -543,7 +543,7 @@ function createTray() {
   const icon = nativeImage.createFromPath(getIconPath()).resize({ width: 16, height: 16 });
   tray = new Tray(icon);
   tray.setToolTip("Super Note");
-  tray.on("click", toggleTrayMenu);
+  tray.on("click", showMainWindow);
   tray.on("right-click", toggleTrayMenu);
   tray.on("double-click", showMainWindow);
 }

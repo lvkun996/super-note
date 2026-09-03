@@ -1388,11 +1388,6 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   color: #1e2228;
 }
 
-.file-title-icon {
-  flex: none;
-  font-size: 14px;
-}
-
 .file-title {
   min-width: 0;
   margin: 0;
@@ -1414,6 +1409,19 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   padding: 0;
   border-radius: 6px;
   color: #737a83;
+}
+
+/* The add-tab control sits on the navigation edge; the document title owns
+   the only visible boundary, so the extra right divider is intentionally off. */
+.tabs-bar .ant-tabs-nav-add,
+.tabs-sidebar-actions .ant-btn {
+  border-right: 0;
+}
+
+/* Keep the title row surface clean; the navigation gradient should not show
+   as a second strip above the document content. */
+.file-title-bar {
+  background: #fff;
 }
 
 .file-title-more.ant-btn:focus-visible {
