@@ -1,4 +1,4 @@
-import { CodeOutlined, CopyOutlined, EllipsisOutlined, FolderOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
+import { CodeOutlined, CopyOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
 import { Button, Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -72,7 +72,6 @@ export function FileView({
   const displayTitle = title?.trim() || tab.title.trim() || "未命名文本";
   const titleBar = (
     <header className="file-title-bar" aria-label="文档标题栏">
-      <FolderOutlined className="file-title-icon" aria-hidden />
       <h1 className="file-title" title={displayTitle}>{displayTitle}</h1>
       {titleMenuItems?.length ? (
         <Dropdown menu={{ items: titleMenuItems }} trigger={["click"]} overlayClassName="tab-context-menu" placement="bottomLeft">
