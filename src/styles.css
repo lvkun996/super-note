@@ -1445,17 +1445,25 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   display: grid;
   place-items: center;
   background: #fff;
-  color: #8c96a8;
-  font-size: 18px;
+  color: #202124;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 40px;
 }
 
 .welcome-world p {
   margin: 0;
 }
 
+.welcome-world p span {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
 .dark-mode .welcome-world {
   background: #101722;
-  color: #a9b6c8;
+  color: #e8eef7;
 }
 
 .app-brand[role="button"] {
@@ -1469,6 +1477,10 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 
 .app-content-shell.tab-layout-top .file-view {
   border-radius: 0;
+}
+
+.app-content-shell.tab-layout-left .file-view {
+  border-radius: 16px 0 0 0;
 }
 
 .dark-mode .file-view {

@@ -1,3 +1,22 @@
+# Super Note welcome page and left-layout corner QA — 2026-09-03
+
+## Scope and evidence
+
+- Source visuals: `C:/Users/lv_ku/AppData/Local/Temp/codex-clipboard-e7ff83af-4d47-4d13-9142-63c09ce7615e.png` (welcome copy) and `C:/Users/lv_ku/AppData/Local/Temp/codex-clipboard-a04c8662-7abe-4afe-b773-321f082c265d.png` (left-layout top edge).
+- Browser preview: local Electron/Vite preview at `http://127.0.0.1:5173/`, light and dark themes, top and left tab layouts.
+- The welcome copy renders as `你想让我们在 super-note 中构建什么？` at 28px with a dark neutral color; `super-note` keeps the reference underline.
+- Left layout renders a 16px upper-left radius with a square upper-right edge; the title row and editor remain clipped by the same container.
+
+## Interaction verification
+
+- Welcome state has no selected tab; clicking a tab enters the editor and clicking the Super Note brand returns to the welcome state.
+- Top layout places the editor directly below the tabs without the document title bar.
+- Light/dark theme rendering and left/top layout switching were inspected in the browser preview.
+
+final result: passed
+
+---
+
 # Super Note v0.1.20 text title bar QA — 2026-09-03
 
 ## Scope and evidence
