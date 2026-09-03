@@ -71,6 +71,7 @@ import type {
   TabLayout,
 } from "./appTypes";
 import { EmptyWorld } from "./components/EmptyWorld";
+import { WelcomeWorld } from "./components/WelcomeWorld";
 import { dispatchCanvasItemDrag, dispatchCanvasItemDragEnd } from "./features/canvas/canvasLiveDrag";
 import {
   DEFAULT_TEXT_FONT_SIZE,
@@ -150,6 +151,12 @@ const canvasThemes: CanvasTheme[] = [
 ];
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.21",
+    date: "2026.09.03",
+    title: "默认欢迎页与托盘入口",
+    description: "托盘左键直接打开主窗口；横栏布局直达文本编辑区；首次启动、完全重启和点击 Super Note 时展示默认欢迎页。",
+  },
   {
     version: "v0.1.20",
     date: "2026.09.03",
@@ -560,6 +567,7 @@ function makePreview(text: string, query: string, matchIndex?: number) {
 function AppShell() {
   const { message, modal } = AntApp.useApp();
   const [tabs, setTabs] = useState<NoteTab[]>(() => [createTextTab(0)]);
+  const [welcomeVisible, setWelcomeVisible] = useState(true);
   const [paneIds, setPaneIds] = useState<PaneKey[]>([INITIAL_PANE_ID]);
   const [paneActiveTabIds, setPaneActiveTabIds] = useState<Record<PaneKey, string>>(() => ({ [INITIAL_PANE_ID]: tabs[0].id }));
   const [activePane, setActivePane] = useState<PaneKey>(INITIAL_PANE_ID);
@@ -587,14 +595,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.20",
+    version: "0.1.21",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.20",
+    currentVersion: "0.1.21",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -667,8 +675,8 @@ function AppShell() {
   }, [paneActiveTabIds, paneIds, paneTabs]);
 
   const splitView = paneIds.length > 1;
-  const activeTab = activeTabsByPane[activePane] ?? activeTabsByPane[paneIds[0]] ?? tabs[0];
-  const activeTabId = activeTab?.id ?? tabs[0]?.id ?? "";
+  const activeTab = welcomeVisible ? undefined : activeTabsByPane[activePane] ?? activeTabsByPane[paneIds[0]] ?? tabs[0];
+  const activeTabId = welcomeVisible ? "" : activeTab?.id ?? tabs[0]?.id ?? "";
   const activeFileFontSize = activeTab?.kind === "file" ? getFileFontSize(activeTab) : null;
 
   const getPaneViewState = useCallback(
@@ -708,6 +716,7 @@ function AppShell() {
     paneTabHistoryRef.current[pane] = rememberTabVisit(paneTabHistoryRef.current[pane] ?? [], tabId);
     setPaneActiveTabIds((current) => ({ ...current, [pane]: tabId }));
     setActivePane(pane);
+    setWelcomeVisible(false);
   }, []);
 
   const toggleCanvasPlugin = useCallback(() => {
@@ -3407,6 +3416,7 @@ function AppShell() {
       <Suspense fallback={<FeatureLoading label="正在加载文本模块..." />}>
       <LazyFileView
         tab={tab}
+        showTitleBar={settings.tabLayout === "left"}
         title={getTabDisplayTitle(tab)}
         titleMenuItems={[
           { key: "rename", label: "编辑名称", onClick: () => renameTab(tab.id) },
@@ -3445,9 +3455,9 @@ function AppShell() {
   };
 
   const renderSurface = (tab: NoteTab | null, pane: PaneKey) => (
-    <section key={pane} className={`work-pane ${activePane === pane ? "focused" : ""}`} onMouseDown={() => tab && focusTabInPane(tab.id, pane)}>
+    <section key={pane} className={`work-pane ${activePane === pane ? "focused" : ""}`} onMouseDown={() => !welcomeVisible && tab && focusTabInPane(tab.id, pane)}>
       <div className="pane-content">
-        {tab ? renderPaneContent(tab, pane) : <EmptyWorld />}
+        {welcomeVisible ? <WelcomeWorld /> : tab ? renderPaneContent(tab, pane) : <EmptyWorld />}
       </div>
     </section>
   );
@@ -3481,7 +3491,12 @@ function AppShell() {
     >
       <header className="app-titlebar">
         <div className="titlebar-left">
-          <span className="app-brand" aria-label="Super Note">
+          <span className="app-brand" role="button" tabIndex={0} aria-label="打开欢迎页" onClick={() => setWelcomeVisible(true)} onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setWelcomeVisible(true);
+            }
+          }}>
             <span className="app-title-stack">
               <span className="app-title">Super Note</span>
             </span>
@@ -3568,7 +3583,9 @@ function AppShell() {
           tabs={tabNavigationItems}
           paneIds={renderedPaneIds}
           paneTabIds={paneTabIds}
-          paneActiveTabIds={paneActiveTabIds}
+          paneActiveTabIds={welcomeVisible
+            ? Object.fromEntries(paneIds.map((pane) => [pane, "__welcome__"])) as Record<PaneKey, string>
+            : paneActiveTabIds}
           activePane={activePane}
           splitView={renderedSplitView}
           canvasPluginEnabled={canvasPluginEnabled}

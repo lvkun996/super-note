@@ -23,6 +23,7 @@ const EMPTY_SELECTION: TextSelection = { start: 0, end: 0 };
 
 type FileViewProps = {
   tab: FileTab;
+  showTitleBar?: boolean;
   title?: string;
   titleMenuItems?: MenuProps["items"];
   searchValue: string;
@@ -38,6 +39,7 @@ type FileViewProps = {
 
 export function FileView({
   tab,
+  showTitleBar = true,
   title,
   titleMenuItems,
   searchValue,
@@ -448,7 +450,7 @@ export function FileView({
         style={{ ["--file-font-size" as string]: `${fontSize}px` }}
         onWheel={handleFontSizeWheel}
       >
-        {titleBar}
+        {showTitleBar ? titleBar : null}
         <div className="markdown-toolbar">
           <span className="markdown-toolbar-title">Markdown</span>
           <Button.Group size="small">
@@ -537,7 +539,7 @@ export function FileView({
 
   return (
     <div className="file-view" data-tab-id={tab.id} style={{ ["--file-font-size" as string]: `${fontSize}px` }} onWheel={handleFontSizeWheel}>
-      {titleBar}
+      {showTitleBar ? titleBar : null}
       <Dropdown menu={{ items: contextMenuItems }} trigger={["contextMenu"]}>
         {textEditor}
       </Dropdown>

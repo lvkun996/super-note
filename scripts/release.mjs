@@ -264,6 +264,17 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.21") {
+    return [
+      "Super Note v0.1.21",
+      "",
+      "- 托盘图标左键直接打开主窗口，右键继续显示托盘菜单。",
+      "- 横栏布局直接显示文本编辑区，不再重复展示文档标题栏。",
+      "- 点击左上角 Super Note、首次启动和完全重启后显示默认欢迎页“你想写些什么？”。",
+      "- 点击任意标签即可从欢迎页返回编辑状态。",
+    ].join("\n");
+  }
+
   if (version === "0.1.20") {
     return [
       "Super Note v0.1.20",
