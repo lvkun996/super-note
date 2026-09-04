@@ -126,3 +126,15 @@ final result: passed
 - Middle-button multi-caret markers are static 1px native text/caret colors without a blue overlay; the edit history path preserves the pre-edit content so Ctrl+Z restores it after input.
 
 Final result: passed
+# Super Note v0.1.23 UI QA — 2026-09-04
+
+## Scope and evidence
+
+- Reviewed the supplied top-layout screenshots and the reported multi-row middle-button editing regression in the local renderer preview.
+
+## Findings
+
+- Top layout file content no longer inherits the rounded gray strip above the title bar: the pane is square, flush, and white.
+- Multi-caret edits keep a local content/caret snapshot; Ctrl+Z restores both the previous text and the corresponding primary/multi-caret positions without enabling the blinking overlay.
+
+Final result: passed

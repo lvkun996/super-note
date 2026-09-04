@@ -264,6 +264,15 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.23") {
+    return [
+      "Super Note v0.1.23",
+      "",
+      "- 顶部横栏布局取消文件区域左上弧形和多余灰色间隙，标题栏与操作栏衔接更自然。",
+      "- 中键多行多选输入后，Ctrl+Z 同步恢复文本与多光标焦点位置。",
+    ].join("\\n");
+  }
+
   if (version === "0.1.22") {
     return [
       "Super Note v0.1.22",
