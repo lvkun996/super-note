@@ -50,6 +50,91 @@ input {
   font: inherit;
 }
 
+/* Shared neutral surfaces for menus, dialogs, search, and zoom feedback. */
+body {
+  --popup-surface: rgba(255, 255, 255, .80);
+  --popup-text: #262626;
+  --popup-muted: #777;
+  --popup-border: rgba(50, 50, 50, .13);
+  --popup-hover: rgba(0, 0, 0, .06);
+  --control-active: #262626;
+  --control-on-active: #fff;
+}
+body:has(.app-shell.dark-mode) {
+  --popup-surface: rgba(30, 30, 30, .84);
+  --popup-text: #ededed;
+  --popup-muted: #aaa;
+  --popup-border: rgba(255, 255, 255, .16);
+  --popup-hover: rgba(255, 255, 255, .08);
+  --control-active: #dedede;
+  --control-on-active: #202020;
+}
+body .ant-modal .ant-modal-content,
+body .ant-popover .ant-popover-inner,
+body .ant-dropdown .ant-dropdown-menu.ant-dropdown-menu,
+body .ant-select-dropdown,
+body .mind-map-relation-context-menu,
+body .ant-message-notice .ant-message-notice-content,
+body .ant-notification-notice,
+body .global-search-box,
+body .file-zoom-indicator {
+  background: var(--popup-surface) !important;
+  color: var(--popup-text);
+  border: 1px solid var(--popup-border);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .13);
+  backdrop-filter: blur(18px) saturate(105%);
+}
+body .ant-modal .ant-modal-content { border-radius: 18px; padding: 24px; }
+body .ant-modal .ant-modal-header { background: transparent; }
+body .ant-modal .ant-modal-title,
+body .ant-modal .ant-modal-confirm-title { color: var(--popup-text); font-size: 18px; font-weight: 600; line-height: 1.45; padding-right: 24px; }
+body .ant-modal .ant-modal-confirm-body > .anticon { display: none; }
+body .ant-modal .ant-modal-confirm-content { margin-inline-start: 0 !important; color: var(--popup-text); font-size: 13px; line-height: 1.65; }
+body .ant-modal .ant-modal-confirm-paragraph { max-width: 100%; }
+body .ant-modal .ant-modal-close { color: var(--popup-muted); }
+body .ant-modal-mask { background: rgba(0, 0, 0, .20) !important; }
+body .ant-dropdown .ant-dropdown-menu-item,
+body .ant-dropdown .ant-dropdown-menu-submenu-title { color: var(--popup-text); font-size: 12px; }
+body .ant-dropdown .ant-dropdown-menu-item:hover,
+body .ant-dropdown .ant-dropdown-menu-submenu-title:hover { background: var(--popup-hover) !important; }
+body .ant-btn-primary,
+body .ant-switch.ant-switch-checked,
+body .ant-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
+  background: var(--control-active) !important;
+  border-color: var(--control-active) !important;
+  color: var(--control-on-active) !important;
+  box-shadow: none;
+}
+body .ant-btn-default { background: transparent; border-color: var(--popup-border); color: var(--popup-text); }
+body .ant-btn-default:hover:not(:disabled),
+body .ant-btn-text:hover:not(:disabled) { background: var(--popup-hover) !important; color: var(--popup-text) !important; border-color: var(--popup-border); }
+body .ant-btn-dangerous { color: var(--popup-text) !important; }
+body .ant-switch:not(.ant-switch-checked) { background: #aaa; }
+body .ant-switch .ant-switch-handle::before { background: #fff; }
+body .ant-segmented { background: var(--popup-hover); color: var(--popup-muted); }
+body .ant-segmented .ant-segmented-item-selected { background: var(--control-active); color: var(--control-on-active); box-shadow: none; }
+body .ant-radio-button-wrapper-checked { color: var(--popup-text) !important; border-color: var(--control-active) !important; }
+body .ant-input:focus, body .ant-input-focused { border-color: #777; box-shadow: 0 0 0 2px rgba(100,100,100,.10); }
+body .file-zoom-indicator { padding: 5px 7px 5px 12px; border-radius: 10px; gap: 12px; }
+body .file-zoom-indicator .file-zoom-reset { background: var(--popup-hover); color: var(--popup-text); border: 1px solid var(--popup-border); border-radius: 6px; font-size: 12px; padding: 4px 9px; }
+body .file-zoom-indicator .file-zoom-reset:hover { background: var(--control-active); color: var(--control-on-active); }
+body .file-zoom-indicator .file-zoom-value { color: var(--popup-text); font-size: 12px; }
+body .help-docs { display: block; }
+body .help-docs h3 { color: var(--popup-text); }
+body .help-docs .help-doc-row { position: relative; display: block; padding: 10px 0 10px 17px; border: 0; background: transparent; }
+body .help-docs .help-doc-row::before { content: ''; position: absolute; left: 0; top: 18px; width: 5px; height: 5px; border-radius: 50%; background: var(--popup-muted); }
+body .help-docs .help-doc-row dt { color: var(--popup-text); font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+body .help-docs .help-doc-row dd { color: var(--popup-muted); font-size: 12px; line-height: 1.7; margin: 0; }
+.rename-dialog p { margin: 0 0 12px; font-size: 13px; color: var(--popup-muted); }
+body .settings-row small, body .shortcut-row small { color: var(--popup-muted); font-size: 12px; }
+body .settings-directory-row { grid-template-columns: minmax(0, 1fr); }
+body .settings-directory-control { display: flex; gap: 8px; min-width: 0; width: 100%; }
+body .settings-directory-control .ant-input-affix-wrapper { flex: 1; min-width: 0; }
+body .ant-message-notice-content > .ant-message-custom-content > .anticon { display: none; }
+body .ant-tooltip .ant-tooltip-inner { background: rgba(35,35,35,.84); font-size: 12px; backdrop-filter: blur(12px); }
+body .mind-map-relation-context-menu button { color: var(--popup-text); font-size: 12px; }
+body .mind-map-relation-context-menu button:hover { background: var(--popup-hover); }
+
 .app-shell {
   --navigation-background: #f3f3f3;
   height: 100vh;

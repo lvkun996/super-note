@@ -1,3 +1,4 @@
+import { uiText } from "../../../electron/uiLanguage";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import type { ProgrammerAction, TextSelection } from "../../appTypes";
 
@@ -57,7 +58,7 @@ export function renderTextWithLinks(text: string, query: string): ReactNode {
           key={`link-${start}`}
           className="text-http-link"
           data-http-url={url}
-          title="按住 Ctrl 并单击，在外部浏览器中打开"
+          title={uiText("按住 Ctrl 并单击，在外部浏览器中打开")}
         >
           {renderHighlightedSegment(url, query, `link-${start}`)}
         </span>,

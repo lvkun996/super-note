@@ -1,3 +1,4 @@
+import { uiText, getUiLanguage, setUiLanguage } from "./uiLanguage";
 import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcMain, nativeImage, screen, shell } from "electron";
 import { autoUpdater } from "electron-updater";
 import { readFile, writeFile } from "node:fs/promises";
@@ -69,10 +70,10 @@ const trayMenuHtml = `<!doctype html>
     * { box-sizing: border-box; }
     html, body { margin: 0; background: transparent; font: 13px/1.45 "Segoe UI", "Microsoft YaHei", sans-serif; color: #172033; }
     body { padding: 4px; overflow: hidden; }
-    .menu { overflow: hidden; border: 1px solid #dce3ee; border-radius: 10px; background: rgba(255,255,255,.98); box-shadow: 0 10px 24px rgba(31,45,61,.22); }
+    .menu { overflow: hidden; border: 1px solid rgba(90,90,90,.16); border-radius: 12px; background: rgba(255,255,255,.78); backdrop-filter: blur(18px); box-shadow: 0 10px 24px rgba(0,0,0,.14); color: #262626; }
     .section-title { padding: 9px 10px 4px; color: #697386; font-size: 11px; }
     .row { width: 100%; min-height: 32px; padding: 6px 10px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
-    .row:hover, .row:focus-visible { background: #f1f6ff; outline: none; }
+    .row:hover, .row:focus-visible { background: rgba(0,0,0,.06); outline: none; }
     .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .meta { color: #788397; font-size: 11px; }
     .divider { height: 1px; margin: 5px 0; background: #dce3ee; }
@@ -101,6 +102,11 @@ const trayMenuHtml = `<!doctype html>
     }
     function render(next) {
       state = next || { tabs: [] };
+      const en = state.language === 'en-US';
+      document.documentElement.lang = en ? 'en-US' : 'zh-CN';
+      document.querySelector('.section-title').textContent = en ? 'Recent' : '最近标签';
+      document.querySelector('#new-text span').textContent = en ? 'New text' : '新建文本';
+      document.querySelector('#exit span').textContent = en ? 'Quit' : '退出';
       recent.replaceChildren();
       const visible = expanded ? state.tabs : state.tabs.slice(0, 4);
       recent.style.maxHeight = expanded ? "320px" : "none";
@@ -108,7 +114,7 @@ const trayMenuHtml = `<!doctype html>
       if (!visible.length) {
         const empty = document.createElement("div");
         empty.className = "empty";
-        empty.textContent = "暂无标签页";
+        empty.textContent = en ? 'No tabs' : '暂无标签页';
         recent.appendChild(empty);
       }
       visible.forEach(function (tab) {
@@ -120,7 +126,7 @@ const trayMenuHtml = `<!doctype html>
         title.textContent = tab.title;
         const meta = document.createElement("span");
         meta.className = "meta";
-        meta.textContent = tab.kind === "canvas" ? "画板" : "文本";
+        meta.textContent = tab.kind === 'canvas' ? (en ? 'Canvas' : '画板') : (en ? 'Text' : '文本');
         button.append(title, meta);
         button.addEventListener("click", function () {
           window.superNote.trayMenuAction({ type: "open-tab", tabId: tab.id });
@@ -128,7 +134,7 @@ const trayMenuHtml = `<!doctype html>
         recent.appendChild(button);
       });
       more.hidden = state.tabs.length <= 4;
-      more.firstElementChild.textContent = expanded ? "收起" : "More";
+      more.firstElementChild.textContent = expanded ? (en ? 'Less' : '收起') : (en ? 'More' : '更多');
       more.lastElementChild.textContent = expanded ? "‹" : "›";
       resize();
     }
@@ -284,7 +290,7 @@ function toggleMainWindow() {
 function getTrayMenuState() {
   const active = trayTabState.tabs.find((tab) => tab.id === trayTabState.activeTabId);
   const others = [...trayTabState.tabs].reverse().filter((tab) => tab.id !== trayTabState.activeTabId);
-  return { tabs: active ? [active, ...others] : others };
+  return { tabs: active ? [active, ...others] : others, language: getUiLanguage() };
 }
 
 function positionTrayMenu() {
@@ -494,7 +500,7 @@ async function downloadUpdateWithRetry() {
     setUpdateStatus({
       state: "downloading",
       progress: 0,
-      error: attempt === 1 ? undefined : `下载中断，正在重试 ${attempt}/${updateDownloadMaxAttempts}`,
+      error: attempt === 1 ? undefined : uiText("下载中断，正在重试 {0}/{1}", [attempt, updateDownloadMaxAttempts]),
       downloadAttempt: attempt,
       maxDownloadAttempts: updateDownloadMaxAttempts,
     });
@@ -507,7 +513,7 @@ async function downloadUpdateWithRetry() {
       if (attempt < updateDownloadMaxAttempts) {
         setUpdateStatus({
           state: "downloading",
-          error: `下载中断，${Math.round(updateDownloadRetryDelayMs / 1000)} 秒后重试 ${attempt + 1}/${updateDownloadMaxAttempts}：${getUpdateErrorMessage(error)}`,
+          error: uiText("下载中断，{0} 秒后重试 {1}/{2}：{3}", [Math.round(updateDownloadRetryDelayMs / 1000), attempt + 1, updateDownloadMaxAttempts, getUpdateErrorMessage(error)]),
           downloadAttempt: attempt,
           maxDownloadAttempts: updateDownloadMaxAttempts,
         });
@@ -520,7 +526,7 @@ async function downloadUpdateWithRetry() {
   setUpdateStatus({
     state: "error",
     progress: undefined,
-    error: `下载失败，已重试 ${updateDownloadMaxAttempts} 次：${getUpdateErrorMessage(lastError)}`,
+    error: uiText("下载失败，已重试 {0} 次：{1}", [updateDownloadMaxAttempts, getUpdateErrorMessage(lastError)]),
     downloadAttempt: updateDownloadMaxAttempts,
     maxDownloadAttempts: updateDownloadMaxAttempts,
   });
@@ -575,7 +581,7 @@ function createMindMapStyleWindow() {
       x: parentBounds.x + Math.max(24, parentBounds.width - 370),
       y: parentBounds.y + 52,
     } : {}),
-    title: "思维导图样式 - Super Note",
+    title: uiText("思维导图样式 - Super Note"),
     icon: getIconPath(),
     autoHideMenuBar: true,
     show: false,
@@ -749,6 +755,14 @@ ipcMain.handle("app:rendererReady", (event) => {
   return { ok: true };
 });
 
+ipcMain.handle("app:setLanguage", (event, language: unknown) => {
+  if (event.sender !== mainWindow?.webContents || (language !== "zh-CN" && language !== "en-US")) return { ok: false };
+  setUiLanguage(language);
+  mindMapStyleWindow?.setTitle(uiText("思维导图样式 - Super Note"));
+  trayMenuWindow?.webContents.send("tray:state", getTrayMenuState());
+  return { ok: true };
+});
+
 ipcMain.handle("app:workspaceFlushed", (event) => {
   if (event.sender !== mainWindow?.webContents) {
     return { ok: false };
@@ -806,12 +820,12 @@ ipcMain.handle("tray:menuAction", (event, action: { type?: unknown; tabId?: unkn
 ipcMain.handle("dialog:openFile", async () => {
   const target = mainWindow ?? BrowserWindow.getFocusedWindow();
   const dialogOptions = {
-    title: "打开已有文件",
+    title: uiText("打开已有文件"),
     properties: ["openFile"],
     filters: [
       { name: "Super Note", extensions: ["snote"] },
-      { name: "Text", extensions: ["txt", "md", "markdown", "json", "csv", "log", "ts", "tsx", "js", "jsx", "css", "html"] },
-      { name: "All Files", extensions: ["*"] },
+      { name: uiText("文本文件"), extensions: ["txt", "md", "markdown", "json", "csv", "log", "ts", "tsx", "js", "jsx", "css", "html"] },
+      { name: uiText("所有文件"), extensions: ["*"] },
     ],
   } satisfies Electron.OpenDialogOptions;
   const result = target ? await dialog.showOpenDialog(target, dialogOptions) : await dialog.showOpenDialog(dialogOptions);
@@ -867,11 +881,11 @@ ipcMain.handle(
     if (!filePath) {
       const target = mainWindow ?? BrowserWindow.getFocusedWindow();
       const dialogOptions = {
-        title: "保存文件",
+        title: uiText("保存文件"),
         defaultPath: payload.defaultDirectory && path.isAbsolute(payload.defaultDirectory)
           ? path.join(payload.defaultDirectory, payload.defaultName || "untitled.txt")
           : payload.defaultName,
-        filters: payload.filters ?? [{ name: "All Files", extensions: ["*"] }],
+        filters: payload.filters ?? [{ name: uiText("所有文件"), extensions: ["*"] }],
       } satisfies Electron.SaveDialogOptions;
       const result = target ? await dialog.showSaveDialog(target, dialogOptions) : await dialog.showSaveDialog(dialogOptions);
       if (result.canceled || !result.filePath) {
@@ -904,7 +918,7 @@ ipcMain.handle(
 ipcMain.handle("dialog:selectDirectory", async (_event, defaultPath: unknown) => {
   const target = mainWindow ?? BrowserWindow.getFocusedWindow();
   const options: Electron.OpenDialogOptions = {
-    title: "选择默认文件保存位置",
+    title: uiText("选择默认文件保存位置"),
     properties: ["openDirectory", "createDirectory"],
     ...(typeof defaultPath === "string" && path.isAbsolute(defaultPath) ? { defaultPath } : {}),
   };
@@ -926,9 +940,9 @@ ipcMain.handle("canvas:saveImage", async (event, payload: { dataUrl?: unknown; d
   }
   const target = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
   const dialogOptions = {
-    title: "导出画板图片",
+    title: uiText("导出画板图片"),
     defaultPath: typeof payload.defaultName === "string" ? payload.defaultName : "super-note-canvas.png",
-    filters: [{ name: "PNG Image", extensions: ["png"] }],
+    filters: [{ name: uiText("PNG 图片"), extensions: ["png"] }],
   } satisfies Electron.SaveDialogOptions;
   const result = target ? await dialog.showSaveDialog(target, dialogOptions) : await dialog.showSaveDialog(dialogOptions);
   if (result.canceled || !result.filePath) {
@@ -1071,6 +1085,6 @@ ipcMain.handle("update:install", () => installDownloadedUpdate());
 ipcMain.handle("app:getInfo", () => ({
   version: app.getVersion(),
   author: "kunkun",
-  desc: "认识自身平凡后，依旧拥有改变世界的勇气",
+  desc: uiText("认识自身平凡后，依旧拥有改变世界的勇气"),
   globalShortcut: "Ctrl+Alt+Space",
 }));

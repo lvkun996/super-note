@@ -1,3 +1,4 @@
+import { uiText } from "../../../electron/uiLanguage";
 import { MIND_MAP_PALETTES, type MindMapDocument, type MindMapNode } from "./mindMapTypes";
 
 export type MindMapSide = "left" | "right";
@@ -31,7 +32,7 @@ export type MindMapLayout = {
 };
 
 function getVisualTextWidth(text: string) {
-  return Array.from(text || "主题").reduce(
+  return Array.from(text || uiText("主题")).reduce(
     (width, character) => width + (character.charCodeAt(0) > 255 ? 16 : 8.6),
     0,
   );

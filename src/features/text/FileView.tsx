@@ -1,3 +1,4 @@
+import { uiText } from "../../../electron/uiLanguage";
 import { CodeOutlined, CopyOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
 import { Button, Dropdown } from "antd";
 import type { MenuProps } from "antd";
@@ -69,13 +70,13 @@ export function FileView({
   const documentMode = getFileDocumentMode(tab);
   const hasSelection = selection.end > selection.start;
   const activeSearchTarget = searchTarget?.tabId === tab.id ? searchTarget : null;
-  const displayTitle = title?.trim() || tab.title.trim() || "未命名文本";
+  const displayTitle = title?.trim() || tab.title.trim() || uiText("未命名文本");
   const titleBar = (
-    <header className="file-title-bar" aria-label="文档标题栏">
+    <header className="file-title-bar" aria-label={uiText("文档标题栏")}>
       <h1 className="file-title" title={displayTitle}>{displayTitle}</h1>
       {titleMenuItems?.length ? (
         <Dropdown menu={{ items: titleMenuItems }} trigger={["click"]} overlayClassName="tab-context-menu" placement="bottomLeft">
-          <Button type="text" className="file-title-more" icon={<EllipsisOutlined />} aria-label="文档操作" title="文档操作" />
+          <Button type="text" className="file-title-more" icon={<EllipsisOutlined />} aria-label={uiText("文档操作")} title={uiText("文档操作")} />
         </Dropdown>
       ) : null}
     </header>
@@ -291,20 +292,20 @@ export function FileView({
   const contextMenuItems: MenuProps["items"] = [
     {
       key: "cut",
-      label: "剪切",
+      label: uiText("剪切"),
       icon: <ScissorOutlined />,
       disabled: !hasSelection,
       onClick: () => void cutSelection(),
     },
     {
       key: "paste",
-      label: "粘贴",
+      label: uiText("粘贴"),
       icon: <SnippetsOutlined />,
       onClick: () => void pasteSelection(),
     },
     {
       key: "copy",
-      label: "复制",
+      label: uiText("复制"),
       icon: <CopyOutlined />,
       disabled: !hasSelection,
       onClick: () => void copySelection(),
@@ -314,21 +315,21 @@ export function FileView({
           { type: "divider" as const },
           {
             key: "format-json",
-            label: "转为 JSON",
+            label: uiText("转为 JSON"),
             icon: <CodeOutlined />,
             disabled: !hasSelection,
             onClick: () => runProgrammerAction("format-json"),
           },
           {
             key: "minify-json",
-            label: "压缩 JSON",
+            label: uiText("压缩 JSON"),
             icon: <CodeOutlined />,
             disabled: !hasSelection,
             onClick: () => runProgrammerAction("minify-json"),
           },
           {
             key: "string-to-json",
-            label: "字符串转 JSON",
+            label: uiText("字符串转 JSON"),
             icon: <CodeOutlined />,
             disabled: !hasSelection,
             onClick: () => runProgrammerAction("string-to-json"),
@@ -413,7 +414,7 @@ export function FileView({
 
   const renderMarkdownPreview = (className = "") =>
     tab.content.trim() && renderedMarkdown === null ? (
-      <article className={`markdown-body markdown-loading ${className}`}>正在加载 Markdown...</article>
+      <article className={`markdown-body markdown-loading ${className}`}>{uiText("正在加载 Markdown...")}</article>
     ) : tab.content.trim() ? (
       <article
         className={`markdown-body ${className}`}
@@ -421,7 +422,7 @@ export function FileView({
         dangerouslySetInnerHTML={{ __html: renderedMarkdown ?? "" }}
       />
     ) : (
-      <article className={`markdown-body markdown-empty ${className}`}>开始写 Markdown...</article>
+      <article className={`markdown-body markdown-empty ${className}`}>{uiText("开始写 Markdown...")}</article>
     );
 
   if (documentMode === "markdown") {
@@ -431,7 +432,7 @@ export function FileView({
         className="file-editor markdown-source-editor"
         value={tab.content}
         spellCheck={false}
-        placeholder={"# 标题\n\n开始编写 Markdown..."}
+        placeholder={uiText("# 标题\n\n开始编写 Markdown...")}
         onKeyDown={handleEditorKeyDown}
         onPaste={handleEditorPaste}
         onScroll={(event) => syncEditorScroll(event.currentTarget)}
@@ -454,12 +455,8 @@ export function FileView({
         <div className="markdown-toolbar">
           <span className="markdown-toolbar-title">Markdown</span>
           <Button.Group size="small">
-            <Button type={markdownMode === "edit" ? "primary" : "default"} onClick={() => changeMarkdownMode("edit")}>
-              编辑
-            </Button>
-            <Button type={markdownMode === "preview" ? "primary" : "default"} onClick={() => changeMarkdownMode("preview")}>
-              预览
-            </Button>
+            <Button type={markdownMode === "edit" ? "primary" : "default"} onClick={() => changeMarkdownMode("edit")}>{uiText("编辑")}</Button>
+            <Button type={markdownMode === "preview" ? "primary" : "default"} onClick={() => changeMarkdownMode("preview")}>{uiText("预览")}</Button>
           </Button.Group>
         </div>
 
@@ -522,7 +519,7 @@ export function FileView({
         className="file-editor"
         value={tab.content}
         spellCheck={false}
-        placeholder="文件为空，可以直接编辑"
+        placeholder={uiText("文件为空，可以直接编辑")}
         onScroll={(event) => {
           syncEditorScroll(event.currentTarget);
         }}

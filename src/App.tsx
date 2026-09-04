@@ -1,3 +1,6 @@
+import { uiText, getUiLanguage, setUiLanguage } from "../electron/uiLanguage";
+import enUS from "antd/locale/en_US";
+import zhCN from "antd/locale/zh_CN";
 import {
   App as AntApp,
   Button,
@@ -137,7 +140,7 @@ const LazySettingsModal = lazy(() =>
   import("./features/settings/SettingsModal").then(({ SettingsModal }) => ({ default: SettingsModal })),
 );
 
-function FeatureLoading({ label = "正在加载..." }: { label?: string }) {
+function FeatureLoading({ label = uiText("正在加载...") }: { label?: string }) {
   return <div className="feature-loading" role="status">{label}</div>;
 }
 
@@ -152,148 +155,154 @@ const canvasThemes: CanvasTheme[] = [
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.25",
+    date: "2026-09-04",
+    title: uiText("双语界面与透明弹窗"),
+    description: uiText("设置支持中英文切换，统一透明弹窗与灰黑控件，文档改为操作列表，并优化置顶与缩放重置文案。"),
+  },
+  {
     version: "v0.1.24",
     date: "2026.09.04",
-    title: "修复左侧布局标题栏间隙",
-    description: "统一移除文本区域顶部圆角与灰色间隙，左侧布局标题栏紧贴操作栏。",
+    title: uiText("修复左侧布局标题栏间隙"),
+    description: uiText("统一移除文本区域顶部圆角与灰色间隙，左侧布局标题栏紧贴操作栏。"),
   },
   {
     version: "v0.1.23",
     date: "2026.09.04",
-    title: "顶栏边界与多选撤销修复",
-    description: "顶部文本区域取消多余弧形灰底，多行中键编辑撤销时同步恢复焦点位置。",
+    title: uiText("顶栏边界与多选撤销修复"),
+    description: uiText("顶部文本区域取消多余弧形灰底，多行中键编辑撤销时同步恢复焦点位置。"),
   },
   {
     version: "v0.1.22",
     date: "2026.09.04",
-    title: "界面配色与中键编辑优化",
-    description: "统一导航区域为浅灰背景，欢迎页更贴近设计稿；托盘菜单避开图标并缩小，中键多选恢复原生色系且支持撤销。",
+    title: uiText("界面配色与中键编辑优化"),
+    description: uiText("统一导航区域为浅灰背景，欢迎页更贴近设计稿；托盘菜单避开图标并缩小，中键多选恢复原生色系且支持撤销。"),
   },
   {
     version: "v0.1.21",
     date: "2026.09.03",
-    title: "默认欢迎页与托盘入口",
-    description: "托盘左键直接打开主窗口；横栏布局直达文本编辑区；首次启动、完全重启和点击 Super Note 时展示默认欢迎页。",
+    title: uiText("默认欢迎页与托盘入口"),
+    description: uiText("托盘左键直接打开主窗口；横栏布局直达文本编辑区；首次启动、完全重启和点击 Super Note 时展示默认欢迎页。"),
   },
   {
     version: "v0.1.20",
     date: "2026.09.03",
-    title: "文本标题栏与光标修复",
-    description: "文本模块采用顶部圆角与独立文档标题栏，支持标题菜单操作；修复输入时光标回退，多光标改为不闪烁、不挤占文字空间的独立覆盖层。",
+    title: uiText("文本标题栏与光标修复"),
+    description: uiText("文本模块采用顶部圆角与独立文档标题栏，支持标题菜单操作；修复输入时光标回退，多光标改为不闪烁、不挤占文字空间的独立覆盖层。"),
   },
   {
     version: "v0.1.19",
     date: "2026.09.02",
-    title: "修复在线更新下载",
-    description: "安装包补齐自动更新配置与缓存目录，解决检测到新版本后下载时报 app-update.yml 缺失的问题，并加入打包配置校验。",
+    title: uiText("修复在线更新下载"),
+    description: uiText("安装包补齐自动更新配置与缓存目录，解决检测到新版本后下载时报 app-update.yml 缺失的问题，并加入打包配置校验。"),
   },
   {
     version: "v0.1.18",
     date: "2026.09.02",
-    title: "统一导航配色与置顶分组",
-    description: "顶栏与顶部标签沿用侧栏配色，操作栏更紧凑；左侧新增可持久化的 Pinned 分组与取消置顶。同步改进文本保存、标签位置恢复、搜索范围和缩放提示。",
+    title: uiText("统一导航配色与置顶分组"),
+    description: uiText("顶栏与顶部标签沿用侧栏配色，操作栏更紧凑；左侧新增可持久化的 Pinned 分组与取消置顶。同步改进文本保存、标签位置恢复、搜索范围和缩放提示。"),
   },
   {
     version: "v0.1.17",
     date: "2026.08.28",
-    title: "保存命名与标签菜单优化",
-    description: "首次保存文本时使用当前标签标题并统一为 .snote 文件，标签右键菜单同步收紧尺寸、间距与视觉层级。",
+    title: uiText("保存命名与标签菜单优化"),
+    description: uiText("首次保存文本时使用当前标签标题并统一为 .snote 文件，标签右键菜单同步收紧尺寸、间距与视觉层级。"),
   },
   {
     version: "v0.1.16",
     date: "2026.08.27",
-    title: "标签操作、保存位置与搜索入口",
-    description: "两种布局的标签右键菜单新增置顶、删除、编辑和资源管理器定位；设置可选择默认保存位置，并加入顶部搜索入口、长按竖向多光标同步输入与打赏作者页面。",
+    title: uiText("标签操作、保存位置与搜索入口"),
+    description: uiText("两种布局的标签右键菜单新增置顶、删除、编辑和资源管理器定位；设置可选择默认保存位置，并加入顶部搜索入口、长按竖向多光标同步输入与打赏作者页面。"),
   },
   {
     version: "v0.1.15",
     date: "2026.08.25",
-    title: "可调侧栏、全屏与缩放反馈",
-    description: "左侧标签栏支持实时拖拽调宽并精简视觉元素，侧栏模式聚焦单栏编辑；新增 Ctrl + H 全屏、缩放倍率提示和 Ctrl + 0 恢复 100%。",
+    title: uiText("可调侧栏、全屏与缩放反馈"),
+    description: uiText("左侧标签栏支持实时拖拽调宽并精简视觉元素，侧栏模式聚焦单栏编辑；新增 Ctrl + H 全屏、缩放倍率提示和 Ctrl + 0 恢复 100%。"),
   },
   {
     version: "v0.1.14",
     date: "2026.08.20",
-    title: "标签导航与 Windows 文件集成",
-    description: "新增标签拖拽排序和 Ctrl + B 左侧标签菜单，优化标签渲染与代码层级，并扩展 Windows 默认打开和资源管理器预览支持。",
+    title: uiText("标签导航与 Windows 文件集成"),
+    description: uiText("新增标签拖拽排序和 Ctrl + B 左侧标签菜单，优化标签渲染与代码层级，并扩展 Windows 默认打开和资源管理器预览支持。"),
   },
   {
     version: "v0.1.13",
     date: "2026.08.12",
-    title: "画板思维导图与内容关联",
-    description: "增加思维导图、主题跨层级拖动、文字与图片关联、连线吸附点拖拽和画板图片导出，并优化样式面板启动与夜间模式。",
+    title: uiText("画板思维导图与内容关联"),
+    description: uiText("增加思维导图、主题跨层级拖动、文字与图片关联、连线吸附点拖拽和画板图片导出，并优化样式面板启动与夜间模式。"),
   },
   {
     version: "v0.1.12",
     date: "2026.08.11",
-    title: "更新与文本操作优化",
-    description: "修复低版本更新提示，增加中键竖向选中文本与 Ctrl + 滚轮调整字号，并让 Markdown 默认进入预览模式。",
+    title: uiText("更新与文本操作优化"),
+    description: uiText("修复低版本更新提示，增加中键竖向选中文本与 Ctrl + 滚轮调整字号，并让 Markdown 默认进入预览模式。"),
   },
   {
     version: "v0.1.11",
     date: "2026.08.07",
-    title: "工作区安全与文件操作优化",
-    description: "增加工作区备份恢复、外部文件变化检测、最近文件和快速打开，并优化 Markdown 预览体验。",
+    title: uiText("工作区安全与文件操作优化"),
+    description: uiText("增加工作区备份恢复、外部文件变化检测、最近文件和快速打开，并优化 Markdown 预览体验。"),
   },
   {
     version: "v0.1.10",
     date: "2026.08.04",
-    title: "标签关闭状态与全屏弹窗优化",
-    description: "优化当前标签关闭状态提示、全屏版本与作者弹窗布局，并新增 .snote 文件的 Windows 资源管理器预览注册。",
+    title: uiText("标签关闭状态与全屏弹窗优化"),
+    description: uiText("优化当前标签关闭状态提示、全屏版本与作者弹窗布局，并新增 .snote 文件的 Windows 资源管理器预览注册。"),
   },
   {
     version: "v0.1.9",
     date: "2026.07.20",
-    title: "标签、托盘与弹窗体验",
-    description: "更新分栏与标签切换快捷键，新增内容标签名和最近标签托盘菜单，并优化全屏版本页、弹窗滚动与标签栏溢出。",
+    title: uiText("标签、托盘与弹窗体验"),
+    description: uiText("更新分栏与标签切换快捷键，新增内容标签名和最近标签托盘菜单，并优化全屏版本页、弹窗滚动与标签栏溢出。"),
   },
   {
     version: "v0.1.8",
     date: "2026.07.17",
-    title: "链接、搜索与编辑体验",
-    description: "修复文本底部点击和搜索定位，新增 Ctrl + 单击外部链接、固定编辑菜单，并按功能拆分核心代码。",
+    title: uiText("链接、搜索与编辑体验"),
+    description: uiText("修复文本底部点击和搜索定位，新增 Ctrl + 单击外部链接、固定编辑菜单，并按功能拆分核心代码。"),
   },
   {
     version: "v0.1.7",
     date: "2026.07.09",
-    title: "透明图标与作者全屏",
-    description: "更新透明背景的新 logo，作者寄语改为全屏展示，优化标签栏边框，并暂时移除文本对比插件。",
+    title: uiText("透明图标与作者全屏"),
+    description: uiText("更新透明背景的新 logo，作者寄语改为全屏展示，优化标签栏边框，并暂时移除文本对比插件。"),
   },
   {
     version: "v0.1.6",
     date: "2026.07.08",
-    title: "自动更新与全局快捷键",
-    description: "根据凯哥的提议，新增自动更新按钮、Windows 版本通道识别、一键发布脚本，以及 Ctrl + Alt + 空格全局打开/隐藏。",
+    title: uiText("自动更新与全局快捷键"),
+    description: uiText("根据凯哥的提议，新增自动更新按钮、Windows 版本通道识别、一键发布脚本，以及 Ctrl + Alt + 空格全局打开/隐藏。"),
   },
   {
     version: "v0.1.5",
     date: "2026.07.08",
-    title: "为凯哥更新的版本",
-    description: "新增凯哥生日快乐独立页面，用纯 CSS 做蛋糕、礼物、烟花与生日签互动；同时保留空工作区、插件开关、安装目录选择和本地打包缓存优化。",
+    title: uiText("为凯哥更新的版本"),
+    description: uiText("新增凯哥生日快乐独立页面，用纯 CSS 做蛋糕、礼物、烟花与生日签互动；同时保留空工作区、插件开关、安装目录选择和本地打包缓存优化。"),
   },
   {
     version: "v0.1.4",
     date: "2026.06.30",
-    title: "文本模块字号与滚动空间",
-    description: "新增文本模块字号放大、缩小快捷键设置，并把文本编辑区底部空白扩展到约 22 行。",
+    title: uiText("文本模块字号与滚动空间"),
+    description: uiText("新增文本模块字号放大、缩小快捷键设置，并把文本编辑区底部空白扩展到约 22 行。"),
   },
   {
     version: "v0.1.3",
     date: "2026.06.24",
-    title: "更多 Windows 版本支持",
-    description: "新增 Windows 7 / 8 安装包，同时保留 Windows 10 / 11 独立下载入口。",
+    title: uiText("更多 Windows 版本支持"),
+    description: uiText("新增 Windows 7 / 8 安装包，同时保留 Windows 10 / 11 独立下载入口。"),
   },
   {
     version: "v0.1.2",
     date: "2026.06.23",
-    title: "项目网站与直接下载",
-    description: "重构项目页面视觉与响应式布局，安装包可从网站直接下载。",
+    title: uiText("项目网站与直接下载"),
+    description: uiText("重构项目页面视觉与响应式布局，安装包可从网站直接下载。"),
   },
   {
     version: "v0.1.1",
     date: "2026.06.22",
-    title: "多栏工作区",
-    description: "加入自由画板、动态分栏、全局搜索与本地工作区保存。",
+    title: uiText("多栏工作区"),
+    description: uiText("加入自由画板、动态分栏、全局搜索与本地工作区保存。"),
   },
 ];
 
@@ -310,7 +319,7 @@ function cloneCanvasSnapshot(items: CanvasItem[], mindMap?: MindMapDocument) {
 function truncateTitle(value: string) {
   const clean = value.trim().replace(/\s+/g, " ");
   if (!clean) {
-    return "未知";
+    return uiText("未知");
   }
   return clean.length > 14 ? `${clean.slice(0, 14)}...` : clean;
 }
@@ -321,8 +330,8 @@ function getFileName(filePath: string) {
 
 function getFileSaveFilters(tab: FileTab) {
   const textFilters = [
-    { name: "Text", extensions: ["txt", "md", "markdown", "json", "csv", "log", "ts", "tsx", "js", "jsx", "css", "html"] },
-    { name: "All Files", extensions: ["*"] },
+    { name: uiText("文本文件"), extensions: ["txt", "md", "markdown", "json", "csv", "log", "ts", "tsx", "js", "jsx", "css", "html"] },
+    { name: uiText("所有文件"), extensions: ["*"] },
   ];
   if (getFileDocumentMode(tab) !== "markdown") {
     return textFilters;
@@ -339,7 +348,7 @@ function deriveCanvasTitle(tab: CanvasTab, items: CanvasItem[], mindMap = tab.mi
   }
   const textItem = items.find((item): item is TextCanvasItem => item.type === "text" && item.text.trim().length > 0);
   const rootText = mindMap?.nodes.find((node) => node.id === mindMap.rootId)?.text;
-  return textItem ? truncateTitle(textItem.text) : rootText ? truncateTitle(rootText) : "未知";
+  return textItem ? truncateTitle(textItem.text) : rootText ? truncateTitle(rootText) : uiText("未知");
 }
 
 function pushHistory(tab: CanvasTab, nextItems: CanvasItem[], nextMindMap = tab.mindMap) {
@@ -357,7 +366,7 @@ function createCanvasTab(themeIndex: number, dirty = true): CanvasTab {
   return {
     id: makeId(),
     kind: "canvas",
-    title: "未知",
+    title: uiText("未知"),
     autoTitle: true,
     themeIndex,
     scale: 1,
@@ -391,8 +400,8 @@ function createTextTab(themeIndex: number): FileTab {
   return {
     id: makeId(),
     kind: "file",
-    title: "未命名文本",
-    fileName: "未命名文本.txt",
+    title: uiText("未命名文本"),
+    fileName: uiText("未命名文本.txt"),
     content: "",
     documentMode: "text",
     fontSize: DEFAULT_FILE_FONT_SIZE,
@@ -405,9 +414,9 @@ function createMarkdownTab(themeIndex: number): FileTab {
   return {
     id: makeId(),
     kind: "file",
-    title: "未命名 Markdown",
+    title: uiText("未命名 Markdown"),
     fileName: "untitled.md",
-    content: "# 未命名\n\n",
+    content: uiText("# 未命名\n\n"),
     documentMode: "markdown",
     fontSize: DEFAULT_FILE_FONT_SIZE,
     themeIndex,
@@ -421,7 +430,7 @@ function restoreTab(tab: PersistedTab): NoteTab {
     const mindMap = normalizeMindMap(tab.mindMap);
     return {
       ...tab,
-      title: tab.title || "未知",
+      title: tab.title || uiText("未知"),
       autoTitle: tab.autoTitle ?? true,
       scale: tab.scale || 1,
       panX: tab.panX ?? 0,
@@ -507,7 +516,7 @@ function isTabEmpty(tab: NoteTab) {
 }
 
 function getTabDisplayTitle(tab: NoteTab) {
-  if (tab.kind !== "file" || tab.filePath || !tab.title.startsWith("未命名")) {
+  if (tab.kind !== "file" || tab.filePath || !tab.title.startsWith(uiText("未命名"))) {
     return tab.title;
   }
   const preview = tab.content.replace(/\s+/g, " ").trim();
@@ -613,14 +622,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.24",
+    version: "0.1.25",
     author: "kunkun",
-    desc: "认识自身平凡后，依旧拥有改变世界的勇气",
+    desc: uiText("认识自身平凡后，依旧拥有改变世界的勇气"),
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.24",
+    currentVersion: "0.1.25",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -803,22 +812,48 @@ function AppShell() {
       try {
         const result = await window.superNote.saveWorkspace(workspace);
         if (!result.ok) {
-          throw new Error(result.error ?? "工作区保存失败");
+          throw new Error(result.error ?? uiText("工作区保存失败"));
         }
         workspaceSaveErrorRef.current = "";
       } catch (error) {
         const detail = String(error);
         if (workspaceSaveErrorRef.current !== detail) {
           workspaceSaveErrorRef.current = detail;
-          message.error(`自动保存失败：${detail}`);
+          message.error(uiText("自动保存失败：{0}", [detail]));
         }
+        return false;
       }
     } else {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
     }
+    return true;
   }, [activePane, activeTabId, canvasViewStates, message, paneActiveTabIds, paneIds, paneWidths, recentFiles, settings, splitView, tabPaneIds, tabs]);
   const persistWorkspaceRef = useRef(persistWorkspace);
   persistWorkspaceRef.current = persistWorkspace;
+
+  const languageReloadRef = useRef(false);
+  useEffect(() => {
+    if (!workspaceLoaded || languageReloadRef.current) return;
+    if (settings.language === getUiLanguage()) {
+      void window.superNote?.setLanguage(settings.language);
+      return;
+    }
+    languageReloadRef.current = true;
+    void persistWorkspaceRef.current().then(async (saved) => {
+      if (!saved) {
+        languageReloadRef.current = false;
+        setSettings((current) => ({ ...current, language: getUiLanguage() }));
+        return;
+      }
+      await window.superNote?.setLanguage(settings.language);
+      setUiLanguage(settings.language);
+      window.location.reload();
+    }).catch(() => {
+      languageReloadRef.current = false;
+      setSettings((current) => ({ ...current, language: getUiLanguage() }));
+      message.error(uiText("语言切换失败，请重试"));
+    });
+  }, [settings.language, workspaceLoaded, message]);
 
   useEffect(() => {
     const unsubscribe = window.superNote?.onPrepareQuit(() => {
@@ -1125,7 +1160,7 @@ function AppShell() {
       }
       const result = await window.superNote.readFile(tab.filePath);
       if (!result.ok || !result.file) {
-        message.error(`重新加载失败：${result.error ?? tab.filePath}`);
+        message.error(uiText("重新加载失败：{0}", [result.error ?? tab.filePath]));
         return false;
       }
       const restored = createTabFromOpenedFile(result.file, tab.themeIndex);
@@ -1182,7 +1217,7 @@ function AppShell() {
             content: await file.text(),
           });
         } catch (error) {
-          message.error(`读取文件失败：${file.name}，${String(error)}`);
+          message.error(uiText("读取文件失败：{0}，{1}", [file.name, String(error)]));
         }
       }
 
@@ -1198,7 +1233,7 @@ function AppShell() {
 
   const openExistingFile = useCallback(async () => {
     if (!window.superNote) {
-      message.warning("当前环境不支持系统文件选择器");
+      message.warning(uiText("当前环境不支持系统文件选择器"));
       return;
     }
     const result = await window.superNote.openFile();
@@ -1222,7 +1257,7 @@ function AppShell() {
       }
       const result = await window.superNote.readFile(filePath);
       if (!result.ok || !result.file) {
-        message.error(`打开文件失败：${result.error ?? filePath}`);
+        message.error(uiText("打开文件失败：{0}", [result.error ?? filePath]));
         setRecentFiles((current) => current.filter((file) => file.path.toLowerCase() !== filePath.toLowerCase()));
         return false;
       }
@@ -1387,13 +1422,15 @@ function AppShell() {
     if (!tab) return;
     let nextTitle = getTabDisplayTitle(tab);
     modal.confirm({
-      title: "编辑栏目名称",
-      content: <Input autoFocus defaultValue={nextTitle} maxLength={80} onChange={(event) => { nextTitle = event.target.value; }} />,
-      okText: "保存",
-      cancelText: "取消",
+      icon: null,
+      closable: true,
+      title: uiText("重命名标签"),
+      content: <div className="rename-dialog"><p>{uiText("保持简短且易于识别")}</p><Input autoFocus defaultValue={nextTitle} maxLength={80} onChange={(event) => { nextTitle = event.target.value; }} /></div>,
+      okText: uiText("保存"),
+      cancelText: uiText("取消"),
       onOk: () => {
         const title = nextTitle.trim();
-        if (!title) return Promise.reject(new Error("栏目名称不能为空"));
+        if (!title) return Promise.reject(new Error(uiText("栏目名称不能为空")));
         setTabs((current) => current.map((item) => item.id === tabId ? { ...item, title, ...(item.kind === "canvas" ? { autoTitle: false } : {}) } : item));
       },
     });
@@ -1500,10 +1537,12 @@ function AppShell() {
       }
 
       modal.confirm({
-        title: "当前标签还没有保存",
-        content: "是否关闭？未保存的修改会丢失。",
-        okText: "关闭",
-        cancelText: "取消",
+      icon: null,
+      closable: true,
+        title: uiText("当前标签还没有保存"),
+        content: uiText("是否关闭？未保存的修改会丢失。"),
+        okText: uiText("关闭"),
+        cancelText: uiText("取消"),
         okButtonProps: { danger: true },
         onOk: doClose,
       });
@@ -1538,7 +1577,7 @@ function AppShell() {
             ? buildSaveFileName(
                 getTabDisplayTitle(activeTab),
                 requiredExtension,
-                documentMode === "markdown" ? "未命名 Markdown" : "未命名文本",
+                documentMode === "markdown" ? uiText("未命名 Markdown") : uiText("未命名文本"),
               )
             : activeTab.fileName,
           defaultDirectory: settings.defaultSaveDirectory,
@@ -1549,7 +1588,7 @@ function AppShell() {
           return;
         }
         if (!result.ok) {
-          throw new Error(result.error ?? "保存失败");
+          throw new Error(result.error ?? uiText("保存失败"));
         }
         setTabs((current) =>
           current.map((tab) =>
@@ -1572,7 +1611,7 @@ function AppShell() {
             rememberRecentFiles(current, [{ path: result.path!, name: result.name ?? getFileName(result.path!) }]),
           );
         }
-        message.success("已保存到本地文件");
+        message.success(uiText("已保存到本地文件"));
         return;
       }
 
@@ -1580,7 +1619,7 @@ function AppShell() {
       const result = await window.superNote?.saveFile({
         path: activeTab.filePath,
         content: payload,
-        defaultName: `${activeTab.title === "未知" ? "untitled" : activeTab.title}.snote`,
+        defaultName: `${activeTab.title === uiText("未知") ? "untitled" : activeTab.title}.snote`,
         defaultDirectory: settings.defaultSaveDirectory,
         filters: [
           { name: "Super Note", extensions: ["snote"] },
@@ -1592,7 +1631,7 @@ function AppShell() {
         return;
       }
       if (!result.ok) {
-        throw new Error(result.error ?? "保存失败");
+        throw new Error(result.error ?? uiText("保存失败"));
       }
       setTabs((current) =>
         current.map((tab) =>
@@ -1614,9 +1653,9 @@ function AppShell() {
           rememberRecentFiles(current, [{ path: result.path!, name: result.name ?? getFileName(result.path!) }]),
         );
       }
-      message.success("已保存为 Super Note 文件");
+      message.success(uiText("已保存为 Super Note 文件"));
     } catch (error) {
-      message.error(`保存失败：${String(error)}`);
+      message.error(uiText("保存失败：{0}", [String(error)]));
     }
   }, [activeTab, message, settings.defaultSaveDirectory]);
 
@@ -1820,10 +1859,12 @@ function AppShell() {
   const removeCanvasMindMap = useCallback(
     (tabId: string) => {
       modal.confirm({
-        title: "删除整张思维导图？",
-        content: "中心主题和所有分支都会从当前画板移除，可使用撤销恢复。",
-        okText: "删除导图",
-        cancelText: "取消",
+      icon: null,
+      closable: true,
+        title: uiText("删除整张思维导图？"),
+        content: uiText("中心主题和所有分支都会从当前画板移除，可使用撤销恢复。"),
+        okText: uiText("删除导图"),
+        cancelText: uiText("取消"),
         okButtonProps: { danger: true },
         onOk: () => {
           commitMindMap(tabId, () => undefined);
@@ -1845,7 +1886,7 @@ function AppShell() {
       darkMode: effectiveDarkMode,
     });
     if (result && !result.ok) {
-      message.error(result.error ?? "无法打开思维导图样式窗口");
+      message.error(result.error ?? uiText("无法打开思维导图样式窗口"));
     }
   }, [effectiveDarkMode, message]);
 
@@ -1860,18 +1901,18 @@ function AppShell() {
           return;
         }
         if (!result.ok) {
-          throw new Error(result.error ?? "图片保存失败");
+          throw new Error(result.error ?? uiText("图片保存失败"));
         }
-        message.success(`已导出 ${rendered.width} × ${rendered.height} PNG`);
+        message.success(uiText("已导出 {0} × {1} PNG", [rendered.width, rendered.height]));
         return;
       }
       const link = document.createElement("a");
       link.href = rendered.dataUrl;
       link.download = defaultName;
       link.click();
-      message.success("画板图片已导出");
+      message.success(uiText("画板图片已导出"));
     } catch (error) {
-      message.error(`导出图片失败：${String(error)}`);
+      message.error(uiText("导出图片失败：{0}", [String(error)]));
     }
   }, [message]);
 
@@ -1922,7 +1963,7 @@ function AppShell() {
         setEditingText({ itemId, pane });
         focusTextEditor(itemId, pane, true);
       } else {
-        message.info("图片元素目前支持移动、缩放和删除");
+        message.info(uiText("图片元素目前支持移动、缩放和删除"));
       }
     },
     [message, tabs],
@@ -1934,7 +1975,7 @@ function AppShell() {
         const tab = tabs.find((item): item is CanvasTab => item.id === tabId && item.kind === "canvas");
         const item = tab?.items.find((canvasItem): canvasItem is TextCanvasItem => canvasItem.id === itemId && canvasItem.type === "text");
         if (!item) {
-          message.warning("程序员工具仅支持文字元素");
+          message.warning(uiText("程序员工具仅支持文字元素"));
           return;
         }
         const nextText = transformJsonText(item.text, action);
@@ -1952,7 +1993,7 @@ function AppShell() {
           ),
         );
       } catch (error) {
-        message.error(`JSON 处理失败：${String(error)}`);
+        message.error(uiText("JSON 处理失败：{0}", [String(error)]));
       }
     },
     [commitCanvasItems, message, tabs],
@@ -1963,14 +2004,14 @@ function AppShell() {
       try {
         const tab = tabs.find((item): item is FileTab => item.id === tabId && item.kind === "file");
         if (!tab) {
-          message.warning("程序员工具仅支持文本模块和画布文字元素");
+          message.warning(uiText("程序员工具仅支持文本模块和画布文字元素"));
           return;
         }
 
         const start = clamp(Math.min(selectionStart, selectionEnd), 0, tab.content.length);
         const end = clamp(Math.max(selectionStart, selectionEnd), 0, tab.content.length);
         if (end <= start) {
-          message.warning("请先选中需要处理的文本");
+          message.warning(uiText("请先选中需要处理的文本"));
           return;
         }
 
@@ -1983,7 +2024,7 @@ function AppShell() {
           current.map((item) => (item.id === tabId && item.kind === "file" ? { ...item, content: nextContent, dirty: true } : item)),
         );
       } catch (error) {
-        message.error(`JSON 处理失败：${String(error)}`);
+        message.error(uiText("JSON 处理失败：{0}", [String(error)]));
       }
     },
     [message, tabs],
@@ -2119,7 +2160,7 @@ function AppShell() {
     try {
       const text = await readClipboardText();
       if (!text.trim()) {
-        message.warning("剪贴板没有可粘贴的文字");
+        message.warning(uiText("剪贴板没有可粘贴的文字"));
         return;
       }
 
@@ -2134,7 +2175,7 @@ function AppShell() {
         updateFileContent(activeTab.id, `${activeTab.content}${activeTab.content ? "\n" : ""}${text}`);
       }
     } catch (error) {
-      message.error(`粘贴失败：${String(error)}`);
+      message.error(uiText("粘贴失败：{0}", [String(error)]));
     }
   }, [activePane, activeTab, addTextItem, message, readClipboardText, updateFileContent]);
 
@@ -2409,11 +2450,11 @@ function AppShell() {
           const selected = selectWorkspaceCandidate(result.workspace, result.backupWorkspace);
           workspace = selected.workspace;
           if (selected.source === "backup") {
-            message.warning("主工作区无法读取，已从自动备份恢复");
+            message.warning(uiText("主工作区无法读取，已从自动备份恢复"));
           } else if (!result.ok && selected.source === "none") {
-            throw new Error(result.error ?? "工作区与备份均无法读取");
+            throw new Error(result.error ?? uiText("工作区与备份均无法读取"));
           } else if (selected.source === "none" && (result.workspace != null || result.backupWorkspace != null)) {
-            message.warning("工作区数据格式无效，已创建新的空工作区");
+            message.warning(uiText("工作区数据格式无效，已创建新的空工作区"));
           }
         } else {
           const raw = localStorage.getItem(STORAGE_KEY);
@@ -2525,7 +2566,7 @@ function AppShell() {
           );
         }
       } catch (error) {
-        message.warning(`加载上次内容失败：${String(error)}`);
+        message.warning(uiText("加载上次内容失败：{0}", [String(error)]));
       } finally {
         setWorkspaceLoaded(true);
       }
@@ -2583,7 +2624,7 @@ function AppShell() {
           if (!externalPromptedRef.current.has(deletedKey)) {
             externalPromptedRef.current.add(deletedKey);
             setTabs((current) => current.map((item) => (item.id === tab.id ? { ...item, dirty: true } : item)));
-            message.warning(`文件已被外部删除，当前内容仍保留：${tab.title}`);
+            message.warning(uiText("文件已被外部删除，当前内容仍保留：{0}", [tab.title]));
           }
           continue;
         }
@@ -2611,16 +2652,18 @@ function AppShell() {
 
         if (!tab.dirty) {
           if (await reloadTabFromDisk(tab)) {
-            message.info(`已重新加载外部修改：${tab.title}`);
+            message.info(uiText("已重新加载外部修改：{0}", [tab.title]));
           }
           continue;
         }
 
         modal.confirm({
-          title: "文件已在外部修改",
-          content: `${tab.title} 在磁盘上发生变化，当前标签也有未保存内容。`,
-          okText: "重新加载磁盘版本",
-          cancelText: "保留当前内容",
+      icon: null,
+      closable: true,
+          title: uiText("文件已在外部修改"),
+          content: uiText("{0} 在磁盘上发生变化，当前标签也有未保存内容。", [tab.title]),
+          okText: uiText("重新加载磁盘版本"),
+          cancelText: uiText("保留当前内容"),
           onOk: () => reloadTabFromDisk(tab),
           onCancel: () => {
             setTabs((current) =>
@@ -2859,7 +2902,7 @@ function AppShell() {
         id: `tab:${tab.id}`,
         kind: "tab" as const,
         title: getTabDisplayTitle(tab),
-        detail: tab.filePath ?? (tab.kind === "canvas" ? "当前画板" : "未保存文本"),
+        detail: tab.filePath ?? (tab.kind === "canvas" ? uiText("当前画板") : uiText("未保存文本")),
         tabId: tab.id,
       }));
     const openPaths = new Set(tabs.flatMap((tab) => (tab.filePath ? [tab.filePath.toLowerCase()] : [])));
@@ -2894,7 +2937,7 @@ function AppShell() {
           tabId: tab.id,
           kind: "tab-title",
           title: getTabDisplayTitle(tab),
-          preview: tab.filePath ?? (tab.kind === "canvas" ? "画板标题匹配" : "标签标题匹配"),
+          preview: tab.filePath ?? (tab.kind === "canvas" ? uiText("画板标题匹配") : uiText("标签标题匹配")),
         });
       }
       if (tab.kind === "canvas") {
@@ -3032,8 +3075,8 @@ function AppShell() {
       key: "canvas-plugin",
       label: (
         <span className="new-module-menu-label">
-          <strong>画板插件</strong>
-          <small>{canvasPluginEnabled ? `已启用 · 新建画板 ${settings.shortcuts.newCanvas}` : "未启用 · 点击启用画板能力"}</small>
+          <strong>{uiText("画板插件")}</strong>
+          <small>{canvasPluginEnabled ? uiText("已启用 · 新建画板 {0}", [settings.shortcuts.newCanvas]) : uiText("未启用 · 点击启用画板能力")}</small>
         </span>
       ),
       icon: canvasPluginEnabled ? <CheckOutlined /> : <BorderOutlined />,
@@ -3044,25 +3087,25 @@ function AppShell() {
   const fileMenu: MenuProps["items"] = [
     {
       key: "new-text",
-      label: `新建文本模块 (${settings.shortcuts.newText})`,
+      label: uiText("新建文本模块 ({0})", [settings.shortcuts.newText]),
       icon: <FileTextOutlined />,
       onClick: () => addTextTab(),
     },
     {
       key: "new-markdown",
-      label: "新建 Markdown 文档",
+      label: uiText("新建 Markdown 文档"),
       icon: <CodeOutlined />,
       onClick: () => addMarkdownTab(),
     },
     {
       key: "open",
-      label: "打开已有文件",
+      label: uiText("打开已有文件"),
       icon: <FolderOpenOutlined />,
       onClick: openExistingFile,
     },
     {
       key: "quick-open",
-      label: `快速打开 (${settings.shortcuts.quickOpen})`,
+      label: uiText("快速打开 ({0})", [settings.shortcuts.quickOpen]),
       icon: <SearchOutlined />,
       onClick: () => {
         closeSearch();
@@ -3074,7 +3117,7 @@ function AppShell() {
       ? [
           {
             key: "recent-files",
-            label: "最近文件",
+            label: uiText("最近文件"),
             icon: <HistoryOutlined />,
             children: recentFiles.slice(0, 8).map((file) => ({
               key: `recent:${file.path}`,
@@ -3088,7 +3131,7 @@ function AppShell() {
     { type: "divider" },
     {
       key: "save",
-      label: "保存文件",
+      label: uiText("保存文件"),
       icon: <SaveOutlined />,
       onClick: saveCurrentTab,
     },
@@ -3097,38 +3140,38 @@ function AppShell() {
   const operationMenu: MenuProps["items"] = [
     {
       key: "new-text",
-      label: `新建文本模块 (${settings.shortcuts.newText})`,
+      label: uiText("新建文本模块 ({0})", [settings.shortcuts.newText]),
       icon: <FileTextOutlined />,
       onClick: () => addTextTab(),
     },
     {
       key: "new-markdown",
-      label: "新建 Markdown 文档",
+      label: uiText("新建 Markdown 文档"),
       icon: <CodeOutlined />,
       onClick: () => addMarkdownTab(),
     },
     {
       key: "close-tab",
-      label: `关闭当前标签 (${settings.shortcuts.closeTab})`,
+      label: uiText("关闭当前标签 ({0})", [settings.shortcuts.closeTab]),
       icon: <CloseOutlined />,
       onClick: closeCurrentTab,
     },
     {
       key: "toggle-tab-layout",
-      label: `${settings.tabLayout === "left" ? "切换到顶部标签栏" : "切换到左侧标签菜单"} (${settings.shortcuts.toggleTabLayout})`,
+      label: `${settings.tabLayout === "left" ? uiText("切换到顶部标签栏") : uiText("切换到左侧标签菜单")} (${settings.shortcuts.toggleTabLayout})`,
       icon: settings.tabLayout === "left" ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />,
       onClick: toggleTabLayout,
     },
     { type: "divider" },
     {
       key: "search",
-      label: `搜索当前页 (${settings.shortcuts.search})`,
+      label: uiText("搜索当前页 ({0})", [settings.shortcuts.search]),
       icon: <SearchOutlined />,
       onClick: () => openSearch("current"),
     },
     {
       key: "quick-open",
-      label: `快速打开 (${settings.shortcuts.quickOpen})`,
+      label: uiText("快速打开 ({0})", [settings.shortcuts.quickOpen]),
       icon: <FolderOpenOutlined />,
       onClick: () => {
         closeSearch();
@@ -3138,25 +3181,25 @@ function AppShell() {
     },
     {
       key: "undo",
-      label: `撤销 (${settings.shortcuts.undo})`,
+      label: uiText("撤销 ({0})", [settings.shortcuts.undo]),
       icon: <UndoOutlined />,
       onClick: undo,
     },
     {
       key: "redo",
-      label: `重做 (${settings.shortcuts.redo})`,
+      label: uiText("重做 ({0})", [settings.shortcuts.redo]),
       icon: <RedoOutlined />,
       onClick: redo,
     },
     {
       key: "paste",
-      label: `粘贴 (${settings.shortcuts.paste})`,
+      label: uiText("粘贴 ({0})", [settings.shortcuts.paste]),
       icon: <CopyOutlined />,
       onClick: pasteFromClipboard,
     },
     {
       key: "delete",
-      label: `删除选中元素 (${settings.shortcuts.deleteSelected})`,
+      label: uiText("删除选中元素 ({0})", [settings.shortcuts.deleteSelected]),
       icon: <DeleteOutlined />,
       disabled: !selectedItem,
       danger: true,
@@ -3170,13 +3213,13 @@ function AppShell() {
       { type: "divider" as const },
       {
         key: "split-left",
-        label: `向左分割视图 (${settings.shortcuts.splitLeft})`,
+        label: uiText("向左分割视图 ({0})", [settings.shortcuts.splitLeft]),
         icon: <SplitCellsOutlined />,
         onClick: () => autoSplitTab("left"),
       },
       {
         key: "split-right",
-        label: `向右分割视图 (${settings.shortcuts.splitRight})`,
+        label: uiText("向右分割视图 ({0})", [settings.shortcuts.splitRight]),
         icon: <SplitCellsOutlined />,
         onClick: () => autoSplitTab("right"),
       },
@@ -3194,28 +3237,28 @@ function AppShell() {
   const helpMenu: MenuProps["items"] = [
     {
       key: "donate",
-      label: "打赏作者",
+      label: uiText("打赏作者"),
       icon: <HeartOutlined />,
       onClick: () => setDonationOpen(true),
     },
     {
       key: "website",
-      label: "官网",
+      label: uiText("官网"),
       icon: <LinkOutlined />,
       onClick: () => void openExternalUrl(SITE_URL),
     },
     {
       key: "docs",
-      label: "文档",
+      label: uiText("文档"),
       icon: <BookOutlined />,
       onClick: () =>
         modal.info({
           ...topRightCloseModal,
-          title: "文档",
+          title: uiText("文档"),
           width: 760,
           content: (
             <div className="scrollable-modal-content">
-              <Suspense fallback={<FeatureLoading label="正在加载文档..." />}>
+              <Suspense fallback={<FeatureLoading label={uiText("正在加载文档...")} />}>
                 <LazyHelpDocumentation canvasPluginEnabled={canvasPluginEnabled} shortcuts={settings.shortcuts} />
               </Suspense>
             </div>
@@ -3224,7 +3267,7 @@ function AppShell() {
     },
     {
       key: "version",
-      label: "版本",
+      label: uiText("版本"),
       icon: <InfoCircleOutlined />,
       onClick: () =>
         modal.info({
@@ -3235,7 +3278,7 @@ function AppShell() {
           style: { top: 0, left: 0, right: 0, bottom: 0, width: "100vw", height: "100vh", maxWidth: "none", margin: 0, paddingBottom: 0 },
           className: "author-inspiration-modal",
           content: (
-            <div className="author-inspiration-panel" aria-label="版本">
+            <div className="author-inspiration-panel" aria-label={uiText("版本")}>
               <div className="author-inspiration-text version-fullscreen-text">v{appInfo.version}</div>
             </div>
           ),
@@ -3243,12 +3286,12 @@ function AppShell() {
     },
     {
       key: "updates",
-      label: "版本更新",
+      label: uiText("版本更新"),
       icon: <HistoryOutlined />,
       onClick: () =>
         modal.info({
           ...topRightCloseModal,
-          title: "版本更新",
+          title: uiText("版本更新"),
           width: 680,
           content: (
             <div className="scrollable-modal-content">
@@ -3273,7 +3316,7 @@ function AppShell() {
     },
     {
       key: "author",
-      label: "作者",
+      label: uiText("作者"),
       icon: <UserOutlined />,
       onClick: () =>
         modal.info({
@@ -3284,12 +3327,8 @@ function AppShell() {
           style: { top: 0, left: 0, right: 0, bottom: 0, width: "100vw", height: "100vh", maxWidth: "none", margin: 0, paddingBottom: 0 },
           className: "author-inspiration-modal",
           content: (
-            <div className="author-inspiration-panel" aria-label="作者寄语">
-              <div className="author-inspiration-text">
-                希望你认识自身平凡之后，
-                <br />
-                依旧拥有改变世界的勇气
-              </div>
+            <div className="author-inspiration-panel" aria-label={uiText("作者寄语")}>
+              <div className="author-inspiration-text">{uiText("希望你认识自身平凡之后，")}<br />{uiText("依旧拥有改变世界的勇气")}</div>
             </div>
           ),
         }),
@@ -3306,25 +3345,25 @@ function AppShell() {
   const updateButtonText =
     updateStatus.state === "downloading"
       ? updateStatus.error && (updateStatus.downloadAttempt ?? 1) > 1
-        ? `重试 ${updateStatus.downloadAttempt}/${updateStatus.maxDownloadAttempts ?? 3}`
+        ? uiText("重试 {0}/{1}", [updateStatus.downloadAttempt, updateStatus.maxDownloadAttempts ?? 3])
         : `${Math.max(0, Math.min(100, updateStatus.progress ?? 0))}%`
       : updateStatus.state === "downloaded"
-        ? "安装"
+        ? uiText("安装")
         : updateStatus.state === "installing"
-          ? "安装中"
+          ? uiText("安装中")
           : updateStatus.state === "error"
-            ? "重试更新"
+            ? uiText("重试更新")
             : updateStatus.latestVersion
-            ? `更新 ${updateStatus.latestVersion}`
-            : "更新";
+            ? uiText("更新 {0}", [updateStatus.latestVersion])
+            : uiText("更新");
   const updateButtonTitle =
     updateStatus.state === "error"
-      ? `更新失败，点击重试${updateStatus.error ? `：${updateStatus.error}` : ""}`
+      ? uiText("更新失败，点击重试{0}", [updateStatus.error ? `：${updateStatus.error}` : ""])
       : updateStatus.state === "downloading" && updateStatus.error
         ? updateStatus.error
         : updateStatus.channel === "win7-8"
-      ? "发现新版本，点击自动更新 Windows 7 / 8 版本"
-      : "发现新版本，点击自动更新 Windows 10 / 11 版本";
+      ? uiText("发现新版本，点击自动更新 Windows 7 / 8 版本")
+      : uiText("发现新版本，点击自动更新 Windows 10 / 11 版本");
 
   const handleUpdateClick = useCallback(async () => {
     try {
@@ -3340,7 +3379,7 @@ function AppShell() {
         await window.superNote?.downloadUpdate?.();
       }
     } catch (error) {
-      message.error(`自动更新启动失败：${String(error)}`);
+      message.error(uiText("自动更新启动失败：{0}", [String(error)]));
     }
   }, [message, updateStatus.latestVersion, updateStatus.state]);
 
@@ -3353,7 +3392,7 @@ function AppShell() {
     if (tab.kind === "canvas") {
       const viewState = getPaneViewState(tab, pane);
       return (
-        <Suspense fallback={<FeatureLoading label="正在加载画板..." />}>
+        <Suspense fallback={<FeatureLoading label={uiText("正在加载画板...")} />}>
         <LazyCanvasView
           tab={tab}
           pane={pane}
@@ -3439,15 +3478,15 @@ function AppShell() {
     }
 
     return (
-      <Suspense fallback={<FeatureLoading label="正在加载文本模块..." />}>
+      <Suspense fallback={<FeatureLoading label={uiText("正在加载文本模块...")} />}>
       <LazyFileView
         tab={tab}
         showTitleBar={settings.tabLayout === "left"}
         title={getTabDisplayTitle(tab)}
         titleMenuItems={[
-          { key: "rename", label: "编辑名称", onClick: () => renameTab(tab.id) },
-          { key: "pin", label: tab.pinned ? "取消置顶" : "置顶", onClick: () => pinTab(tab.id) },
-          { key: "explorer", label: "打开所在文件夹", disabled: !tab.filePath, onClick: () => openTabInExplorer(tab.id) },
+          { key: "rename", label: uiText("编辑名称"), onClick: () => renameTab(tab.id) },
+          { key: "pin", label: tab.pinned ? uiText("取消置顶") : uiText("置顶"), onClick: () => pinTab(tab.id) },
+          { key: "explorer", label: uiText("打开所在文件夹"), disabled: !tab.filePath, onClick: () => openTabInExplorer(tab.id) },
         ]}
         searchValue={deferredSearchValue}
         searchTarget={fileSearchTarget}
@@ -3493,13 +3532,14 @@ function AppShell() {
 
   return (
     <ConfigProvider
+      locale={getUiLanguage() === "en-US" ? enUS : zhCN}
       theme={{
         algorithm: effectiveDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: {
           borderRadius: 10,
-          colorPrimary: "#5b5bd6",
-          colorInfo: "#5b5bd6",
-          colorLink: "#5b5bd6",
+          colorPrimary: "#262626",
+          colorInfo: "#262626",
+          colorLink: "#262626",
           controlHeight: 34,
           fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif",
         },
@@ -3517,7 +3557,7 @@ function AppShell() {
     >
       <header className="app-titlebar">
         <div className="titlebar-left">
-          <span className="app-brand" role="button" tabIndex={0} aria-label="打开欢迎页" onClick={() => setWelcomeVisible(true)} onKeyDown={(event) => {
+          <span className="app-brand" role="button" tabIndex={0} aria-label={uiText("打开欢迎页")} onClick={() => setWelcomeVisible(true)} onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
               setWelcomeVisible(true);
@@ -3529,19 +3569,17 @@ function AppShell() {
           </span>
         <div className="menu-left">
           <Dropdown menu={{ items: fileMenu }} trigger={["click"]}>
-            <Button type="text">文件</Button>
+            <Button type="text">{uiText("文件")}</Button>
           </Dropdown>
           <Dropdown menu={{ items: pluginMenu }} trigger={["click"]}>
-            <Button type="text">插件</Button>
+            <Button type="text">{uiText("插件")}</Button>
           </Dropdown>
           <Dropdown menu={{ items: operationMenu }} trigger={["click"]}>
-            <Button type="text">操作</Button>
+            <Button type="text">{uiText("操作")}</Button>
           </Dropdown>
-          <Button type="text" onClick={() => setSettingsOpen(true)}>
-            设置
-          </Button>
+          <Button type="text" onClick={() => setSettingsOpen(true)}>{uiText("设置")}</Button>
           <Dropdown menu={{ items: helpMenu }} trigger={["click"]}>
-            <Button type="text">帮助</Button>
+            <Button type="text">{uiText("帮助")}</Button>
           </Dropdown>
           {updateButtonVisible ? (
             <Tooltip title={updateButtonTitle}>
@@ -3562,16 +3600,16 @@ function AppShell() {
         </div>
 
         <div className="window-controls">
-          <Tooltip title="搜索全部标签">
+          <Tooltip title={uiText("搜索全部标签")}>
             <Button
               type="text"
               className="window-control"
-              aria-label="搜索"
+              aria-label={uiText("搜索")}
               icon={<SearchOutlined />}
               onClick={() => openSearch("all")}
             />
           </Tooltip>
-          <Tooltip title={alwaysOnTop ? "取消置顶" : "窗口置顶"}>
+          <Tooltip title={alwaysOnTop ? uiText("取消置顶") : uiText("窗口置顶")}>
             <Button
               type="text"
               className="window-control"
@@ -3583,7 +3621,7 @@ function AppShell() {
               }}
             />
           </Tooltip>
-          <Tooltip title={effectiveDarkMode ? "切换为日间模式" : "切换为夜间模式"}>
+          <Tooltip title={effectiveDarkMode ? uiText("切换为日间模式") : uiText("切换为夜间模式")}>
             <Button
               type="text"
               className="window-control"
@@ -3641,7 +3679,7 @@ function AppShell() {
                   <div
                     key={`workspace-divider-${paneId}`}
                     className="split-resizer"
-                    title="长按后左右拖拽调整分栏宽度"
+                    title={uiText("长按后左右拖拽调整分栏宽度")}
                     onMouseDown={(event) => startSplitResize(index, event)}
                   />,
                 ]
@@ -3657,18 +3695,15 @@ function AppShell() {
             type="button"
             className="file-zoom-reset"
             onClick={() => activeTab?.kind === "file" && updateFileFontSize(activeTab.id, () => DEFAULT_FILE_FONT_SIZE)}
-          >
-            <UndoOutlined />
-            恢复
-          </button>
+          >{uiText("重置缩放")}</button>
         </div>
       ) : null}
 
       {donationOpen ? (
-        <div className="donation-overlay" role="dialog" aria-modal="true" aria-label="打赏作者" onClick={() => setDonationOpen(false)}>
-          <button type="button" className="donation-close" aria-label="关闭" onClick={() => setDonationOpen(false)}><CloseOutlined /></button>
+        <div className="donation-overlay" role="dialog" aria-modal="true" aria-label={uiText("打赏作者")} onClick={() => setDonationOpen(false)}>
+          <button type="button" className="donation-close" aria-label={uiText("关闭")} onClick={() => setDonationOpen(false)}><CloseOutlined /></button>
           <div className="donation-panel" onClick={(event) => event.stopPropagation()}>
-            <img src={donationImageUrl} alt="微信支付收款码" />
+            <img src={donationImageUrl} alt={uiText("微信支付收款码")} />
           </div>
         </div>
       ) : null}
@@ -3681,7 +3716,7 @@ function AppShell() {
               autoFocus
               allowClear
               prefix={<FolderOpenOutlined />}
-              placeholder="输入标签名、文件名或路径"
+              placeholder={uiText("输入标签名、文件名或路径")}
               value={quickOpenValue}
               onChange={(event) => setQuickOpenValue(event.target.value)}
               onKeyDown={(event) => {
@@ -3690,10 +3725,10 @@ function AppShell() {
                   void openQuickOpenResult(quickOpenResults[0]);
                 }
               }}
-              suffix={`${quickOpenResults.length} 个结果`}
+              suffix={uiText("{0} 个结果", [quickOpenResults.length])}
             />
             <div className="search-results">
-              {quickOpenResults.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有匹配的标签或最近文件" /> : null}
+              {quickOpenResults.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={uiText("没有匹配的标签或最近文件")} /> : null}
               {quickOpenResults.map((result) => (
                 <button
                   key={result.id}
@@ -3721,7 +3756,7 @@ function AppShell() {
               autoFocus
               allowClear
               prefix={<SearchOutlined />}
-              placeholder={searchScope === "current" ? "搜索当前页内容，再按一次 Ctrl+F 搜索全部标签" : "搜索所有标签内容"}
+              placeholder={searchScope === "current" ? uiText("搜索当前页内容，再按一次 Ctrl+F 搜索全部标签") : uiText("搜索所有标签内容")}
               value={searchValue}
               onChange={(event) => setSearchValue(event.target.value)}
               onKeyDown={(event) => {
@@ -3731,11 +3766,11 @@ function AppShell() {
                   closeSearch();
                 }
               }}
-              suffix={searchValue ? `${searchScope === "current" ? "当前页" : "全部标签"} · ${searchResults.length} 个匹配` : null}
+              suffix={searchValue ? uiText("{0} · {1} 个匹配", [searchScope === "current" ? uiText("当前页") : uiText("全部标签"), searchResults.length]) : null}
             />
             {searchValue.trim() ? (
               <div className="search-results">
-                {searchResults.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有匹配内容" /> : null}
+                {searchResults.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={uiText("没有匹配内容")} /> : null}
                 {searchResults.map((result) => (
                   <button
                     key={result.id}
@@ -3749,7 +3784,7 @@ function AppShell() {
                     <span className="search-result-title">
                       {result.kind !== "canvas-text" ? <FileTextOutlined /> : null}
                       {result.title}
-                      {result.line ? ` · 第 ${result.line} 行` : ""}
+                      {result.line ? uiText(" · 第 {0} 行", [result.line]) : ""}
                     </span>
                     <span className="search-result-preview">{renderHighlightedText(result.preview, deferredSearchValue)}</span>
                   </button>
@@ -3761,7 +3796,7 @@ function AppShell() {
       ) : null}
 
       {settingsOpen ? (
-        <Suspense fallback={<FeatureLoading label="正在加载设置..." />}>
+        <Suspense fallback={<FeatureLoading label={uiText("正在加载设置...")} />}>
           <LazySettingsModal
             open
             settings={settings}
@@ -3772,7 +3807,7 @@ function AppShell() {
       ) : null}
       {imagePreview ? (
         <div className="image-preview-layer" role="dialog" aria-modal="true" onClick={() => setImagePreview(null)}>
-          <button type="button" className="image-preview-close" aria-label="关闭预览" onClick={() => setImagePreview(null)}>
+          <button type="button" className="image-preview-close" aria-label={uiText("关闭预览")} onClick={() => setImagePreview(null)}>
             <CloseOutlined />
           </button>
           <img src={imagePreview.src} alt={imagePreview.name} onClick={(event) => event.stopPropagation()} />
@@ -3786,13 +3821,14 @@ function AppShell() {
 export default function App() {
   return (
     <ConfigProvider
+      locale={getUiLanguage() === "en-US" ? enUS : zhCN}
       theme={{
         algorithm: theme.defaultAlgorithm,
         token: {
           borderRadius: 10,
-          colorPrimary: "#5b5bd6",
-          colorInfo: "#5b5bd6",
-          colorLink: "#5b5bd6",
+          colorPrimary: "#262626",
+          colorInfo: "#262626",
+          colorLink: "#262626",
           controlHeight: 34,
           fontFamily:
             "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif",

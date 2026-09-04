@@ -1,3 +1,4 @@
+import { uiText } from "../../../electron/uiLanguage";
 import {
   DEFAULT_MIND_MAP_STYLE,
   type MindMapCanvasLink,
@@ -138,9 +139,9 @@ export function createMindMap(
     style: { ...DEFAULT_MIND_MAP_STYLE },
     canvasLinks: [],
     nodes: [
-      { id: rootId, parentId: null, text: "中心主题" },
-      { id: firstId, parentId: rootId, text: "主要主题 1" },
-      { id: secondId, parentId: rootId, text: "主要主题 2" },
+      { id: rootId, parentId: null, text: uiText("中心主题") },
+      { id: firstId, parentId: rootId, text: uiText("主要主题 1") },
+      { id: secondId, parentId: rootId, text: uiText("主要主题 2") },
     ],
   };
 }
@@ -166,7 +167,7 @@ export function addMindMapChild(
     ...document,
     nodes: [
       ...document.nodes.map((node) => (node.id === parentId && node.collapsed ? { ...node, collapsed: false } : node)),
-      { id: nodeId, parentId, text: "子主题" },
+      { id: nodeId, parentId, text: uiText("子主题") },
     ],
   };
   return { document: next, nodeId };
@@ -187,12 +188,12 @@ export function addMindMapSibling(
   const siblingId = makeId();
   const nodeIndex = document.nodes.findIndex((candidate) => candidate.id === nodeId);
   const nodes = [...document.nodes];
-  nodes.splice(nodeIndex + 1, 0, { id: siblingId, parentId: node.parentId, text: "同级主题" });
+  nodes.splice(nodeIndex + 1, 0, { id: siblingId, parentId: node.parentId, text: uiText("同级主题") });
   return { document: { ...document, nodes }, nodeId: siblingId };
 }
 
 export function updateMindMapNodeText(document: MindMapDocument, nodeId: string, text: string) {
-  const normalized = text.trim() || "主题";
+  const normalized = text.trim() || uiText("主题");
   return {
     ...document,
     nodes: document.nodes.map((node) => (node.id === nodeId ? { ...node, text: normalized } : node)),

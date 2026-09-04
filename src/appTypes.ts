@@ -129,6 +129,7 @@ export type ShortcutAction =
 export type ShortcutConfig = Record<ShortcutAction, string>;
 
 export type AppSettings = {
+  language: "zh-CN" | "en-US";
   handwritten: boolean;
   programmerMode: boolean;
   darkMode: boolean;

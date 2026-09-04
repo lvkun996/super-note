@@ -1,3 +1,4 @@
+import { uiText } from "../../../electron/uiLanguage";
 import { MinusOutlined, PlusOutlined } from "@ant-design/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent } from "react";
@@ -59,7 +60,7 @@ export function MindMapLayer({
   const beginEditing = (nodeId: string, initialText?: string) => {
     const node = document.nodes.find((candidate) => candidate.id === nodeId);
     setEditingId(nodeId);
-    setDraft(initialText ?? node?.text ?? "主题");
+    setDraft(initialText ?? node?.text ?? uiText("主题"));
   };
 
   const commitEditing = () => {
@@ -73,7 +74,7 @@ export function MindMapLayer({
   const addAndEdit = (mode: "child" | "sibling", nodeId: string) => {
     const nextId = mode === "child" ? onAddChild(nodeId) : onAddSibling(nodeId);
     if (nextId) {
-      beginEditing(nextId, mode === "child" ? "子主题" : "同级主题");
+      beginEditing(nextId, mode === "child" ? uiText("子主题") : uiText("同级主题"));
     }
   };
 
@@ -136,7 +137,7 @@ export function MindMapLayer({
   } as const;
 
   return (
-    <div className="mind-map-layer" aria-label="思维导图">
+    <div className="mind-map-layer" aria-label={uiText("思维导图")}>
       <svg className="mind-map-connections" aria-hidden="true">
         {layout.edges.map((edge) => (
           <path
@@ -197,7 +198,7 @@ export function MindMapLayer({
                 className={`mind-map-node mind-map-node-input level-${layoutNode.level} shape-${document.style.topicShape} fill-${document.style.topicFill} selected`}
                 autoFocus
                 value={draft}
-                aria-label="编辑主题"
+                aria-label={uiText("编辑主题")}
                 onChange={(event) => setDraft(event.target.value)}
                 onFocus={(event) => event.currentTarget.select()}
                 onBlur={commitEditing}
@@ -216,7 +217,7 @@ export function MindMapLayer({
                 type="button"
                 draggable={!linkMode && node.id !== document.rootId}
                 className={`mind-map-node level-${layoutNode.level} shape-${document.style.topicShape} fill-${document.style.topicFill}${selected ? " selected" : ""}${draggingNodeId === node.id ? " dragging" : ""}${linkMode ? " link-mode" : ""}${linkSource ? " link-source" : ""}`}
-                title={linkMode ? (node.id === document.rootId ? "请选择子主题" : "设为内容关联起点") : `${node.text}\n拖到主题中部成为其子主题，拖到上下边缘调整顺序　Tab：子主题　Enter：同级主题　Delete：删除`}
+                title={linkMode ? (node.id === document.rootId ? uiText("请选择子主题") : uiText("设为内容关联起点")) : uiText("{0}\n拖到主题中部成为其子主题，拖到上下边缘调整顺序　Tab：子主题　Enter：同级主题　Delete：删除", [node.text])}
                 onMouseDown={(event) => {
                   stopSurfaceEvent(event);
                   if (!linkMode) {
@@ -259,8 +260,8 @@ export function MindMapLayer({
               <button
                 type="button"
                 className="mind-map-collapse-button"
-                aria-label={node.collapsed ? "展开分支" : "折叠分支"}
-                title={node.collapsed ? `展开 ${children.length} 个主题` : "折叠分支"}
+                aria-label={node.collapsed ? uiText("展开分支") : uiText("折叠分支")}
+                title={node.collapsed ? uiText("展开 {0} 个主题", [children.length]) : uiText("折叠分支")}
                 onMouseDown={stopSurfaceEvent}
                 onClick={(event) => {
                   event.stopPropagation();

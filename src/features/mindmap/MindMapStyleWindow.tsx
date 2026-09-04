@@ -1,3 +1,4 @@
+import { uiText } from "../../../electron/uiLanguage";
 import { useEffect, useState } from "react";
 import {
   DEFAULT_MIND_MAP_STYLE,
@@ -60,7 +61,7 @@ export function MindMapStyleWindow() {
   const [activeTab, setActiveTab] = useState<PanelTab>("style");
 
   useEffect(() => {
-    document.title = "思维导图样式 - Super Note";
+    document.title = uiText("思维导图样式 - Super Note");
     return window.superNote?.onMindMapStyleState?.((payload) => {
       const next = normalizeStyleWindowState(payload);
       if (!next) {
@@ -92,8 +93,8 @@ export function MindMapStyleWindow() {
   const { style } = windowState;
   return (
     <main className={`mind-map-style-window${windowState.darkMode ? " dark-mode" : ""}`}>
-      <nav className="property-tabs" aria-label="样式属性页">
-        {([['style', '样式'], ['layout', '布局'], ['canvas', '画布']] as const).map(([value, label]) => (
+      <nav className="property-tabs" aria-label={uiText("样式属性页")}>
+        {([['style', uiText("样式")], ['layout', uiText("布局")], ['canvas', uiText("画布")]] as const).map(([value, label]) => (
           <button key={value} type="button" className={activeTab === value ? "selected" : ""} onClick={() => setActiveTab(value)}>{label}</button>
         ))}
       </nav>
@@ -101,9 +102,9 @@ export function MindMapStyleWindow() {
       {activeTab === "style" ? (
         <>
           <section className="property-section">
-            <SectionTitle>形状</SectionTitle>
+            <SectionTitle>{uiText("形状")}</SectionTitle>
             <div className="property-row">
-              <span>形状</span>
+              <span>{uiText("形状")}</span>
               <div className="visual-options three">
                 {topicShapes.map((shape) => (
                   <button key={shape} type="button" className={style.topicShape === shape ? "selected" : ""} title={shape} aria-label={shape} onClick={() => applyPatch({ topicShape: shape })}>
@@ -113,7 +114,7 @@ export function MindMapStyleWindow() {
               </div>
             </div>
             <div className="property-row">
-              <span>填充</span>
+              <span>{uiText("填充")}</span>
               <div className="visual-options three">
                 {topicFills.map((fill) => (
                   <button key={fill} type="button" className={style.topicFill === fill ? "selected" : ""} title={fill} aria-label={fill} onClick={() => applyPatch({ topicFill: fill })}>
@@ -125,14 +126,14 @@ export function MindMapStyleWindow() {
           </section>
 
           <section className="property-section">
-            <SectionTitle>文本</SectionTitle>
+            <SectionTitle>{uiText("文本")}</SectionTitle>
             <div className="property-grid two">
-              <select value={style.fontFamily} aria-label="字体" onChange={(event) => applyPatch({ fontFamily: event.target.value as MindMapFontFamily })}>
-                <option value="system">System UI</option>
-                <option value="serif">Serif</option>
-                <option value="mono">Mono</option>
+              <select value={style.fontFamily} aria-label={uiText("字体")} onChange={(event) => applyPatch({ fontFamily: event.target.value as MindMapFontFamily })}>
+                <option value="system">{uiText("系统字体")}</option>
+                <option value="serif">{uiText("衬线字体")}</option>
+                <option value="mono">{uiText("等宽字体")}</option>
               </select>
-              <select value={style.fontScale} aria-label="字号" onChange={(event) => applyPatch({ fontScale: Number(event.target.value) })}>
+              <select value={style.fontScale} aria-label={uiText("字号")} onChange={(event) => applyPatch({ fontScale: Number(event.target.value) })}>
                 <option value="0.85">85%</option>
                 <option value="1">100%</option>
                 <option value="1.15">115%</option>
@@ -143,7 +144,7 @@ export function MindMapStyleWindow() {
               {([500, 600, 700] as const).map((weight) => (
                 <button key={weight} type="button" className={style.fontWeight === weight ? "selected" : ""} style={{ fontWeight: weight }} onClick={() => applyPatch({ fontWeight: weight })}>B</button>
               ))}
-              <label className="color-control" title="文字颜色">
+              <label className="color-control" title={uiText("文字颜色")}>
                 <input type="color" value={style.textColor} onChange={(event) => applyPatch({ textColor: event.target.value })} />
                 <i style={{ background: style.textColor }} />
               </label>
@@ -151,7 +152,7 @@ export function MindMapStyleWindow() {
           </section>
 
           <section className="property-section">
-            <SectionTitle>分支</SectionTitle>
+            <SectionTitle>{uiText("分支")}</SectionTitle>
             <div className="visual-options branch-options">
               {branchShapes.map((option) => (
                 <button key={option.value} type="button" className={style.branchShape === option.value ? "selected" : ""} title={option.value} aria-label={option.value} onClick={() => applyPatch({ branchShape: option.value })}>
@@ -160,17 +161,17 @@ export function MindMapStyleWindow() {
               ))}
             </div>
             <div className="property-row">
-              <span>线宽</span>
+              <span>{uiText("线宽")}</span>
               <select value={style.branchWidth} onChange={(event) => applyPatch({ branchWidth: Number(event.target.value) as MindMapStyle["branchWidth"] })}>
-                <option value="1">细</option>
-                <option value="2">标准</option>
-                <option value="3">粗</option>
-                <option value="4">加粗</option>
+                <option value="1">{uiText("细")}</option>
+                <option value="2">{uiText("标准")}</option>
+                <option value="3">{uiText("粗")}</option>
+                <option value="4">{uiText("加粗")}</option>
               </select>
             </div>
             <label className="property-check-row">
               <input type="checkbox" checked={style.coloredBranches} onChange={(event) => applyPatch({ coloredBranches: event.target.checked })} />
-              <span>彩虹分支</span>
+              <span>{uiText("彩虹分支")}</span>
               <i className="palette-wheel" />
             </label>
             <div className="palette-options">
@@ -187,7 +188,7 @@ export function MindMapStyleWindow() {
       {activeTab === "layout" ? (
         <>
           <section className="property-section">
-            <SectionTitle>结构</SectionTitle>
+            <SectionTitle>{uiText("结构")}</SectionTitle>
             <div className="structure-options">
               {structures.map((structure) => (
                 <button key={structure} type="button" className={style.structure === structure ? "selected" : ""} title={structure} aria-label={structure} onClick={() => applyPatch({ structure })}>
@@ -197,7 +198,7 @@ export function MindMapStyleWindow() {
             </div>
           </section>
           <section className="property-section">
-            <SectionTitle>间距</SectionTitle>
+            <SectionTitle>{uiText("间距")}</SectionTitle>
             <label className="compact-range"><span>↔</span><input type="range" min="56" max="180" step="4" value={style.horizontalGap} onChange={(event) => applyPatch({ horizontalGap: Number(event.target.value) })} /><b>{style.horizontalGap}</b></label>
             <label className="compact-range"><span>↕</span><input type="range" min="10" max="64" step="2" value={style.verticalGap} onChange={(event) => applyPatch({ verticalGap: Number(event.target.value) })} /><b>{style.verticalGap}</b></label>
           </section>
@@ -207,7 +208,7 @@ export function MindMapStyleWindow() {
       {activeTab === "canvas" ? (
         <>
           <section className="property-section">
-            <SectionTitle>背景</SectionTitle>
+            <SectionTitle>{uiText("背景")}</SectionTitle>
             <div className="background-options">
               {backgrounds.map((background) => (
                 <button key={background} type="button" className={style.background === background ? "selected" : ""} style={{ background }} title={background} onClick={() => applyPatch({ background })} />
@@ -215,7 +216,7 @@ export function MindMapStyleWindow() {
             </div>
           </section>
           <section className="property-section">
-            <SectionTitle>主题色</SectionTitle>
+            <SectionTitle>{uiText("主题色")}</SectionTitle>
             <div className="palette-options large">
               {(Object.keys(MIND_MAP_PALETTES) as MindMapPalette[]).map((palette) => (
                 <button key={palette} type="button" className={style.palette === palette ? "selected" : ""} title={palette} onClick={() => applyPatch({ palette })}>
@@ -228,7 +229,7 @@ export function MindMapStyleWindow() {
       ) : null}
 
       <footer className="property-footer">
-        <button type="button" onClick={() => applyPatch({ ...DEFAULT_MIND_MAP_STYLE })}>重设样式</button>
+        <button type="button" onClick={() => applyPatch({ ...DEFAULT_MIND_MAP_STYLE })}>{uiText("重设样式")}</button>
       </footer>
     </main>
   );

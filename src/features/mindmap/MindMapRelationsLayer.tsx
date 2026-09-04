@@ -1,3 +1,4 @@
+import { uiText } from "../../../electron/uiLanguage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { CanvasItem, CanvasViewState } from "../../appTypes";
@@ -161,7 +162,7 @@ export function MindMapRelationsLayer({
 
   return (
     <>
-      <svg ref={svgRef} className={`mind-map-relation-layer${anchorDrag ? " dragging-anchor" : ""}`} aria-label="主题内容关联线">
+      <svg ref={svgRef} className={`mind-map-relation-layer${anchorDrag ? " dragging-anchor" : ""}`} aria-label={uiText("主题内容关联线")}>
         {relations.map((relation) => (
           <g key={relation.link.id}>
             <path
@@ -203,7 +204,7 @@ export function MindMapRelationsLayer({
           <button type="button" role="menuitem" onClick={() => {
             onDeleteLink(contextMenu.linkId);
             setContextMenu(null);
-          }}>删除关联</button>
+          }}>{uiText("删除关联")}</button>
         </div>
       ) : null}
     </>

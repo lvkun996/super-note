@@ -1,3 +1,4 @@
+import { uiText } from "../../../electron/uiLanguage";
 import type { CanvasTab, CanvasViewState, TextCanvasItem } from "../../appTypes";
 import { layoutMindMap, getMindMapBranchPath, type MindMapLayoutNode } from "../mindmap/mindMapLayout";
 import { layoutMindMapCanvasRelations } from "../mindmap/mindMapRelations";
@@ -36,7 +37,7 @@ function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("图片读取失败"));
+    image.onerror = () => reject(new Error(uiText("图片读取失败")));
     image.src = src;
   });
 }
@@ -112,7 +113,7 @@ async function drawImageItem(
     context.fillStyle = "#64748b";
     context.font = "14px sans-serif";
     context.textAlign = "center";
-    context.fillText("图片无法读取", item.x + item.width / 2, item.y + item.height / 2);
+    context.fillText(uiText("图片无法读取"), item.x + item.width / 2, item.y + item.height / 2);
     context.restore();
   }
 }
@@ -152,7 +153,7 @@ export async function renderCanvasToPng(tab: CanvasTab, viewState: CanvasViewSta
   canvas.height = Math.max(1, Math.round(logicalHeight * exportScale));
   const context = canvas.getContext("2d");
   if (!context) {
-    throw new Error("当前环境无法创建图片画布");
+    throw new Error(uiText("当前环境无法创建图片画布"));
   }
 
   context.scale(exportScale, exportScale);

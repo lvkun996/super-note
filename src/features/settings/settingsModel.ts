@@ -25,6 +25,7 @@ export const DEFAULT_SHORTCUTS: ShortcutConfig = {
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
+  language: "zh-CN",
   handwritten: false,
   programmerMode: false,
   darkMode: false,
@@ -110,6 +111,7 @@ export function normalizeSettings(value?: Partial<AppSettings>): AppSettings {
 
   return {
     handwritten: Boolean(value?.handwritten),
+    language: value?.language === "en-US" ? "en-US" : "zh-CN",
     programmerMode: Boolean(value?.programmerMode),
     darkMode: Boolean(value?.darkMode),
     followSystemTheme: Boolean(value?.followSystemTheme),

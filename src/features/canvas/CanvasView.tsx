@@ -1,3 +1,4 @@
+import { uiText } from "../../../electron/uiLanguage";
 import {
   ApartmentOutlined,
   BgColorsOutlined,
@@ -123,7 +124,7 @@ function CanvasTextEditor({
   const contextMenuItems: MenuProps["items"] = [
     {
       key: "cut",
-      label: "剪切",
+      label: uiText("剪切"),
       icon: <ScissorOutlined />,
       disabled: !hasSelection,
       onClick: () => {
@@ -132,13 +133,13 @@ function CanvasTextEditor({
     },
     {
       key: "paste",
-      label: "粘贴",
+      label: uiText("粘贴"),
       icon: <SnippetsOutlined />,
       onClick: () => void readClipboardText().then((text) => text && replaceSelection(text)),
     },
     {
       key: "copy",
-      label: "复制",
+      label: uiText("复制"),
       icon: <CopyOutlined />,
       disabled: !hasSelection,
       onClick: () => void copySelection(),
@@ -168,7 +169,7 @@ function CanvasTextEditor({
         className={`${matched ? "text-note-editor matched" : "text-note-editor"}${handwritten ? " handwritten" : ""}`}
         style={style}
         value={item.text}
-        placeholder="输入文字"
+        placeholder={uiText("输入文字")}
         onMouseDown={(event) => event.stopPropagation()}
         onMouseUp={(event) => {
           syncSelection(event.currentTarget);
@@ -419,13 +420,13 @@ export function CanvasView({
   const makeItemMenu = (item: CanvasItem): MenuProps["items"] => [
     {
       key: "edit",
-      label: "编辑",
+      label: uiText("编辑"),
       icon: <EditOutlined />,
       onClick: () => onEditItem(item),
     },
     {
       key: "delete",
-      label: "删除",
+      label: uiText("删除"),
       icon: <DeleteOutlined />,
       danger: true,
       onClick: () => onDeleteItem(item),
@@ -434,7 +435,7 @@ export function CanvasView({
       ? [
           {
             key: "preview",
-            label: "预览",
+            label: uiText("预览"),
             icon: <SearchOutlined />,
             onClick: () => onPreviewImage(item),
           },
@@ -445,19 +446,19 @@ export function CanvasView({
           { type: "divider" as const },
           {
             key: "format-json",
-            label: "转为 JSON",
+            label: uiText("转为 JSON"),
             icon: <CodeOutlined />,
             onClick: () => onProgrammerAction(item, "format-json"),
           },
           {
             key: "minify-json",
-            label: "压缩 JSON",
+            label: uiText("压缩 JSON"),
             icon: <CodeOutlined />,
             onClick: () => onProgrammerAction(item, "minify-json"),
           },
           {
             key: "string-to-json",
-            label: "字符串转 JSON",
+            label: uiText("字符串转 JSON"),
             icon: <CodeOutlined />,
             onClick: () => onProgrammerAction(item, "string-to-json"),
           },
@@ -470,28 +471,28 @@ export function CanvasView({
       <div className="canvas-command-bar" onMouseDown={(event) => event.stopPropagation()}>
         {tab.mindMap ? (
           <>
-            <Tooltip title="添加子主题（Tab）">
+            <Tooltip title={uiText("添加子主题（Tab）")}>
               <Button size="small" type="text" icon={<PlusOutlined />} disabled={!selectedNodeId} onClick={() => {
                 if (selectedNodeId) {
                   setMindMapEditRequestId(onAddMindMapChild(selectedNodeId));
                 }
-              }}>子主题</Button>
+              }}>{uiText("子主题")}</Button>
             </Tooltip>
-            <Tooltip title="添加同级主题（Enter）">
+            <Tooltip title={uiText("添加同级主题（Enter）")}>
               <Button size="small" type="text" icon={<ApartmentOutlined />} disabled={!selectedNodeId} onClick={() => {
                 if (selectedNodeId) {
                   setMindMapEditRequestId(onAddMindMapSibling(selectedNodeId));
                 }
-              }}>同级</Button>
+              }}>{uiText("同级")}</Button>
             </Tooltip>
-            <Tooltip title="删除所选主题及其分支（中心主题不可删除）">
+            <Tooltip title={uiText("删除所选主题及其分支（中心主题不可删除）")}>
               <Button size="small" type="text" danger icon={<DeleteOutlined />} disabled={!selectedNodeId || selectedNodeId === rootNodeId} onClick={() => selectedNodeId && onDeleteMindMapBranch(selectedNodeId)} />
             </Tooltip>
             <span className="canvas-command-divider" />
-            <Tooltip title="在独立窗口中配置结构、线条和配色">
-              <Button size="small" type="text" icon={<BgColorsOutlined />} onClick={onOpenMindMapStyle}>样式</Button>
+            <Tooltip title={uiText("在独立窗口中配置结构、线条和配色")}>
+              <Button size="small" type="text" icon={<BgColorsOutlined />} onClick={onOpenMindMapStyle}>{uiText("样式")}</Button>
             </Tooltip>
-            <Tooltip title={relationSourceNodeId ? "请选择需要关联的文字或图片" : "先选择子主题，再选择文字或图片"}>
+            <Tooltip title={relationSourceNodeId ? uiText("请选择需要关联的文字或图片") : uiText("先选择子主题，再选择文字或图片")}>
               <Button
                 size="small"
                 type={relationToolActive ? "primary" : "text"}
@@ -505,18 +506,18 @@ export function CanvasView({
                   });
                   setSelectedRelationId(null);
                 }}
-              >关联</Button>
+              >{uiText("关联")}</Button>
             </Tooltip>
-            <Tooltip title="删除整张思维导图">
-              <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={onRemoveMindMap}>导图</Button>
+            <Tooltip title={uiText("删除整张思维导图")}>
+              <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={onRemoveMindMap}>{uiText("导图")}</Button>
             </Tooltip>
           </>
         ) : (
-          <Button size="small" type="text" icon={<ApartmentOutlined />} onClick={() => onCreateMindMap(getViewportCenter())}>新建思维导图</Button>
+          <Button size="small" type="text" icon={<ApartmentOutlined />} onClick={() => onCreateMindMap(getViewportCenter())}>{uiText("新建思维导图")}</Button>
         )}
         <span className="canvas-command-divider" />
-        <Tooltip title="按全部内容边界导出 2× PNG">
-          <Button size="small" type="text" icon={<ExportOutlined />} onClick={onExportImage}>导出图片</Button>
+        <Tooltip title={uiText("按全部内容边界导出 2× PNG")}>
+          <Button size="small" type="text" icon={<ExportOutlined />} onClick={onExportImage}>{uiText("导出图片")}</Button>
         </Tooltip>
       </div>
       <div
@@ -658,7 +659,7 @@ export function CanvasView({
                     }}
                     onDoubleClick={(event) => onTextDoubleClick(item, event)}
                   >
-                    {item.text.trim() ? renderTextWithLinks(item.text, searchValue) : <span className="text-placeholder">双击编辑</span>}
+                    {item.text.trim() ? renderTextWithLinks(item.text, searchValue) : <span className="text-placeholder">{uiText("双击编辑")}</span>}
                   </div>
                 </Dropdown>
               );

@@ -1,3 +1,4 @@
+import { uiText } from "../../../electron/uiLanguage";
 import { BorderOutlined, CloseOutlined, DeleteOutlined, EditOutlined, FolderOpenOutlined, PlusOutlined, SplitCellsOutlined, VerticalAlignTopOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Tabs, Tooltip } from "antd";
 import type { MenuProps, TabsProps } from "antd";
@@ -205,12 +206,12 @@ function TabNavigationComponent({
     const tab = tabs.find((item) => item.id === tabId);
     const tabPanes = getTabPanes(tabId);
     return [
-      { key: "pin", label: tab?.pinned ? "取消置顶" : "置顶", icon: <VerticalAlignTopOutlined />, onClick: () => onPinTab(tabId) },
-      { key: "delete", label: "删除", danger: true, icon: <DeleteOutlined />, onClick: () => onCloseTab(tabId) },
-      { key: "rename", label: "编辑", icon: <EditOutlined />, onClick: () => onRenameTab(tabId) },
+      { key: "pin", label: tab?.pinned ? uiText("取消置顶") : uiText("置顶"), icon: <VerticalAlignTopOutlined />, onClick: () => onPinTab(tabId) },
+      { key: "delete", label: uiText("删除"), danger: true, icon: <DeleteOutlined />, onClick: () => onCloseTab(tabId) },
+      { key: "rename", label: uiText("编辑"), icon: <EditOutlined />, onClick: () => onRenameTab(tabId) },
       {
         key: "explorer",
-        label: "在资源管理器打开",
+        label: uiText("在资源管理器打开"),
         icon: <FolderOpenOutlined />,
         disabled: !tab?.filePath,
         onClick: () => onOpenTabInExplorer(tabId),
@@ -219,21 +220,21 @@ function TabNavigationComponent({
       ...(layout === "top" ? [
       {
         key: "split-left",
-        label: "向左分割视图",
+        label: uiText("向左分割视图"),
         icon: <SplitCellsOutlined />,
         onClick: () => onSplitTab(tabId, pane, "left"),
       },
       {
         key: "split-right",
-        label: "向右分割视图",
+        label: uiText("向右分割视图"),
         icon: <SplitCellsOutlined />,
         onClick: () => onSplitTab(tabId, pane, "right"),
       },
       ...(tabPanes.length > 1
-        ? [{ key: "cancel-split", label: "从当前分栏移除", icon: <CloseOutlined />, onClick: () => onCloseTab(tabId, pane) }]
+        ? [{ key: "cancel-split", label: uiText("从当前分栏移除"), icon: <CloseOutlined />, onClick: () => onCloseTab(tabId, pane) }]
         : []),
       ...(splitView
-        ? [{ key: "close-split", label: "关闭当前分栏", icon: <CloseOutlined />, onClick: () => onClosePane(pane) }]
+        ? [{ key: "close-split", label: uiText("关闭当前分栏"), icon: <CloseOutlined />, onClick: () => onClosePane(pane) }]
         : []),
       ] : []),
     ];
@@ -244,8 +245,8 @@ function TabNavigationComponent({
       type="button"
       draggable={false}
       className={`tab-close${isActive ? " active" : ""}${tab.dirty ? " dirty" : ""}`}
-      title={tab.dirty ? "未保存，点击关闭" : "关闭"}
-      aria-label={`关闭 ${tab.title}`}
+      title={tab.dirty ? uiText("未保存，点击关闭") : uiText("关闭")}
+      aria-label={uiText("关闭 {0}", [tab.title])}
       onClick={(event) => {
         event.stopPropagation();
         onCloseTab(tab.id, closeGlobally ? undefined : pane);
@@ -309,12 +310,12 @@ function TabNavigationComponent({
           tabBarExtraContent={showAddButtons ? (
             <div className="tabs-extra-actions">
               {canvasPluginEnabled ? (
-                <Tooltip title={`新建画板 (${newCanvasShortcut})`}>
-                  <Button className="tabs-canvas-add-button" type="text" aria-label="新建画板" icon={<BorderOutlined />} onClick={onAddCanvas} />
+                <Tooltip title={uiText("新建画板 ({0})", [newCanvasShortcut])}>
+                  <Button className="tabs-canvas-add-button" type="text" aria-label={uiText("新建画板")} icon={<BorderOutlined />} onClick={onAddCanvas} />
                 </Tooltip>
               ) : null}
-              <Tooltip title={`新建文本模块 (${newTextShortcut})`}>
-                <Button className="tabs-add-button" type="text" aria-label="新建文本模块" icon={<PlusOutlined />} onClick={() => onAddText()} />
+              <Tooltip title={uiText("新建文本模块 ({0})", [newTextShortcut])}>
+                <Button className="tabs-add-button" type="text" aria-label={uiText("新建文本模块")} icon={<PlusOutlined />} onClick={() => onAddText()} />
               </Tooltip>
             </div>
           ) : null}
@@ -327,16 +328,16 @@ function TabNavigationComponent({
     const activeId = paneActiveTabIds[activePane];
     return (
       <>
-      <aside className="tabs-sidebar" data-tab-layout="left" aria-label="标签菜单">
+      <aside className="tabs-sidebar" data-tab-layout="left" aria-label={uiText("标签菜单")}>
         <div className="tabs-sidebar-header">
           <div className="tabs-sidebar-actions">
             {canvasPluginEnabled ? (
-              <Tooltip title={`新建画板 (${newCanvasShortcut})`}>
-                <Button type="text" size="small" aria-label="新建画板" icon={<BorderOutlined />} onClick={onAddCanvas} />
+              <Tooltip title={uiText("新建画板 ({0})", [newCanvasShortcut])}>
+                <Button type="text" size="small" aria-label={uiText("新建画板")} icon={<BorderOutlined />} onClick={onAddCanvas} />
               </Tooltip>
             ) : null}
-            <Tooltip title={`新建文本模块 (${newTextShortcut})`}>
-              <Button type="text" size="small" aria-label="新建文本模块" icon={<PlusOutlined />} onClick={() => onAddText(activePane)} />
+            <Tooltip title={uiText("新建文本模块 ({0})", [newTextShortcut])}>
+              <Button type="text" size="small" aria-label={uiText("新建文本模块")} icon={<PlusOutlined />} onClick={() => onAddText(activePane)} />
             </Tooltip>
           </div>
         </div>
@@ -352,8 +353,8 @@ function TabNavigationComponent({
             const indicator = dropIndicator?.tabId === tab.id ? ` tab-drop-${dropIndicator.position}` : "";
             return (
               <Fragment key={tab.id}>
-                {index === 0 && tab.pinned ? <div className="tabs-sidebar-group-label" role="presentation">Pinned</div> : null}
-                {index > 0 && tabs[index - 1].pinned && !tab.pinned ? <div className="tabs-sidebar-group-label unpinned" role="presentation">标签</div> : null}
+                {index === 0 && tab.pinned ? <div className="tabs-sidebar-group-label" role="presentation">{uiText("置顶")}</div> : null}
+                {index > 0 && tabs[index - 1].pinned && !tab.pinned ? <div className="tabs-sidebar-group-label unpinned" role="presentation">{uiText("标签")}</div> : null}
                 <Dropdown key={tab.id} overlayClassName="tab-context-menu" menu={{ items: makeContextMenu(tab.id, pane) }} trigger={["contextMenu"]}>
                 <div
                   role="tab"
@@ -392,7 +393,7 @@ function TabNavigationComponent({
       <div
         className="tabs-sidebar-resizer"
         role="separator"
-        aria-label="调整侧边栏宽度"
+        aria-label={uiText("调整侧边栏宽度")}
         aria-orientation="vertical"
         onPointerDown={onStartSidebarResize}
       />
@@ -405,7 +406,7 @@ function TabNavigationComponent({
       {paneIds.flatMap((pane, index) => [
         renderTopZone(pane, index === paneIds.length - 1),
         ...(index < paneIds.length - 1
-          ? [<div key={`tab-divider-${pane}`} className="tabs-split-gap" title="长按后左右拖拽调整分栏宽度" onMouseDown={(event) => onStartSplitResize(index, event)} />]
+          ? [<div key={`tab-divider-${pane}`} className="tabs-split-gap" title={uiText("长按后左右拖拽调整分栏宽度")} onMouseDown={(event) => onStartSplitResize(index, event)} />]
           : []),
       ])}
     </div>

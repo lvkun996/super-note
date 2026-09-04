@@ -75,6 +75,7 @@ contextBridge.exposeInMainWorld("superNote", {
   openExternal: (url: string) => ipcRenderer.invoke("shell:openExternal", url),
   showItemInFolder: (filePath: string) => ipcRenderer.invoke("shell:showItemInFolder", filePath),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
+  setLanguage: (language: "zh-CN" | "en-US") => ipcRenderer.invoke("app:setLanguage", language),
   getUpdateStatus: () => ipcRenderer.invoke("update:getStatus"),
   checkForUpdates: () => ipcRenderer.invoke("update:check"),
   downloadUpdate: () => ipcRenderer.invoke("update:download"),

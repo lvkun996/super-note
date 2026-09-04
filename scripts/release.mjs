@@ -264,6 +264,15 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.25") {
+    return [
+      "Super Note v0.1.25", "",
+      "- 设置新增简体中文 / English 切换，保存工作区后重新加载；菜单、设置、帮助、托盘及样式窗口同步翻译。",
+      "- 统一右键菜单与弹窗的透明背景、字号和灰黑色按钮及开关。",
+      "- 文档去除快捷键列表，改为圆点、操作标题与操作说明。",
+      "- Pinned 中文显示为置顶，恢复按钮改为重置缩放，确认弹窗移除图标。",
+    ].join("\n");
+  }
   if (version === "0.1.24") {
     return "Super Note v0.1.24\n\n- 修复左侧布局仍有顶部圆角和灰色间隙的问题，文本标题栏紧贴操作栏。";
   }

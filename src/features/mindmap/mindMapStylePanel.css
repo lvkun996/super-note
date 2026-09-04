@@ -120,8 +120,8 @@ body.mind-map-style-mode #root {
 
 .property-row select:focus,
 .property-grid select:focus {
-  border-color: #6d6de3;
-  box-shadow: 0 0 0 2px rgba(91, 91, 214, 0.12);
+  border-color: #555;
+  box-shadow: 0 0 0 2px rgba(60, 60, 60, 0.12);
 }
 
 .visual-options {
@@ -150,9 +150,9 @@ body.mind-map-style-mode #root {
 .visual-options button.selected,
 .structure-options button.selected,
 .property-grid button.selected {
-  border-color: #6d6de3;
-  background: #f7f7ff;
-  box-shadow: 0 0 0 2px rgba(91, 91, 214, 0.1);
+  border-color: #555;
+  background: #eee;
+  box-shadow: 0 0 0 2px rgba(60, 60, 60, 0.1);
 }
 
 .mind-map-style-window .topic-shape-preview {
@@ -267,8 +267,8 @@ body.mind-map-style-mode #root {
 }
 
 .palette-options button.selected {
-  border-color: #6d6de3;
-  box-shadow: 0 0 0 2px rgba(91, 91, 214, 0.12);
+  border-color: #555;
+  box-shadow: 0 0 0 2px rgba(60, 60, 60, 0.12);
 }
 
 .palette-options button i { flex: 1; }
@@ -321,7 +321,7 @@ body.mind-map-style-mode #root {
   gap: 8px;
 }
 
-.compact-range input { width: 100%; accent-color: #5b5bd6; }
+.compact-range input { width: 100%; accent-color: #333; }
 
 .compact-range b {
   padding: 3px 4px;
@@ -348,7 +348,7 @@ body.mind-map-style-mode #root {
 
 .background-options button.selected {
   border-color: #5b5bd6;
-  box-shadow: 0 0 0 3px rgba(91, 91, 214, 0.14);
+  box-shadow: 0 0 0 3px rgba(60, 60, 60, 0.14);
 }
 
 .property-footer {
@@ -419,8 +419,8 @@ body.mind-map-style-mode.mind-map-style-dark,
 .mind-map-style-window.dark-mode .visual-options button.selected,
 .mind-map-style-window.dark-mode .structure-options button.selected,
 .mind-map-style-window.dark-mode .property-grid button.selected {
-  border-color: #818cf8;
-  background: #2a3048;
+  border-color: #aaa;
+  background: #353535;
 }
 
 .mind-map-style-window.dark-mode .topic-shape-preview {

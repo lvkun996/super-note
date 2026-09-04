@@ -140,6 +140,7 @@ interface Window {
     openExternal: (url: string) => Promise<{ ok: boolean }>;
     showItemInFolder: (filePath: string) => Promise<{ ok: boolean }>;
     getAppInfo: () => Promise<AppInfo>;
+    setLanguage: (language: "zh-CN" | "en-US") => Promise<{ ok: boolean }>;
     getUpdateStatus: () => Promise<UpdateStatus>;
     checkForUpdates: () => Promise<UpdateStatus>;
     downloadUpdate: () => Promise<UpdateStatus>;
