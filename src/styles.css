@@ -1362,13 +1362,13 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
-  border-radius: 16px 16px 0 0;
+  border-radius: 0;
   background: #fff;
 }
 
 .pane-content:has(> .file-view) {
-  padding-top: 8px;
-  background: var(--navigation-background);
+  padding-top: 0;
+  background: #fff;
 }
 
 .work-pane.focused:has(.file-view) {
@@ -1467,20 +1467,6 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 .app-brand[role="button"] {
   cursor: pointer;
   -webkit-app-region: no-drag;
-}
-
-.app-content-shell.tab-layout-top .pane-content:has(> .file-view) {
-  padding-top: 0;
-  border-radius: 0;
-  background: #fff;
-}
-
-.app-content-shell.tab-layout-top .file-view {
-  border-radius: 0;
-}
-
-.app-content-shell.tab-layout-left .file-view {
-  border-radius: 16px 0 0 0;
 }
 
 .dark-mode .file-view {

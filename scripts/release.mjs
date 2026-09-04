@@ -264,6 +264,10 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.24") {
+    return "Super Note v0.1.24\n\n- 修复左侧布局仍有顶部圆角和灰色间隙的问题，文本标题栏紧贴操作栏。";
+  }
+
   if (version === "0.1.23") {
     return [
       "Super Note v0.1.23",
