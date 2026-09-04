@@ -51,7 +51,7 @@ input {
 }
 
 .app-shell {
-  --navigation-background: linear-gradient(180deg, #edf9f4 0%, #f7fbef 52%, #fffdf1 100%);
+  --navigation-background: #f3f3f3;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -1456,9 +1456,7 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 }
 
 .welcome-world p span {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 4px;
+  text-decoration: none;
 }
 
 .dark-mode .welcome-world {
@@ -1492,7 +1490,7 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: #fbfcfe;
+  background: #fff;
 }
 
 .dark-mode .file-editor-wrap {
@@ -1540,9 +1538,13 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 
 .file-multi-caret {
   position: absolute;
-  width: 2px;
-  background: #1677ff;
+  width: 1px;
+  background: #1e2228;
   pointer-events: none;
+}
+
+.dark-mode .file-multi-caret {
+  background: #e8eef7;
 }
 
 .dark-mode .file-highlight {

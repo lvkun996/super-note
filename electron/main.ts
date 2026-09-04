@@ -68,15 +68,15 @@ const trayMenuHtml = `<!doctype html>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; background: transparent; font: 13px/1.45 "Segoe UI", "Microsoft YaHei", sans-serif; color: #172033; }
-    body { padding: 6px; overflow: hidden; }
-    .menu { overflow: hidden; border: 1px solid #dce3ee; border-radius: 12px; background: rgba(255,255,255,.98); box-shadow: 0 12px 32px rgba(31,45,61,.22); }
-    .section-title { padding: 13px 14px 6px; color: #697386; font-size: 12px; }
-    .row { width: 100%; min-height: 38px; padding: 8px 14px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 12px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+    body { padding: 4px; overflow: hidden; }
+    .menu { overflow: hidden; border: 1px solid #dce3ee; border-radius: 10px; background: rgba(255,255,255,.98); box-shadow: 0 10px 24px rgba(31,45,61,.22); }
+    .section-title { padding: 9px 10px 4px; color: #697386; font-size: 11px; }
+    .row { width: 100%; min-height: 32px; padding: 6px 10px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
     .row:hover, .row:focus-visible { background: #f1f6ff; outline: none; }
     .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .meta { color: #788397; font-size: 12px; }
-    .divider { height: 1px; margin: 7px 0; background: #dce3ee; }
-    .empty { padding: 8px 14px 13px; color: #98a1b1; }
+    .meta { color: #788397; font-size: 11px; }
+    .divider { height: 1px; margin: 5px 0; background: #dce3ee; }
+    .empty { padding: 6px 10px 10px; color: #98a1b1; }
   </style>
 </head>
 <body>
@@ -295,7 +295,10 @@ function positionTrayMenu() {
   const windowBounds = trayMenuWindow.getBounds();
   const display = screen.getDisplayNearestPoint({ x: trayBounds.x, y: trayBounds.y });
   const workArea = display.workArea;
-  const x = Math.max(workArea.x, Math.min(trayBounds.x + trayBounds.width - windowBounds.width, workArea.x + workArea.width - windowBounds.width));
+  const trayOnRight = trayBounds.x >= workArea.x + workArea.width / 2;
+  const x = trayOnRight
+    ? Math.max(workArea.x, trayBounds.x - windowBounds.width - 8)
+    : Math.min(workArea.x + workArea.width - windowBounds.width, trayBounds.x + trayBounds.width + 8);
   const trayIsBelowWorkArea = trayBounds.y >= workArea.y + workArea.height;
   const y = trayIsBelowWorkArea
     ? workArea.y + workArea.height - windowBounds.height
@@ -308,8 +311,8 @@ function createTrayMenuWindow() {
     return trayMenuWindow;
   }
   trayMenuWindow = new BrowserWindow({
-    width: 360,
-    height: 280,
+    width: 300,
+    height: 230,
     show: false,
     frame: false,
     transparent: true,
@@ -781,7 +784,7 @@ ipcMain.handle("tray:menuAction", (event, action: { type?: unknown; tabId?: unkn
     return { ok: false };
   }
   if (action?.type === "resize" && typeof action.height === "number") {
-    trayMenuWindow.setSize(360, Math.max(180, Math.min(Math.round(action.height), 520)), false);
+    trayMenuWindow.setSize(300, Math.max(160, Math.min(Math.round(action.height), 460)), false);
     positionTrayMenu();
     return { ok: true };
   }

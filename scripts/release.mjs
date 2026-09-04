@@ -264,6 +264,16 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.22") {
+    return [
+      "Super Note v0.1.22",
+      "",
+      "- 欢迎页文案去掉下划线，导航区域统一为 #F3F3F3，文本编辑背景统一为 #FFFFFF。",
+      "- 托盘菜单缩小并避开托盘图标，避免弹出菜单遮挡图标。",
+      "- 中键多选使用原生色系的静态焦点，并支持输入后的 Ctrl+Z 撤销。",
+    ].join("\n");
+  }
+
   if (version === "0.1.21") {
     return [
       "Super Note v0.1.21",

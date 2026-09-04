@@ -111,3 +111,18 @@ The combined comparison places the 222 × 831 source beside the 220 × 831 imple
 ## Final result
 
 final result: passed
+# Super Note v0.1.22 UI QA — 2026-09-04
+
+## Scope and evidence
+
+- Reviewed the requested welcome-page, navigation, editor, tray-menu, and middle-button multi-caret refinements against the supplied screenshots and the local renderer preview at `127.0.0.1:5174`.
+- Checked both light and dark editor rendering plus top and left tab layouts. The tray popup geometry was verified from the Electron positioning and sizing path.
+
+## Findings
+
+- Welcome copy keeps the requested 28px dark neutral treatment and `super-note` no longer has an underline.
+- Light navigation, title, and sidebar surfaces use `#F3F3F3`; the text editor surface uses `#FFFFFF`.
+- Tray menu dimensions are reduced and the popup is positioned with an 8px gap away from the tray icon.
+- Middle-button multi-caret markers are static 1px native text/caret colors without a blue overlay; the edit history path preserves the pre-edit content so Ctrl+Z restores it after input.
+
+Final result: passed
