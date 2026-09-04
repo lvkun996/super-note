@@ -152,6 +152,12 @@ const canvasThemes: CanvasTheme[] = [
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.23",
+    date: "2026.09.04",
+    title: "顶栏边界与多选撤销修复",
+    description: "顶部文本区域取消多余弧形灰底，多行中键编辑撤销时同步恢复焦点位置。",
+  },
+  {
     version: "v0.1.22",
     date: "2026.09.04",
     title: "界面配色与中键编辑优化",
@@ -601,14 +607,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.22",
+    version: "0.1.23",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.22",
+    currentVersion: "0.1.23",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);

@@ -14,6 +14,7 @@ const LONG_PRESS_MOVE_TOLERANCE_PX = 4;
 
 type Point = { x: number; y: number };
 type VerticalSelection = { anchor: Point };
+type MultiCaretHistoryEntry = { content: string; carets: number[] };
 
 type UseTextEditorSelectionOptions = {
   editorRef: RefObject<HTMLTextAreaElement | null>;
@@ -52,6 +53,8 @@ export function useTextEditorSelection({
   const longPressTimerRef = useRef<number | null>(null);
   const pendingLongPressRef = useRef<Point | null>(null);
   const verticalSelectionRef = useRef<VerticalSelection | null>(null);
+  const multiCaretUndoRef = useRef<MultiCaretHistoryEntry[]>([]);
+  const multiCaretRedoRef = useRef<MultiCaretHistoryEntry[]>([]);
 
   const cancelPendingLongPress = useCallback(() => {
     if (longPressTimerRef.current !== null) {
@@ -62,6 +65,11 @@ export function useTextEditorSelection({
   }, []);
 
   const clearMultiCarets = useCallback(() => setMultiCarets([]), []);
+
+  const clearMultiCaretHistory = useCallback(() => {
+    multiCaretUndoRef.current = [];
+    multiCaretRedoRef.current = [];
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -110,6 +118,7 @@ export function useTextEditorSelection({
     if (event.button === 1) {
       event.preventDefault();
       event.stopPropagation();
+      clearMultiCaretHistory();
       clearMultiCarets();
       const anchor = { x: event.clientX, y: event.clientY };
       const offset = getTextOffsetAtPoint(editor, mirrorRef.current, event.clientX, event.clientY);
@@ -122,6 +131,7 @@ export function useTextEditorSelection({
     }
 
     if (event.button !== 0) return false;
+    clearMultiCaretHistory();
     clearMultiCarets();
     const mirror = mirrorRef.current;
     if (!mirror) return false;
@@ -143,6 +153,11 @@ export function useTextEditorSelection({
   };
 
   const commitMultiCaretEdit = (nextContent: string, nextCarets: number[]) => {
+    multiCaretUndoRef.current = [
+      ...multiCaretUndoRef.current,
+      { content, carets: [...multiCarets] },
+    ].slice(-100);
+    multiCaretRedoRef.current = [];
     onContentChange(nextContent);
     setMultiCarets(nextCarets);
     const primaryCaret = nextCarets.at(-1) ?? 0;
@@ -161,7 +176,28 @@ export function useTextEditorSelection({
       clearMultiCarets();
       return true;
     }
-    if (event.ctrlKey || event.metaKey || event.altKey || event.nativeEvent.isComposing) return false;
+    if (event.ctrlKey || event.metaKey) {
+      if (event.key.toLowerCase() !== "z" || event.altKey || event.shiftKey || event.nativeEvent.isComposing) return false;
+      const previous = multiCaretUndoRef.current.pop();
+      if (!previous) return false;
+      event.preventDefault();
+      event.stopPropagation();
+      multiCaretRedoRef.current = [
+        ...multiCaretRedoRef.current,
+        { content, carets: [...multiCarets] },
+      ].slice(-100);
+      onContentChange(previous.content);
+      setMultiCarets(previous.carets);
+      const primaryCaret = previous.carets.at(-1) ?? 0;
+      onSelectionChange({ start: primaryCaret, end: primaryCaret });
+      window.requestAnimationFrame(() => {
+        const editor = editorRef.current;
+        editor?.focus({ preventScroll: true });
+        editor?.setSelectionRange(primaryCaret, primaryCaret);
+      });
+      return true;
+    }
+    if (event.altKey || event.nativeEvent.isComposing) return false;
 
     if (event.key === "Backspace" || event.key === "Delete") {
       event.preventDefault();

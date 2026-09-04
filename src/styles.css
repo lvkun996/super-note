@@ -1471,6 +1471,8 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 
 .app-content-shell.tab-layout-top .pane-content:has(> .file-view) {
   padding-top: 0;
+  border-radius: 0;
+  background: #fff;
 }
 
 .app-content-shell.tab-layout-top .file-view {
