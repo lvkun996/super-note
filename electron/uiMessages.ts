@@ -1,6 +1,7 @@
 // Exact source keys keep user-authored tab titles and document content out of translation.
 export const englishMessages: Record<string, string> = {
   "粘贴": "Paste",
+  "你想写些什么？": "What would you like to write?",
   "双语界面与透明弹窗": "Bilingual interface and translucent dialogs",
   "设置支持中英文切换，统一透明弹窗与灰黑控件，文档改为操作列表，并优化置顶与缩放重置文案。": "Switch between Chinese and English in Settings, with translucent dialogs, neutral controls, operation-based documentation, and clearer pin and zoom reset labels.",
   "语言切换失败，请重试": "Could not change the language. Please try again.",
