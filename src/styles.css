@@ -51,7 +51,7 @@ input {
 }
 
 .app-shell {
-  --navigation-background: linear-gradient(180deg, #edf9f4 0%, #f7fbef 52%, #fffdf1 100%);
+  --navigation-background: #f3f3f3;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -1445,17 +1445,23 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   display: grid;
   place-items: center;
   background: #fff;
-  color: #8c96a8;
-  font-size: 18px;
+  color: #202124;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 40px;
 }
 
 .welcome-world p {
   margin: 0;
 }
 
+.welcome-world p span {
+  text-decoration: none;
+}
+
 .dark-mode .welcome-world {
   background: #101722;
-  color: #a9b6c8;
+  color: #e8eef7;
 }
 
 .app-brand[role="button"] {
@@ -1471,6 +1477,10 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   border-radius: 0;
 }
 
+.app-content-shell.tab-layout-left .file-view {
+  border-radius: 16px 0 0 0;
+}
+
 .dark-mode .file-view {
   background: #101722;
 }
@@ -1480,7 +1490,7 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: #fbfcfe;
+  background: #fff;
 }
 
 .dark-mode .file-editor-wrap {
@@ -1528,9 +1538,13 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 
 .file-multi-caret {
   position: absolute;
-  width: 2px;
-  background: #1677ff;
+  width: 1px;
+  background: #1e2228;
   pointer-events: none;
+}
+
+.dark-mode .file-multi-caret {
+  background: #e8eef7;
 }
 
 .dark-mode .file-highlight {

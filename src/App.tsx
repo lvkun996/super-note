@@ -152,6 +152,12 @@ const canvasThemes: CanvasTheme[] = [
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.22",
+    date: "2026.09.04",
+    title: "界面配色与中键编辑优化",
+    description: "统一导航区域为浅灰背景，欢迎页更贴近设计稿；托盘菜单避开图标并缩小，中键多选恢复原生色系且支持撤销。",
+  },
+  {
     version: "v0.1.21",
     date: "2026.09.03",
     title: "默认欢迎页与托盘入口",
@@ -595,14 +601,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.21",
+    version: "0.1.22",
     author: "kunkun",
     desc: "认识自身平凡后，依旧拥有改变世界的勇气",
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.21",
+    currentVersion: "0.1.22",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -916,9 +922,17 @@ function AppShell() {
   }, []);
 
   const updateFileContent = useCallback((tabId: string, content: string) => {
-    fileUndoRef.current[tabId] = [];
-    fileRedoRef.current[tabId] = [];
-    setTabs((current) => current.map((tab) => (tab.id === tabId && tab.kind === "file" ? { ...tab, content, dirty: true } : tab)));
+    setTabs((current) => current.map((tab) => {
+      if (tab.id !== tabId || tab.kind !== "file" || tab.content === content) {
+        return tab;
+      }
+      const history = fileUndoRef.current[tabId] ?? [];
+      if (history.at(-1) !== tab.content) {
+        fileUndoRef.current[tabId] = [...history, tab.content].slice(-HISTORY_LIMIT);
+      }
+      fileRedoRef.current[tabId] = [];
+      return { ...tab, content, dirty: true };
+    }));
   }, []);
 
   const updateFileFontSize = useCallback((tabId: string, updater: (fontSize: number) => number) => {
