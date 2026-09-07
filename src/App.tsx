@@ -43,9 +43,10 @@ import {
   HeartOutlined,
 } from "@ant-design/icons";
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import donationImageUrl from "../assets/wechat-donation.jpg";
 import { flushSync } from "react-dom";
+import { neutralConfirmDialog, neutralInfoDialog } from "./features/overlays/dialogPresets";
+import { ZoomIndicator } from "./features/overlays/ZoomIndicator";
 import type {
   AppSettings,
   CanvasItem,
@@ -1422,8 +1423,7 @@ function AppShell() {
     if (!tab) return;
     let nextTitle = getTabDisplayTitle(tab);
     modal.confirm({
-      icon: null,
-      closable: true,
+      ...neutralConfirmDialog,
       title: uiText("重命名标签"),
       content: <div className="rename-dialog"><p>{uiText("保持简短且易于识别")}</p><Input autoFocus defaultValue={nextTitle} maxLength={80} onChange={(event) => { nextTitle = event.target.value; }} /></div>,
       okText: uiText("保存"),
@@ -1537,8 +1537,7 @@ function AppShell() {
       }
 
       modal.confirm({
-      icon: null,
-      closable: true,
+        ...neutralConfirmDialog,
         title: uiText("当前标签还没有保存"),
         content: uiText("是否关闭？未保存的修改会丢失。"),
         okText: uiText("关闭"),
@@ -1859,8 +1858,7 @@ function AppShell() {
   const removeCanvasMindMap = useCallback(
     (tabId: string) => {
       modal.confirm({
-      icon: null,
-      closable: true,
+        ...neutralConfirmDialog,
         title: uiText("删除整张思维导图？"),
         content: uiText("中心主题和所有分支都会从当前画板移除，可使用撤销恢复。"),
         okText: uiText("删除导图"),
@@ -2658,8 +2656,7 @@ function AppShell() {
         }
 
         modal.confirm({
-      icon: null,
-      closable: true,
+          ...neutralConfirmDialog,
           title: uiText("文件已在外部修改"),
           content: uiText("{0} 在磁盘上发生变化，当前标签也有未保存内容。", [tab.title]),
           okText: uiText("重新加载磁盘版本"),
@@ -3226,14 +3223,6 @@ function AppShell() {
     ] : []),
   ];
 
-  const topRightCloseModal = {
-    footer: null,
-    closable: true,
-    closeIcon: <CloseOutlined />,
-    maskClosable: true,
-    icon: null as ReactNode,
-  };
-
   const helpMenu: MenuProps["items"] = [
     {
       key: "donate",
@@ -3253,7 +3242,7 @@ function AppShell() {
       icon: <BookOutlined />,
       onClick: () =>
         modal.info({
-          ...topRightCloseModal,
+          ...neutralInfoDialog,
           title: uiText("文档"),
           width: 760,
           content: (
@@ -3271,7 +3260,7 @@ function AppShell() {
       icon: <InfoCircleOutlined />,
       onClick: () =>
         modal.info({
-          ...topRightCloseModal,
+          ...neutralInfoDialog,
           title: null,
           width: "100vw",
           wrapClassName: "author-inspiration-modal-wrap",
@@ -3290,7 +3279,7 @@ function AppShell() {
       icon: <HistoryOutlined />,
       onClick: () =>
         modal.info({
-          ...topRightCloseModal,
+          ...neutralInfoDialog,
           title: uiText("版本更新"),
           width: 680,
           content: (
@@ -3320,7 +3309,7 @@ function AppShell() {
       icon: <UserOutlined />,
       onClick: () =>
         modal.info({
-          ...topRightCloseModal,
+          ...neutralInfoDialog,
           title: null,
           width: "100vw",
           wrapClassName: "author-inspiration-modal-wrap",
@@ -3689,14 +3678,10 @@ function AppShell() {
       </div>
 
       {fileZoomPercent !== null ? (
-        <div className="file-zoom-indicator" role="status">
-          <span className="file-zoom-value">{fileZoomPercent}%</span>
-          <button
-            type="button"
-            className="file-zoom-reset"
-            onClick={() => activeTab?.kind === "file" && updateFileFontSize(activeTab.id, () => DEFAULT_FILE_FONT_SIZE)}
-          >{uiText("重置缩放")}</button>
-        </div>
+        <ZoomIndicator
+          percent={fileZoomPercent}
+          onRestore={() => activeTab?.kind === "file" && updateFileFontSize(activeTab.id, () => DEFAULT_FILE_FONT_SIZE)}
+        />
       ) : null}
 
       {donationOpen ? (

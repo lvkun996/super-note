@@ -12,6 +12,7 @@ const tag = `v${version}`;
 const releaseDir = path.join(root, "release");
 const legacyReleaseDir = path.join(root, "release-win7-8");
 const includeLegacy = !process.argv.includes("--no-win7-8");
+const replaceExistingTag = process.argv.includes("--replace-existing-tag");
 
 function run(command, args, options = {}) {
   console.log(`\n> ${command} ${args.join(" ")}`);
@@ -515,12 +516,14 @@ async function uploadReleaseAssets(token, owner, repo, release, assets) {
 
 function pushBranchAndTag(branch) {
   const localTag = captureMaybe("git", ["tag", "--list", tag]);
-  if (!localTag) {
+  if (replaceExistingTag) {
+    run("git", ["tag", "-f", "-a", tag, "-m", `Super Note ${tag}`]);
+  } else if (!localTag) {
     run("git", ["tag", "-a", tag, "-m", `Super Note ${tag}`]);
   }
 
   run("git", ["push", "origin", branch]);
-  run("git", ["push", "origin", tag]);
+  run("git", ["push", "origin", tag, ...(replaceExistingTag ? ["--force"] : [])]);
 }
 
 async function main() {

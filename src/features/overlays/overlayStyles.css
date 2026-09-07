@@ -1,0 +1,111 @@
+body {
+  --popup-surface: rgba(255, 255, 255, 0.82);
+  --popup-text: #202124;
+  --popup-muted: #747980;
+  --popup-border: rgba(32, 33, 36, 0.12);
+  --popup-hover: rgba(32, 33, 36, 0.065);
+  --control-active: #202124;
+  --control-on-active: #fff;
+}
+
+body:has(.app-shell.dark-mode) {
+  --popup-surface: rgba(28, 30, 33, 0.84);
+  --popup-text: #f1f3f4;
+  --popup-muted: #a8adb4;
+  --popup-border: rgba(255, 255, 255, 0.14);
+  --popup-hover: rgba(255, 255, 255, 0.08);
+  --control-active: #f1f3f4;
+  --control-on-active: #202124;
+}
+
+body .ant-modal .ant-modal-content,
+body .ant-popover .ant-popover-inner,
+body .ant-dropdown .ant-dropdown-menu.ant-dropdown-menu,
+body .ant-select-dropdown,
+body .mind-map-relation-context-menu,
+body .ant-message-notice .ant-message-notice-content,
+body .ant-notification-notice,
+body .global-search-box,
+body .file-zoom-indicator {
+  border: 1px solid var(--popup-border);
+  background: var(--popup-surface) !important;
+  color: var(--popup-text);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(22px) saturate(115%);
+}
+
+body .ant-modal .ant-modal-content { border-radius: 14px; padding: 22px 24px 18px; }
+body .ant-modal .ant-modal-header { margin-bottom: 4px; background: transparent; }
+body .ant-modal .ant-modal-title,
+body .ant-modal .ant-modal-confirm-title { padding-right: 26px; color: var(--popup-text); font-size: 19px; font-weight: 700; line-height: 1.4; }
+body .ant-modal .ant-modal-confirm-body > .anticon { display: none; }
+body .ant-modal .ant-modal-confirm-content { margin-inline-start: 0 !important; color: var(--popup-muted); font-size: 13px; line-height: 1.6; }
+body .ant-modal .ant-modal-confirm-paragraph { max-width: 100%; }
+body .ant-modal .ant-modal-close { color: var(--popup-muted); }
+body .ant-modal .ant-modal-confirm-btns { margin-top: 14px; }
+body .ant-modal .ant-modal-confirm-btns .ant-btn { min-width: 62px; }
+body .ant-modal-mask { background: rgba(0, 0, 0, 0.24) !important; backdrop-filter: blur(2px); }
+
+body .neutral-confirm-dialog .ant-modal-confirm-title + .ant-modal-confirm-content { margin-top: 2px; }
+body .neutral-confirm-dialog .rename-dialog p { margin: 0 0 12px; color: var(--popup-muted); font-size: 13px; }
+body .neutral-confirm-dialog .rename-dialog .ant-input { height: 36px; border-radius: 8px; }
+
+body .ant-dropdown .ant-dropdown-menu-item,
+body .ant-dropdown .ant-dropdown-menu-submenu-title { color: var(--popup-text); font-size: 13px; }
+body .ant-dropdown .ant-dropdown-menu-item:hover,
+body .ant-dropdown .ant-dropdown-menu-submenu-title:hover { background: var(--popup-hover) !important; }
+body .ant-dropdown .ant-dropdown-menu.ant-dropdown-menu { padding: 5px; border-radius: 13px; }
+body .ant-dropdown .ant-dropdown-menu.ant-dropdown-menu .ant-dropdown-menu-item,
+body .ant-dropdown .ant-dropdown-menu.ant-dropdown-menu .ant-dropdown-menu-submenu-title {
+  min-height: 30px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  gap: 8px;
+  line-height: 20px;
+}
+
+body .ant-btn-primary,
+body .ant-switch.ant-switch-checked,
+body .ant-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
+  border-color: var(--control-active) !important;
+  background: var(--control-active) !important;
+  color: var(--control-on-active) !important;
+  box-shadow: none;
+}
+body .ant-btn-default { border-color: var(--popup-border); background: rgba(255, 255, 255, 0.18); color: var(--popup-text); }
+body .ant-btn-default:hover:not(:disabled),
+body .ant-btn-text:hover:not(:disabled) { border-color: var(--popup-border); background: var(--popup-hover) !important; color: var(--popup-text) !important; }
+body .ant-btn-dangerous { color: var(--popup-text) !important; }
+body .ant-switch:not(.ant-switch-checked) { background: #a7a9ad; }
+body .ant-switch .ant-switch-handle::before { background: #fff; }
+body .ant-segmented { background: var(--popup-hover); color: var(--popup-muted); }
+body .ant-segmented .ant-segmented-item-selected { background: var(--control-active); color: var(--control-on-active); box-shadow: none; }
+body .ant-radio-button-wrapper-checked { border-color: var(--control-active) !important; color: var(--popup-text) !important; }
+body .ant-input:focus, body .ant-input-focused { border-color: #777; box-shadow: 0 0 0 2px rgba(100, 100, 100, 0.1); }
+
+body .ant-message-notice-content > .ant-message-custom-content > .anticon { display: none; }
+body .ant-tooltip .ant-tooltip-inner { background: rgba(35, 35, 35, 0.84); font-size: 12px; backdrop-filter: blur(12px); }
+body .mind-map-relation-context-menu button { color: var(--popup-text); font-size: 12px; }
+body .mind-map-relation-context-menu button:hover { background: var(--popup-hover); }
+
+body .help-docs { display: block; }
+body .help-docs h3 { color: var(--popup-text); }
+body .help-docs .help-doc-row { position: relative; display: block; padding: 10px 0 10px 17px; border: 0; background: transparent; }
+body .help-docs .help-doc-row::before { content: ''; position: absolute; left: 0; top: 18px; width: 5px; height: 5px; border-radius: 50%; background: var(--popup-muted); }
+body .help-docs .help-doc-row dt { margin-bottom: 3px; color: var(--popup-text); font-size: 13px; font-weight: 600; }
+body .help-docs .help-doc-row dd { margin: 0; color: var(--popup-muted); font-size: 12px; line-height: 1.7; }
+
+body .settings-row small, body .shortcut-row small { color: var(--popup-muted); font-size: 12px; }
+body .settings-directory-row { grid-template-columns: minmax(0, 1fr); }
+body .settings-directory-control { display: flex; gap: 8px; min-width: 0; width: 100%; }
+body .settings-directory-control .ant-input-affix-wrapper { flex: 1; min-width: 0; }
+
+body .tab-context-menu .ant-dropdown-menu.ant-dropdown-menu { min-width: 180px; }
+body .tab-context-menu .ant-dropdown-menu-item-icon { min-width: 15px; color: var(--popup-muted); font-size: 13px; }
+body .tab-context-menu .ant-dropdown-menu-item-divider { margin: 4px 6px; background: var(--popup-border); }
+
+body .file-zoom-indicator { min-width: 132px; padding: 6px 7px 6px 13px; border-radius: 10px; gap: 12px; }
+body .file-zoom-indicator .file-zoom-value { color: var(--popup-text); font-size: 13px; font-weight: 700; }
+body .file-zoom-indicator .file-zoom-reset { height: 26px; padding: 0 9px; border: 1px solid var(--popup-border); border-radius: 7px; background: rgba(241, 243, 246, 0.72); color: #5f6875; font-size: 12px; font-weight: 550; }
+body .file-zoom-indicator .file-zoom-reset:hover { background: var(--control-active); color: var(--control-on-active); }
+body .file-zoom-indicator .file-zoom-reset .anticon { font-size: 11px; }

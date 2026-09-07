@@ -113,7 +113,7 @@ export const englishMessages: Record<string, string> = {
   "打开所在文件夹": "Open containing folder", "打开欢迎页": "Open welcome page", "文件": "File", "插件": "Plugins",
   "操作": "Actions", "设置": "Settings", "帮助": "Help", "搜索全部标签": "Search all tabs", "搜索": "Search",
   "窗口置顶": "Always on top", "切换为日间模式": "Switch to light mode", "切换为夜间模式": "Switch to dark mode",
-  "长按后左右拖拽调整分栏宽度": "Hold and drag horizontally to resize panes", "重置缩放": "Reset zoom",
+  "长按后左右拖拽调整分栏宽度": "Hold and drag horizontally to resize panes", "重置缩放": "Reset zoom", "恢复": "Restore",
   "微信支付收款码": "WeChat Pay code", "输入标签名、文件名或路径": "Enter a tab name, file name, or path",
   "{0} 个结果": "{0} results", "没有匹配的标签或最近文件": "No matching tabs or recent files",
   "搜索当前页内容，再按一次 Ctrl+F 搜索全部标签": "Find in this tab; press Ctrl+F again to search all tabs",

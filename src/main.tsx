@@ -24,6 +24,7 @@ async function mount() {
     import("./styles.css"),
     import("./features/mindmap/mindMap.css"),
   ]);
+  await import("./features/overlays/overlayStyles.css");
   const { default: App } = await import("./App");
   root.render(<React.StrictMode><App /></React.StrictMode>);
 }
