@@ -207,7 +207,7 @@ function TabNavigationComponent({
     const tabPanes = getTabPanes(tabId);
     return [
       { key: "pin", label: tab?.pinned ? uiText("取消置顶") : uiText("置顶"), icon: <VerticalAlignTopOutlined />, onClick: () => onPinTab(tabId) },
-      { key: "delete", label: uiText("删除"), danger: true, icon: <DeleteOutlined />, onClick: () => onCloseTab(tabId) },
+      { key: "delete", label: uiText("移除"), danger: true, icon: <DeleteOutlined />, onClick: () => onCloseTab(tabId) },
       { key: "rename", label: uiText("编辑"), icon: <EditOutlined />, onClick: () => onRenameTab(tabId) },
       {
         key: "explorer",

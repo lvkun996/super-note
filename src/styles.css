@@ -1402,13 +1402,14 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 }
 
 .file-title-edit.ant-btn {
-  height: 30px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
   flex: none;
-  padding: 0 10px;
-  border-radius: 7px;
+  margin-left: 0;
+  padding: 0;
+  border-radius: 6px;
   color: #30343a;
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .file-title-edit.ant-btn:hover {
@@ -1471,9 +1472,9 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   place-items: center;
   background: #fff;
   color: #202124;
-  font-size: 28px;
+  font-size: 36px;
   font-weight: 400;
-  line-height: 40px;
+  line-height: 48px;
 }
 
 .welcome-world p {

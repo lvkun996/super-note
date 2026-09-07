@@ -4,6 +4,7 @@ import { autoUpdater } from "electron-updater";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { atomicWriteText, getFileMetadata, isWorkspaceJson, readJsonFileCandidate } from "./fileStorage";
+import { appendExtensionIfMissing } from "./filePathUtils";
 import { isNewerVersion } from "./versionUtils";
 
 if (process.env.SUPER_NOTE_DEV_USER_DATA) {
@@ -894,9 +895,7 @@ ipcMain.handle(
       const requiredExtension = typeof payload.requiredExtension === "string" && /^[a-z\d]+$/i.test(payload.requiredExtension)
         ? payload.requiredExtension.toLowerCase()
         : undefined;
-      filePath = requiredExtension && !result.filePath.toLowerCase().endsWith(`.${requiredExtension}`)
-        ? `${result.filePath}.${requiredExtension}`
-        : result.filePath;
+      filePath = requiredExtension ? appendExtensionIfMissing(result.filePath, requiredExtension) : result.filePath;
     }
 
     try {

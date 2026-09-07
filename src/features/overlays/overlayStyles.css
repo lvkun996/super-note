@@ -35,6 +35,36 @@ body .file-zoom-indicator {
 }
 
 body .ant-modal .ant-modal-content { border-radius: 14px; padding: 22px 24px 18px; }
+/* Full-screen author/version pages must not inherit the shared modal card inset. */
+body .author-inspiration-modal-wrap,
+body .author-inspiration-modal-wrap .ant-modal-wrap,
+body .author-inspiration-modal-wrap .ant-modal {
+  inset: 0 !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  max-width: none !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+body .author-inspiration-modal .ant-modal-content,
+body .author-inspiration-modal .ant-modal-body,
+body .author-inspiration-modal .ant-modal-confirm-body-wrapper,
+body .author-inspiration-modal .ant-modal-confirm-body,
+body .author-inspiration-modal .ant-modal-confirm-content {
+  width: 100vw !important;
+  max-width: none !important;
+  min-height: 100vh !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+}
 body .ant-modal .ant-modal-header { margin-bottom: 4px; background: transparent; }
 body .ant-modal .ant-modal-title,
 body .ant-modal .ant-modal-confirm-title { padding-right: 26px; color: var(--popup-text); font-size: 19px; font-weight: 700; line-height: 1.4; }

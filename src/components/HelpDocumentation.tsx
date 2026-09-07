@@ -47,7 +47,7 @@ export function HelpDocumentation({ canvasPluginEnabled }: HelpDocumentationProp
     [uiText("搜索内容"), uiText("点击右上角搜索按钮，在当前页或全部标签中查找内容。")],
     [uiText("竖向选择"), uiText("在文本模块中按住鼠标左键片刻后竖向拖动，可连续选择多行内容；也支持中键直接拖动选择。")],
     [uiText("关闭标签"), uiText("关闭最后一个标签后会进入空工作区。")],
-    [uiText("切换标签栏位置"), uiText("设置中可选择顶栏模式或侧边模式；标签支持拖拽排序，右键可置顶、删除、编辑名称或在资源管理器打开。")],
+    [uiText("切换标签栏位置"), uiText("设置中可选择顶栏模式或侧边模式；标签支持拖拽排序，右键可置顶、移除、编辑名称或在资源管理器打开。")],
   ];
 
 

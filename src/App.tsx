@@ -156,6 +156,12 @@ const canvasThemes: CanvasTheme[] = [
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.27",
+    date: "2026-09-07",
+    title: uiText("欢迎页与文件保存修复"),
+    description: uiText("放大欢迎页文字，修复作者页全屏间隙，优化 Markdown 标题栏按钮提示，并正确保留用户输入的文件后缀。"),
+  },
+  {
     version: "v0.1.26",
     date: "2026-09-07",
     title: uiText("JSON 与 Markdown 编辑体验"),
@@ -629,14 +635,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.26",
+    version: "0.1.27",
     author: "kunkun",
     desc: uiText("认识自身平凡后，依旧拥有改变世界的勇气"),
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.26",
+    currentVersion: "0.1.27",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);

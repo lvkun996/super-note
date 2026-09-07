@@ -265,6 +265,15 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.27") {
+    return [
+      "Super Note v0.1.27", "",
+      "- 放大欢迎页文字，统一检查作者页及其他全屏弹窗，移除顶部灰色间隙。",
+      "- Tab 右键菜单将删除改为移除；Markdown 标题栏编辑入口改为右侧图标并增加悬浮提示。",
+      "- 保存时尊重用户输入的文件后缀，避免 a.md.txt 这样的重复后缀。",
+      "- 优化文件路径工具拆分，并同步更新官网版本信息。",
+    ].join("\n");
+  }
   if (version === "0.1.26") {
     return [
       "Super Note v0.1.26", "",

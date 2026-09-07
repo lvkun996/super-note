@@ -1,6 +1,6 @@
 import { uiText } from "../../../electron/uiLanguage";
 import { CodeOutlined, CopyOutlined, EditOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
-import { Button, Dropdown } from "antd";
+import { Button, Dropdown, Tooltip } from "antd";
 import type { MenuProps } from "antd";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode, WheelEvent as ReactWheelEvent } from "react";
@@ -74,20 +74,23 @@ export function FileView({
   const displayTitle = title?.trim() || tab.title.trim() || uiText("未命名文本");
   const titleBar = (
     <header className="file-title-bar" aria-label={uiText("文档标题栏")}>
-      {documentMode === "markdown" ? (
-        <Button
-          type="text"
-          className="file-title-edit"
-          icon={<EditOutlined />}
-          onClick={() => setMarkdownEditorOpen(true)}
-        >
-          {uiText("编辑")}
-        </Button>
-      ) : null}
       <h1 className="file-title" title={displayTitle}>{displayTitle}</h1>
+      {documentMode === "markdown" ? (
+        <Tooltip title={uiText("编辑")} placement="bottom">
+          <Button
+            type="text"
+            className="file-title-edit"
+            icon={<EditOutlined />}
+            aria-label={uiText("编辑")}
+            onClick={() => setMarkdownEditorOpen(true)}
+          />
+        </Tooltip>
+      ) : null}
       {titleMenuItems?.length ? (
         <Dropdown menu={{ items: titleMenuItems }} trigger={["click"]} overlayClassName="tab-context-menu" placement="bottomLeft">
-          <Button type="text" className="file-title-more" icon={<EllipsisOutlined />} aria-label={uiText("文档操作")} title={uiText("文档操作")} />
+          <Tooltip title={uiText("文档操作")} placement="bottom">
+            <Button type="text" className="file-title-more" icon={<EllipsisOutlined />} aria-label={uiText("文档操作")} />
+          </Tooltip>
         </Dropdown>
       ) : null}
     </header>
