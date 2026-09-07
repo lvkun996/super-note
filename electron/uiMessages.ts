@@ -2,6 +2,11 @@
 export const englishMessages: Record<string, string> = {
   "粘贴": "Paste",
   "你想写些什么？": "What would you like to write?",
+  "JSON 与 Markdown 编辑体验": "JSON and Markdown editing",
+  "打开 JSON 文件时自动格式化内容，Markdown 默认预览并通过独立弹窗实时编辑，同时优化保存目录输入和网站界面。": "Automatically format JSON files on open, preview Markdown by default with live editing in a separate dialog, and refine the save directory field and website.",
+  "编辑 Markdown": "Edit Markdown",
+  "实时预览": "Live preview",
+  "完成": "Done",
   "双语界面与透明弹窗": "Bilingual interface and translucent dialogs",
   "设置支持中英文切换，统一透明弹窗与灰黑控件，文档改为操作列表，并优化置顶与缩放重置文案。": "Switch between Chinese and English in Settings, with translucent dialogs, neutral controls, operation-based documentation, and clearer pin and zoom reset labels.",
   "语言切换失败，请重试": "Could not change the language. Please try again.",

@@ -822,7 +822,7 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 }
 
 .settings-directory-control {
-  width: min(330px, 48%);
+  width: min(560px, 100%);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -1389,6 +1389,7 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 }
 
 .file-title {
+  flex: 1;
   min-width: 0;
   margin: 0;
   overflow: hidden;
@@ -1398,6 +1399,21 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   font-size: 14px;
   font-weight: 600;
   line-height: 20px;
+}
+
+.file-title-edit.ant-btn {
+  height: 30px;
+  flex: none;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: #30343a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.file-title-edit.ant-btn:hover {
+  background: #f0f1f3;
+  color: #111820;
 }
 
 .file-title-more.ant-btn {
@@ -1437,6 +1453,15 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 
 .dark-mode .file-title-more.ant-btn {
   color: #a9b6c8;
+}
+
+.dark-mode .file-title-edit.ant-btn {
+  color: #dce3ec;
+}
+
+.dark-mode .file-title-edit.ant-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .welcome-world {
@@ -1574,38 +1599,79 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   background: #101722;
 }
 
-.markdown-toolbar {
-  flex: 0 0 auto;
-  height: 38px;
-  padding: 0 14px 0 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border-bottom: 1px solid #e7ebf2;
-  background: #fff;
-}
-
-.dark-mode .markdown-toolbar {
-  border-bottom-color: #283648;
-  background: #111821;
-}
-
-.markdown-toolbar-title {
-  color: #4e5969;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.dark-mode .markdown-toolbar-title {
-  color: #a9b6c8;
-}
-
 .markdown-editor-layout {
   min-height: 0;
   flex: 1;
   display: grid;
   grid-template-columns: minmax(320px, 0.92fr) minmax(0, 1.08fr);
+}
+
+.markdown-editor-modal .ant-modal-content {
+  height: min(82vh, 780px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.markdown-editor-modal .ant-modal-body {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin: 14px -24px 0;
+  border-top: 1px solid #e7ebf2;
+  border-bottom: 1px solid #e7ebf2;
+  overflow: hidden;
+}
+
+.markdown-editor-modal-heading {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.markdown-editor-modal-heading span {
+  min-width: 0;
+  overflow: hidden;
+  color: #7b838e;
+  font-size: 12px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markdown-editor-modal-labels {
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.92fr) minmax(0, 1.08fr);
+  border-bottom: 1px solid #e7ebf2;
+  background: rgba(246, 247, 249, 0.72);
+  color: #747b85;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.markdown-editor-modal-labels span {
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+}
+
+.markdown-editor-modal-labels span + span {
+  border-left: 1px solid #e7ebf2;
+}
+
+.dark-mode .markdown-editor-modal .ant-modal-body,
+.dark-mode .markdown-editor-modal-labels,
+.dark-mode .markdown-editor-modal-labels span + span {
+  border-color: #283648;
+}
+
+.dark-mode .markdown-editor-modal-labels {
+  background: rgba(16, 23, 34, 0.72);
+  color: #94a1b3;
 }
 
 .markdown-source-pane {
@@ -1652,6 +1718,11 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   min-height: 0;
   overflow: auto;
   background: #fff;
+}
+
+.markdown-live-scroll {
+  height: 100%;
+  overflow: auto;
 }
 
 .dark-mode .markdown-live-pane,
@@ -2288,6 +2359,10 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   .markdown-editor-layout {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(260px, 1fr) minmax(260px, 1fr);
+  }
+
+  .markdown-editor-modal-labels {
+    display: none;
   }
 
   .markdown-source-pane {

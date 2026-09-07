@@ -265,6 +265,15 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.26") {
+    return [
+      "Super Note v0.1.26", "",
+      "- 打开合法的 .json 文件时自动格式化缩进，解析失败时保留原文。",
+      "- Markdown 文件默认显示预览，编辑入口移动到标题栏最左侧，并通过独立弹窗实时对照源码与预览。",
+      "- 加宽默认文件保存位置输入区，长路径显示更完整。",
+      "- 更新官网首页视觉、功能说明、版本记录与下载入口。",
+    ].join("\n");
+  }
   if (version === "0.1.25") {
     return [
       "Super Note v0.1.25", "",

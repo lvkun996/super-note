@@ -98,7 +98,8 @@ body .help-docs .help-doc-row dd { margin: 0; color: var(--popup-muted); font-si
 body .settings-row small, body .shortcut-row small { color: var(--popup-muted); font-size: 12px; }
 body .settings-directory-row { grid-template-columns: minmax(0, 1fr); }
 body .settings-directory-control { display: flex; gap: 8px; min-width: 0; width: 100%; }
-body .settings-directory-control .ant-input-affix-wrapper { flex: 1; min-width: 0; }
+body .settings-directory-control .ant-input-affix-wrapper { flex: 1 1 480px; min-width: 240px; width: 100%; }
+body .settings-directory-control .ant-btn { flex: none; }
 
 body .tab-context-menu .ant-dropdown-menu.ant-dropdown-menu { min-width: 180px; }
 body .tab-context-menu .ant-dropdown-menu-item-icon { min-width: 15px; color: var(--popup-muted); font-size: 13px; }

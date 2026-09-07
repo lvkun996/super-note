@@ -1,5 +1,5 @@
 import { uiText } from "../../../electron/uiLanguage";
-import { CodeOutlined, CopyOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
+import { CodeOutlined, CopyOutlined, EditOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
 import { Button, Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -19,6 +19,7 @@ import {
 import { useTextEditorSelection } from "./useTextEditorSelection";
 import { getFileDocumentMode } from "./fileDocument";
 import { getTextCaretPositions, type TextCaretPosition } from "./textCaretLayout";
+import { MarkdownEditorModal } from "./MarkdownEditorModal";
 
 const EMPTY_SELECTION: TextSelection = { start: 0, end: 0 };
 
@@ -58,7 +59,7 @@ export function FileView({
   const markdownPreviewRef = useRef<HTMLDivElement>(null);
   const markdownLivePreviewRef = useRef<HTMLDivElement>(null);
   const restoredViewRef = useRef<string | null>(null);
-  const [markdownMode, setMarkdownMode] = useState<"edit" | "preview">(viewState?.markdownMode ?? "preview");
+  const [markdownEditorOpen, setMarkdownEditorOpen] = useState(false);
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
   const [markdownRender, setMarkdownRender] = useState<{
     tabId: string;
@@ -73,6 +74,16 @@ export function FileView({
   const displayTitle = title?.trim() || tab.title.trim() || uiText("未命名文本");
   const titleBar = (
     <header className="file-title-bar" aria-label={uiText("文档标题栏")}>
+      {documentMode === "markdown" ? (
+        <Button
+          type="text"
+          className="file-title-edit"
+          icon={<EditOutlined />}
+          onClick={() => setMarkdownEditorOpen(true)}
+        >
+          {uiText("编辑")}
+        </Button>
+      ) : null}
       <h1 className="file-title" title={displayTitle}>{displayTitle}</h1>
       {titleMenuItems?.length ? (
         <Dropdown menu={{ items: titleMenuItems }} trigger={["click"]} overlayClassName="tab-context-menu" placement="bottomLeft">
@@ -111,15 +122,15 @@ export function FileView({
   }, [syncCaretPositions, multiCarets.length, tab.content, fontSize, searchValue, documentMode]);
 
   useEffect(() => {
-    setMarkdownMode(viewState?.markdownMode ?? "preview");
+    setMarkdownEditorOpen(false);
     setSelection(EMPTY_SELECTION);
     clearMultiCarets();
-  }, [clearMultiCarets, documentMode, tab.id, viewState?.markdownMode]);
+  }, [clearMultiCarets, documentMode, tab.id]);
 
   useLayoutEffect(() => {
     // Saved state is a tab/mode entry snapshot, not a controlled caret value.
     // Reapplying it after input rewinds the native caret to the previous keystroke.
-    const viewKey = JSON.stringify([tab.id, documentMode, markdownMode]);
+    const viewKey = JSON.stringify([tab.id, documentMode, markdownEditorOpen]);
     if (restoredViewRef.current === viewKey) return;
     restoredViewRef.current = viewKey;
     const editor = editorRef.current;
@@ -141,7 +152,7 @@ export function FileView({
     if (markdownLivePreviewRef.current && viewState) {
       markdownLivePreviewRef.current.scrollTop = viewState.livePreviewScrollTop;
     }
-  }, [documentMode, markdownMode, tab.id, viewState]);
+  }, [documentMode, markdownEditorOpen, tab.id, viewState]);
 
   useEffect(() => {
     if (documentMode !== "markdown") {
@@ -168,8 +179,8 @@ export function FileView({
     if (!activeSearchTarget) {
       return;
     }
-    if (markdownMode !== "edit") {
-      setMarkdownMode("edit");
+    if (documentMode === "markdown" && !markdownEditorOpen) {
+      setMarkdownEditorOpen(true);
       return;
     }
 
@@ -201,7 +212,7 @@ export function FileView({
       highlightRef.current.scrollLeft = editor.scrollLeft;
     }
     onSearchTargetHandled(activeSearchTarget.requestId);
-  }, [activeSearchTarget?.requestId, documentMode, fontSize, markdownMode]);
+  }, [activeSearchTarget?.requestId, documentMode, fontSize, markdownEditorOpen]);
 
   const syncSelection = (editor: HTMLTextAreaElement) => {
     const nextSelection = getTextSelection(editor);
@@ -220,11 +231,6 @@ export function FileView({
     }
     syncCaretPositions();
     onViewStateChange({ editorScrollTop: editor.scrollTop, editorScrollLeft: editor.scrollLeft });
-  };
-
-  const changeMarkdownMode = (mode: "edit" | "preview") => {
-    setMarkdownMode(mode);
-    onViewStateChange({ markdownMode: mode });
   };
 
   const replaceSelection = (insertion: string, removeSelection = true) => {
@@ -446,43 +452,39 @@ export function FileView({
 
     return (
       <div
-        className={`file-view markdown-file ${markdownMode === "preview" ? "markdown-preview-mode" : "markdown-edit-mode"}`}
+        className="file-view markdown-file markdown-preview-mode"
         data-tab-id={tab.id}
         style={{ ["--file-font-size" as string]: `${fontSize}px` }}
         onWheel={handleFontSizeWheel}
       >
-        {showTitleBar ? titleBar : null}
-        <div className="markdown-toolbar">
-          <span className="markdown-toolbar-title">Markdown</span>
-          <Button.Group size="small">
-            <Button type={markdownMode === "edit" ? "primary" : "default"} onClick={() => changeMarkdownMode("edit")}>{uiText("编辑")}</Button>
-            <Button type={markdownMode === "preview" ? "primary" : "default"} onClick={() => changeMarkdownMode("preview")}>{uiText("预览")}</Button>
-          </Button.Group>
+        {titleBar}
+        <div
+          ref={markdownPreviewRef}
+          className="markdown-preview-scroll"
+          onScroll={(event) => onViewStateChange({ previewScrollTop: event.currentTarget.scrollTop })}
+          onDoubleClick={() => setMarkdownEditorOpen(true)}
+        >
+          {renderMarkdownPreview("markdown-preview")}
         </div>
-
-        {markdownMode === "preview" ? (
-          <div
-            ref={markdownPreviewRef}
-            className="markdown-preview-scroll"
-            onScroll={(event) => onViewStateChange({ previewScrollTop: event.currentTarget.scrollTop })}
-            onDoubleClick={() => changeMarkdownMode("edit")}
-          >
-            {renderMarkdownPreview("markdown-preview")}
-          </div>
-        ) : (
-          <div className="markdown-editor-layout">
+        <MarkdownEditorModal
+          open={markdownEditorOpen}
+          title={displayTitle}
+          onClose={() => setMarkdownEditorOpen(false)}
+          source={
             <Dropdown menu={{ items: contextMenuItems }} trigger={["contextMenu"]}>
-              <div className="markdown-source-pane">{markdownEditor}</div>
+              {markdownEditor}
             </Dropdown>
+          }
+          preview={
             <div
               ref={markdownLivePreviewRef}
-              className="markdown-live-pane"
+              className="markdown-live-scroll"
               onScroll={(event) => onViewStateChange({ livePreviewScrollTop: event.currentTarget.scrollTop })}
             >
               {renderMarkdownPreview("markdown-live-preview")}
             </div>
-          </div>
-        )}
+          }
+        />
       </div>
     );
   }

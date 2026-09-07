@@ -96,7 +96,7 @@ import { rememberTabVisit, removeTabVisit, resolveTabAfterClose } from "./featur
 import { TabNavigation } from "./features/tabs/TabNavigation";
 import { reorderTabsById, sortPinnedTabs, toggleTabPinned } from "./features/tabs/tabOrder";
 import type { TabDropPosition } from "./features/tabs/tabOrder";
-import { getFileDocumentMode, isMarkdownFileName } from "./features/text/fileDocument";
+import { formatOpenedFileContent, getFileDocumentMode, isMarkdownFileName } from "./features/text/fileDocument";
 import { hasExternalFileChange } from "./features/files/fileState";
 import { buildSaveFileName } from "./features/files/saveFileName";
 import {
@@ -155,6 +155,12 @@ const canvasThemes: CanvasTheme[] = [
 ];
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.26",
+    date: "2026-09-07",
+    title: uiText("JSON 与 Markdown 编辑体验"),
+    description: uiText("打开 JSON 文件时自动格式化内容，Markdown 默认预览并通过独立弹窗实时编辑，同时优化保存目录输入和网站界面。"),
+  },
   {
     version: "v0.1.25",
     date: "2026-09-04",
@@ -387,7 +393,7 @@ function createFileTab(file: OpenedFile, themeIndex: number): FileTab {
     title: file.name,
     fileName: file.name,
     filePath: file.path,
-    content: file.content,
+    content: formatOpenedFileContent(file.content, file.name, file.path),
     documentMode: isMarkdownFileName(file.name) || isMarkdownFileName(file.path) ? "markdown" : "text",
     fontSize: DEFAULT_FILE_FONT_SIZE,
     themeIndex,
@@ -623,14 +629,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.25",
+    version: "0.1.26",
     author: "kunkun",
     desc: uiText("认识自身平凡后，依旧拥有改变世界的勇气"),
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.25",
+    currentVersion: "0.1.26",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);

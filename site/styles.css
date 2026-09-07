@@ -10,8 +10,8 @@
   --ink-faint: #86868b;
   --line: rgba(0, 0, 0, 0.1);
   --line-soft: rgba(0, 0, 0, 0.06);
-  --accent: #06c;
-  --accent-soft: rgba(0, 102, 204, 0.12);
+  --accent: #1d1d1f;
+  --accent-soft: rgba(29, 29, 31, 0.1);
   --button-bg: #1d1d1f;
   --button-text: #ffffff;
   --control-bg: rgba(118, 118, 128, 0.12);
@@ -45,8 +45,8 @@
   --ink-faint: #9a9aa1;
   --line: rgba(255, 255, 255, 0.17);
   --line-soft: rgba(255, 255, 255, 0.1);
-  --accent: #75bdff;
-  --accent-soft: rgba(117, 189, 255, 0.2);
+  --accent: #f5f5f7;
+  --accent-soft: rgba(245, 245, 247, 0.16);
   --button-bg: #f5f5f7;
   --button-text: #1d1d1f;
   --control-bg: rgba(255, 255, 255, 0.12);
@@ -118,7 +118,7 @@ button:focus-visible {
   align-items: center;
   justify-content: space-between;
   border: 1px solid var(--line-soft);
-  border-radius: 18px;
+  border-radius: 15px;
   background: var(--surface);
   box-shadow: 0 8px 26px rgba(31, 35, 41, 0.06);
   backdrop-filter: saturate(180%) blur(22px);
@@ -244,8 +244,9 @@ button:focus-visible {
 
 .download-link:hover,
 .primary-button:hover {
-  background: var(--accent);
-  box-shadow: 0 10px 24px rgba(0, 102, 204, 0.22);
+  background: #3a3a3c;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(29, 29, 31, 0.18);
   transform: translateY(-1px);
 }
 
@@ -265,9 +266,35 @@ button:focus-visible {
   place-items: center;
   overflow: hidden;
   background:
-    radial-gradient(circle at 20% 20%, rgba(0, 122, 255, 0.11), transparent 28%),
-    radial-gradient(circle at 83% 56%, rgba(175, 82, 222, 0.09), transparent 30%),
+    radial-gradient(circle at 20% 20%, rgba(80, 80, 84, 0.08), transparent 28%),
+    radial-gradient(circle at 83% 56%, rgba(130, 130, 134, 0.07), transparent 30%),
     var(--page);
+}
+
+.hero-version-badge {
+  width: fit-content;
+  margin: 0 0 20px;
+  padding: 7px 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.hero-version-badge span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
 .hero-orb {
@@ -396,7 +423,7 @@ button:focus-visible {
   position: absolute;
   inset: 12% 5% 7%;
   border-radius: 32px;
-  background: linear-gradient(135deg, rgba(0, 122, 255, 0.26), rgba(175, 82, 222, 0.2));
+  background: linear-gradient(135deg, rgba(82, 82, 86, 0.2), rgba(142, 142, 147, 0.16));
   filter: blur(38px);
   transform: rotate(-5deg);
 }
@@ -410,7 +437,8 @@ button:focus-visible {
   border-radius: 18px;
   background: var(--surface-solid);
   box-shadow: var(--shadow-window);
-  transform: rotate(1.2deg);
+  filter: grayscale(0.18);
+  transform: rotate(0.6deg);
   transition: transform 420ms var(--ease-out), box-shadow 420ms ease;
 }
 
@@ -497,11 +525,11 @@ button:focus-visible {
 
 .feature-card {
   min-height: 320px;
-  padding: 30px;
+  padding: 28px;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--line-soft);
-  border-radius: 22px;
+  border-radius: 20px;
   background: var(--surface);
   box-shadow: 0 12px 34px rgba(31, 35, 41, 0.04);
   backdrop-filter: blur(18px);
@@ -509,24 +537,20 @@ button:focus-visible {
   transition: transform 280ms var(--ease-out), box-shadow 280ms ease, border-color 280ms ease;
 }
 
-.feature-icon {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 15px;
-  color: #fff;
-  font-size: 23px;
-  font-weight: 600;
+.feature-kicker {
+  width: fit-content;
+  margin: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
 }
 
-.feature-icon-blue { background: #007aff; }
-.feature-icon-purple { background: #5856d6; }
-.feature-icon-green { background: #34c759; }
-
 .feature-index {
-  margin: auto 0 10px;
+  margin: auto 0 12px;
   color: var(--ink-faint);
   font-size: 11px;
   font-weight: 700;
@@ -1106,6 +1130,10 @@ footer {
     text-align: center;
   }
 
+  .hero-version-badge {
+    margin-inline: auto;
+  }
+
   .hero-description {
     margin-right: auto;
     margin-left: auto;
@@ -1295,8 +1323,8 @@ footer {
 
 :root[data-theme="dark"] .hero {
   background:
-    radial-gradient(circle at 20% 20%, rgba(0, 122, 255, 0.16), transparent 28%),
-    radial-gradient(circle at 83% 56%, rgba(175, 82, 222, 0.13), transparent 30%),
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), transparent 28%),
+    radial-gradient(circle at 83% 56%, rgba(160, 160, 166, 0.08), transparent 30%),
     var(--page);
 }
 
@@ -1338,8 +1366,8 @@ footer {
     --ink-faint: #9a9aa1;
     --line: rgba(255, 255, 255, 0.17);
     --line-soft: rgba(255, 255, 255, 0.1);
-    --accent: #75bdff;
-    --accent-soft: rgba(117, 189, 255, 0.2);
+    --accent: #f5f5f7;
+    --accent-soft: rgba(245, 245, 247, 0.16);
     --button-bg: #f5f5f7;
     --button-text: #1d1d1f;
     --control-bg: rgba(255, 255, 255, 0.12);
@@ -1363,8 +1391,8 @@ footer {
 
   :root:not([data-theme]) .hero {
     background:
-      radial-gradient(circle at 20% 20%, rgba(0, 122, 255, 0.16), transparent 28%),
-      radial-gradient(circle at 83% 56%, rgba(175, 82, 222, 0.13), transparent 30%),
+      radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), transparent 28%),
+      radial-gradient(circle at 83% 56%, rgba(160, 160, 166, 0.08), transparent 30%),
       var(--page);
   }
 
