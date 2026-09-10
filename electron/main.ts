@@ -1048,6 +1048,20 @@ ipcMain.handle("clipboard:writeText", (_event, text: unknown) => {
   return { ok: true };
 });
 
+ipcMain.handle("path:relative", (_event, value: unknown) => {
+  if (!value || typeof value !== "object") {
+    return { ok: false };
+  }
+  const payload = value as { filePath?: unknown; basePath?: unknown };
+  if (typeof payload.filePath !== "string" || !path.isAbsolute(payload.filePath)) {
+    return { ok: false };
+  }
+  const basePath = typeof payload.basePath === "string" && path.isAbsolute(payload.basePath)
+    ? payload.basePath
+    : path.dirname(payload.filePath);
+  return { ok: true, path: path.relative(basePath, payload.filePath) || path.basename(payload.filePath) };
+});
+
 ipcMain.handle("window:toggleFullscreen", () => {
   const target = mainWindow ?? BrowserWindow.getFocusedWindow();
   if (!target) {

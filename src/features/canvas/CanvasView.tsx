@@ -42,6 +42,7 @@ import {
   openExternalUrl,
   readClipboardText,
   renderTextWithLinks,
+  trimTextSelectionWhitespace,
   writeClipboardText,
 } from "../editor/editorUtils";
 import { getItemLayout, getPointOnCanvas } from "./canvasUtils";
@@ -181,6 +182,7 @@ function CanvasTextEditor({
             }
           }
         }}
+        onDoubleClick={(event) => trimTextSelectionWhitespace(event.currentTarget)}
         onSelect={(event) => syncSelection(event.currentTarget)}
         onKeyUp={(event) => syncSelection(event.currentTarget)}
         onContextMenu={(event) => syncSelection(event.currentTarget)}

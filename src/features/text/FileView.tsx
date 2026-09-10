@@ -14,6 +14,7 @@ import {
   placeCaretAtEndForBlankArea,
   readClipboardText,
   renderTextWithLinks,
+  trimTextSelectionWhitespace,
   writeClipboardText,
 } from "../editor/editorUtils";
 import { useTextEditorSelection } from "./useTextEditorSelection";
@@ -58,6 +59,7 @@ export function FileView({
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const markdownPreviewRef = useRef<HTMLDivElement>(null);
   const markdownLivePreviewRef = useRef<HTMLDivElement>(null);
+  const markdownScrollSyncRef = useRef<"source" | "preview" | null>(null);
   const restoredViewRef = useRef<string | null>(null);
   const [markdownEditorOpen, setMarkdownEditorOpen] = useState(false);
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
@@ -88,9 +90,7 @@ export function FileView({
       ) : null}
       {titleMenuItems?.length ? (
         <Dropdown menu={{ items: titleMenuItems }} trigger={["click"]} overlayClassName="tab-context-menu" placement="bottomLeft">
-          <Tooltip title={uiText("文档操作")} placement="bottom">
-            <Button type="text" className="file-title-more" icon={<EllipsisOutlined />} aria-label={uiText("文档操作")} />
-          </Tooltip>
+          <Button type="text" className="file-title-more" icon={<EllipsisOutlined />} aria-label={uiText("文档操作")} />
         </Dropdown>
       ) : null}
     </header>
@@ -234,6 +234,40 @@ export function FileView({
     }
     syncCaretPositions();
     onViewStateChange({ editorScrollTop: editor.scrollTop, editorScrollLeft: editor.scrollLeft });
+  };
+
+  const syncMarkdownScroll = (origin: "source" | "preview") => {
+    const source = origin === "source" ? editorRef.current : markdownLivePreviewRef.current;
+    const target = origin === "source" ? markdownLivePreviewRef.current : editorRef.current;
+    if (!source || !target) return;
+
+    if (markdownScrollSyncRef.current && markdownScrollSyncRef.current !== origin) {
+      markdownScrollSyncRef.current = null;
+      return;
+    }
+
+    const sourceMax = Math.max(0, source.scrollHeight - source.clientHeight);
+    const targetMax = Math.max(0, target.scrollHeight - target.clientHeight);
+    const ratio = sourceMax > 0 ? Math.min(1, Math.max(0, source.scrollTop / sourceMax)) : 0;
+    markdownScrollSyncRef.current = origin;
+    target.scrollTop = ratio * targetMax;
+    window.requestAnimationFrame(() => {
+      if (markdownScrollSyncRef.current === origin) markdownScrollSyncRef.current = null;
+    });
+  };
+
+  const handleMarkdownSourceScroll = (editor: HTMLTextAreaElement) => {
+    syncEditorScroll(editor);
+    syncMarkdownScroll("source");
+    onViewStateChange({ livePreviewScrollTop: markdownLivePreviewRef.current?.scrollTop ?? 0 });
+  };
+
+  const handleMarkdownPreviewScroll = (preview: HTMLDivElement) => {
+    syncMarkdownScroll("preview");
+    onViewStateChange({
+      editorScrollTop: editorRef.current?.scrollTop ?? 0,
+      livePreviewScrollTop: preview.scrollTop,
+    });
   };
 
   const replaceSelection = (insertion: string, removeSelection = true) => {
@@ -386,6 +420,7 @@ export function FileView({
     onMouseDown: handleTextAreaMouseDown,
     onMouseUp: handleTextAreaMouseUp,
     onSelect: (event: React.SyntheticEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
+    onDoubleClick: (event: React.MouseEvent<HTMLTextAreaElement>) => trimTextSelectionWhitespace(event.currentTarget),
     onKeyUp: (event: React.KeyboardEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
     onContextMenu: (event: ReactMouseEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
     onAuxClick: (event: ReactMouseEvent<HTMLTextAreaElement>) => {
@@ -444,7 +479,7 @@ export function FileView({
         placeholder={uiText("# 标题\n\n开始编写 Markdown...")}
         onKeyDown={handleEditorKeyDown}
         onPaste={handleEditorPaste}
-        onScroll={(event) => syncEditorScroll(event.currentTarget)}
+        onScroll={(event) => handleMarkdownSourceScroll(event.currentTarget)}
         onChange={(event) => {
           clearMultiCarets();
           onContentChange(event.target.value);
@@ -482,7 +517,7 @@ export function FileView({
             <div
               ref={markdownLivePreviewRef}
               className="markdown-live-scroll"
-              onScroll={(event) => onViewStateChange({ livePreviewScrollTop: event.currentTarget.scrollTop })}
+              onScroll={(event) => handleMarkdownPreviewScroll(event.currentTarget)}
             >
               {renderMarkdownPreview("markdown-live-preview")}
             </div>

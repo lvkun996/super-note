@@ -1,5 +1,5 @@
 import { uiText } from "../../../electron/uiLanguage";
-import { BorderOutlined, CloseOutlined, DeleteOutlined, EditOutlined, FolderOpenOutlined, PlusOutlined, SplitCellsOutlined, VerticalAlignTopOutlined } from "@ant-design/icons";
+import { BorderOutlined, CloseOutlined, CopyOutlined, DeleteOutlined, EditOutlined, FolderOpenOutlined, LinkOutlined, PlusOutlined, SplitCellsOutlined, VerticalAlignTopOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Tabs, Tooltip } from "antd";
 import type { MenuProps, TabsProps } from "antd";
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -54,6 +54,8 @@ type TabNavigationProps = {
   onPinTab: (tabId: string) => void;
   onRenameTab: (tabId: string) => void;
   onOpenTabInExplorer: (tabId: string) => void;
+  onCopyTabAbsolutePath: (tabId: string) => void;
+  onCopyTabRelativePath: (tabId: string) => void;
   onAddCanvas: () => void;
   onAddText: (pane?: PaneKey) => void;
   onStartSplitResize: (dividerIndex: number, event: MouseEvent<HTMLDivElement>) => void;
@@ -88,6 +90,8 @@ function TabNavigationComponent({
   onPinTab,
   onRenameTab,
   onOpenTabInExplorer,
+  onCopyTabAbsolutePath,
+  onCopyTabRelativePath,
   onAddCanvas,
   onAddText,
   onStartSplitResize,
@@ -216,6 +220,20 @@ function TabNavigationComponent({
         disabled: !tab?.filePath,
         onClick: () => onOpenTabInExplorer(tabId),
       },
+      {
+        key: "copy-absolute-path",
+        label: uiText("复制文件绝对地址"),
+        icon: <CopyOutlined />,
+        disabled: !tab?.filePath,
+        onClick: () => onCopyTabAbsolutePath(tabId),
+      },
+      {
+        key: "copy-relative-path",
+        label: uiText("复制文件相对地址"),
+        icon: <LinkOutlined />,
+        disabled: !tab?.filePath,
+        onClick: () => onCopyTabRelativePath(tabId),
+      },
       ...(layout === "top" ? [{ type: "divider" as const }] : []),
       ...(layout === "top" ? [
       {
@@ -238,7 +256,7 @@ function TabNavigationComponent({
         : []),
       ] : []),
     ];
-  }, [getTabPanes, layout, onClosePane, onCloseTab, onOpenTabInExplorer, onPinTab, onRenameTab, onSplitTab, splitView, tabs]);
+  }, [getTabPanes, layout, onClosePane, onCloseTab, onCopyTabAbsolutePath, onCopyTabRelativePath, onOpenTabInExplorer, onPinTab, onRenameTab, onSplitTab, splitView, tabs]);
 
   const renderCloseButton = (tab: TabNavigationItem, pane: PaneKey, isActive: boolean, closeGlobally = false) => (
     <button

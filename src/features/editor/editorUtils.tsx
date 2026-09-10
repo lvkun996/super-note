@@ -231,6 +231,18 @@ export function getTextSelection(editor: HTMLTextAreaElement): TextSelection {
   };
 }
 
+export function trimTextSelectionWhitespace(editor: HTMLTextAreaElement) {
+  const selection = getTextSelection(editor);
+  if (selection.end <= selection.start) return;
+  const selected = editor.value.slice(selection.start, selection.end);
+  const leadingWhitespace = selected.match(/^\s+/u)?.[0].length ?? 0;
+  const trailingWhitespace = selected.match(/\s+$/u)?.[0].length ?? 0;
+  const start = selection.start + leadingWhitespace;
+  const end = Math.max(start, selection.end - trailingWhitespace);
+  if (start === selection.start && end === selection.end) return;
+  editor.setSelectionRange(start, end);
+}
+
 export function placeCaretAtEndForBlankArea(
   event: ReactMouseEvent<HTMLTextAreaElement>,
   endMarker: HTMLElement | null | undefined,

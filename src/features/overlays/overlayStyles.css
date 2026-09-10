@@ -3,7 +3,7 @@ body {
   --popup-text: #202124;
   --popup-muted: #747980;
   --popup-border: rgba(32, 33, 36, 0.12);
-  --popup-hover: rgba(32, 33, 36, 0.065);
+  --popup-hover: rgba(32, 33, 36, 0.04);
   --control-active: #202124;
   --control-on-active: #fff;
 }
@@ -13,7 +13,7 @@ body:has(.app-shell.dark-mode) {
   --popup-text: #f1f3f4;
   --popup-muted: #a8adb4;
   --popup-border: rgba(255, 255, 255, 0.14);
-  --popup-hover: rgba(255, 255, 255, 0.08);
+  --popup-hover: rgba(255, 255, 255, 0.05);
   --control-active: #f1f3f4;
   --control-on-active: #202124;
 }
@@ -35,6 +35,10 @@ body .file-zoom-indicator {
 }
 
 body .ant-modal .ant-modal-content { border-radius: 14px; padding: 22px 24px 18px; }
+/* Keep first-open rendering stable when a lazily loaded dialog is still warming up. */
+body .ant-modal[class*="ant-zoom-"] {
+  transform: none !important;
+}
 /* Full-screen author/version pages must not inherit the shared modal card inset. */
 body .author-inspiration-modal-wrap,
 body .author-inspiration-modal-wrap .ant-modal-wrap,
@@ -102,10 +106,26 @@ body .ant-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
   color: var(--control-on-active) !important;
   box-shadow: none;
 }
+body .ant-modal .ant-btn-primary {
+  min-height: 32px;
+  padding-inline: 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--control-on-active) !important;
+}
+body .ant-modal .ant-btn-primary:hover:not(:disabled),
+body .ant-modal .ant-btn-primary:focus-visible {
+  border-color: var(--control-active) !important;
+  background: color-mix(in srgb, var(--control-active) 86%, #fff) !important;
+  color: var(--control-on-active) !important;
+}
 body .ant-btn-default { border-color: var(--popup-border); background: rgba(255, 255, 255, 0.18); color: var(--popup-text); }
 body .ant-btn-default:hover:not(:disabled),
 body .ant-btn-text:hover:not(:disabled) { border-color: var(--popup-border); background: var(--popup-hover) !important; color: var(--popup-text) !important; }
-body .ant-btn-dangerous { color: var(--popup-text) !important; }
+body .ant-btn-dangerous:not(.ant-btn-primary) { color: var(--popup-text) !important; }
+body .ant-btn-primary.ant-btn-dangerous,
+body .ant-btn-primary.ant-btn-dangerous:hover:not(:disabled) { color: var(--control-on-active) !important; }
 body .ant-switch:not(.ant-switch-checked) { background: #a7a9ad; }
 body .ant-switch .ant-switch-handle::before { background: #fff; }
 body .ant-segmented { background: var(--popup-hover); color: var(--popup-muted); }
@@ -133,10 +153,12 @@ body .settings-directory-control .ant-btn { flex: none; }
 
 body .tab-context-menu .ant-dropdown-menu.ant-dropdown-menu { min-width: 180px; }
 body .tab-context-menu .ant-dropdown-menu-item-icon { min-width: 15px; color: var(--popup-muted); font-size: 13px; }
+body .tab-context-menu .ant-dropdown-menu-item-danger:hover,
+body .tab-context-menu .ant-dropdown-menu-item-danger:hover .ant-dropdown-menu-item-icon { color: var(--popup-text) !important; }
 body .tab-context-menu .ant-dropdown-menu-item-divider { margin: 4px 6px; background: var(--popup-border); }
 
 body .file-zoom-indicator { min-width: 132px; padding: 6px 7px 6px 13px; border-radius: 10px; gap: 12px; }
 body .file-zoom-indicator .file-zoom-value { color: var(--popup-text); font-size: 13px; font-weight: 700; }
 body .file-zoom-indicator .file-zoom-reset { height: 26px; padding: 0 9px; border: 1px solid var(--popup-border); border-radius: 7px; background: rgba(241, 243, 246, 0.72); color: #5f6875; font-size: 12px; font-weight: 550; }
-body .file-zoom-indicator .file-zoom-reset:hover { background: var(--control-active); color: var(--control-on-active); }
+body .file-zoom-indicator .file-zoom-reset:hover { background: var(--popup-hover); color: var(--popup-text); }
 body .file-zoom-indicator .file-zoom-reset .anticon { font-size: 11px; }

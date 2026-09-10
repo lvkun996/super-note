@@ -146,7 +146,12 @@ body.mind-map-style-mode #root {
   cursor: pointer;
 }
 
-.visual-options button:hover,
+.visual-options button:hover {
+  border-color: #777;
+  background: #f5f5f6;
+  box-shadow: 0 0 0 2px rgba(60, 60, 60, 0.065);
+}
+
 .visual-options button.selected,
 .structure-options button.selected,
 .property-grid button.selected {
@@ -415,7 +420,11 @@ body.mind-map-style-mode.mind-map-style-dark,
   color: #e8edf5;
 }
 
-.mind-map-style-window.dark-mode .visual-options button:hover,
+.mind-map-style-window.dark-mode .visual-options button:hover {
+  border-color: #77818e;
+  background: #2b333d;
+}
+
 .mind-map-style-window.dark-mode .visual-options button.selected,
 .mind-map-style-window.dark-mode .structure-options button.selected,
 .mind-map-style-window.dark-mode .property-grid button.selected {

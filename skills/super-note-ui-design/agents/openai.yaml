@@ -1,0 +1,5 @@
+interface:
+  display_name: "Super Note UI Design"
+  short_description: "Apply Super Note's quiet desktop visual system"
+  brand_color: "#1677FF"
+  default_prompt: "Use $super-note-ui-design to design or refine this interface in Super Note's visual language."

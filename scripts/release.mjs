@@ -265,6 +265,14 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.28") {
+    return [
+      "Super Note v0.1.28", "",
+      "- Markdown 实时编辑弹窗支持编辑区与预览区双向滚动同步。",
+      "- 统一所有弹窗黑色主按钮的尺寸、文字对比度和交互状态。",
+      "- 修复危险操作弹窗中黑色按钮文字不可见的问题。",
+    ].join("\n");
+  }
   if (version === "0.1.27") {
     return [
       "Super Note v0.1.27", "",

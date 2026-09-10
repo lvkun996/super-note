@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld("superNote", {
     electron.webUtils?.getPathForFile(file) || (file as File & { path?: string }).path || "",
   readClipboardText: () => ipcRenderer.invoke("clipboard:readText"),
   writeClipboardText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
+  getRelativeFilePath: (filePath: string, basePath?: string) => ipcRenderer.invoke("path:relative", { filePath, basePath }),
   openExternal: (url: string) => ipcRenderer.invoke("shell:openExternal", url),
   showItemInFolder: (filePath: string) => ipcRenderer.invoke("shell:showItemInFolder", filePath),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),

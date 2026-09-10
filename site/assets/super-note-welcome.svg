@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Super Note 欢迎页</title>
+  <desc id="desc">Super Note 的空工作区欢迎页，带有柔和渐变、网格和编写你的世界文字。</desc>
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#edf7ff"/>
+      <stop offset="0.48" stop-color="#f9fff9"/>
+      <stop offset="1" stop-color="#fff4fa"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="48%" r="68%">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.82"/>
+      <stop offset="0.52" stop-color="#fff" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0.68"/>
+    </radialGradient>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+      <path d="M28 0H0V28" fill="none" stroke="#1677ff" stroke-opacity="0.08" stroke-width="1"/>
+    </pattern>
+    <filter id="blur"><feGaussianBlur stdDeviation="58"/></filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#1677ff" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <rect width="1280" height="720" fill="#f3f3f3"/>
+  <rect y="44" width="1280" height="676" fill="url(#surface)"/>
+  <rect y="44" width="1280" height="676" fill="url(#grid)"/>
+  <g filter="url(#blur)" opacity="0.62">
+    <ellipse cx="220" cy="250" rx="250" ry="190" fill="#7dd3fc"/>
+    <ellipse cx="1010" cy="280" rx="260" ry="210" fill="#f9a8d4"/>
+    <ellipse cx="620" cy="650" rx="290" ry="150" fill="#bbf7d0"/>
+  </g>
+  <rect y="44" width="1280" height="676" fill="url(#glow)"/>
+  <g fill="#1d1d1f" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13">
+    <text x="18" y="28" font-weight="600">Super Note</text>
+    <text x="108" y="28">文件</text><text x="150" y="28">操作</text><text x="192" y="28">设置</text><text x="234" y="28">帮助</text>
+  </g>
+  <g fill="#1d1d1f" opacity="0.72" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13">
+    <text x="1190" y="28">−</text><text x="1220" y="28">□</text><text x="1252" y="28">×</text>
+  </g>
+  <g filter="url(#shadow)" text-anchor="middle">
+    <text x="640" y="376" fill="#111820" font-family="ZCOOL KuaiLe, Ma Shan Zheng, Microsoft YaHei, sans-serif" font-size="72" font-weight="600">编写你的世界</text>
+    <text x="640" y="418" fill="#1677ff" fill-opacity="0.72" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="12" letter-spacing="3">SUPER NOTE · YOUR QUIET SPACE</text>
+  </g>
+</svg>

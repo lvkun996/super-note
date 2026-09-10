@@ -147,7 +147,7 @@ input {
 
 .dark-mode .menu-left .ant-btn:hover,
 .dark-mode .window-control.ant-btn:hover {
-  background: #202b39;
+  background: rgba(255, 255, 255, 0.045);
   color: #fff;
 }
 
@@ -378,7 +378,7 @@ input {
 }
 
 .tab-close:hover {
-  background: #eef2f7;
+  background: rgba(31, 35, 41, 0.045);
   color: #1f2329;
 }
 
@@ -481,7 +481,7 @@ input {
 }
 
 .tabs-sidebar-item:hover {
-  background: rgba(255, 255, 255, 0.58);
+  background: rgba(255, 255, 255, 0.36);
 }
 
 .tabs-sidebar-item.active {
@@ -582,7 +582,7 @@ input {
 }
 
 .dark-mode .tabs-sidebar-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .dark-mode .tabs-sidebar-item.active {
@@ -784,21 +784,26 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 48px;
+  padding: clamp(16px, 4vmin, 48px);
+  overflow: hidden;
   background: rgba(10, 14, 20, 0.84);
   backdrop-filter: blur(16px);
 }
 
 .donation-panel {
-  width: min(720px, 84vw);
-  height: min(84vh, 960px);
+  width: min(720px, 90vw, 63dvh);
+  max-height: 86dvh;
+  aspect-ratio: 1242 / 1692;
   display: grid;
   place-items: center;
 }
 
 .donation-panel img {
+  display: block;
+  width: 100%;
+  height: 100%;
   max-width: 100%;
-  max-height: 100%;
+  max-height: 86dvh;
   border-radius: 20px;
   box-shadow: 0 30px 100px rgba(0, 0, 0, 0.42);
   object-fit: contain;
@@ -815,6 +820,33 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   color: #fff;
   background: rgba(255, 255, 255, 0.1);
   cursor: pointer;
+}
+
+.donation-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+@media (max-width: 520px), (max-height: 520px) {
+  .donation-overlay {
+    padding: 12px;
+  }
+
+  .donation-panel {
+    width: min(94vw, 67dvh);
+    max-height: 92dvh;
+  }
+
+  .donation-panel img {
+    max-height: 92dvh;
+    border-radius: 12px;
+  }
+
+  .donation-close {
+    top: 8px;
+    right: 8px;
+    width: 34px;
+    height: 34px;
+  }
 }
 
 .settings-directory-row {
@@ -918,7 +950,7 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   max-width: 100%;
   color: #111820;
   font-family: "ZCOOL KuaiLe", "Ma Shan Zheng", "Comic Sans MS", "Microsoft YaHei", cursive;
-  font-size: 64px;
+  font-size: clamp(68px, 6vw, 84px);
   line-height: 1.15;
   text-align: center;
   text-shadow:
@@ -1321,7 +1353,7 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 }
 
 .image-preview-close:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .text-http-link {
@@ -1329,6 +1361,10 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+  cursor: inherit;
+}
+
+body.ctrl-key-down .text-http-link:hover {
   cursor: pointer;
 }
 
@@ -1413,7 +1449,7 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 }
 
 .file-title-edit.ant-btn:hover {
-  background: #f0f1f3;
+  background: rgba(31, 35, 41, 0.045);
   color: #111820;
 }
 
@@ -1461,7 +1497,7 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 }
 
 .dark-mode .file-title-edit.ant-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
   color: #fff;
 }
 
@@ -1472,9 +1508,9 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   place-items: center;
   background: #fff;
   color: #202124;
-  font-size: 36px;
+  font-size: 44px;
   font-weight: 400;
-  line-height: 48px;
+  line-height: 1.35;
 }
 
 .welcome-world p {
@@ -1938,7 +1974,7 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 .global-search-layer {
   position: fixed;
   z-index: 50;
-  top: 66px;
+  top: 78px;
   left: 50%;
   width: min(640px, calc(100vw - 32px));
   transform: translateX(-50%);
@@ -1996,11 +2032,11 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
 }
 
 .search-result:hover {
-  background: #f3f7ff;
+  background: rgba(22, 119, 255, 0.04);
 }
 
 .dark-mode .search-result:hover {
-  background: #1d2a3a;
+  background: rgba(114, 173, 255, 0.05);
 }
 
 .search-result-title {
@@ -2332,7 +2368,7 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   }
 
   .empty-world-title {
-    font-size: 42px;
+    font-size: 52px;
   }
 
   .author-inspiration-panel {

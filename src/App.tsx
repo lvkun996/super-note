@@ -47,6 +47,8 @@ import donationImageUrl from "../assets/wechat-donation.jpg";
 import { flushSync } from "react-dom";
 import { neutralConfirmDialog, neutralInfoDialog } from "./features/overlays/dialogPresets";
 import { ZoomIndicator } from "./features/overlays/ZoomIndicator";
+import { HelpDocumentation } from "./components/HelpDocumentation";
+import { SettingsModal } from "./features/settings/SettingsModal";
 import type {
   AppSettings,
   CanvasItem,
@@ -90,6 +92,7 @@ import {
   openExternalUrl,
   renderHighlightedText,
   transformJsonText,
+  writeClipboardText,
 } from "./features/editor/editorUtils";
 import { DEFAULT_SETTINGS, normalizeSettings, shortcutMatches } from "./features/settings/settingsModel";
 import { rememberTabVisit, removeTabVisit, resolveTabAfterClose } from "./features/tabs/tabHistory";
@@ -134,13 +137,6 @@ const SITE_URL = "https://lvkun996.github.io/super-note/";
 
 const LazyCanvasView = lazy(() => import("./features/canvas/CanvasView").then(({ CanvasView }) => ({ default: CanvasView })));
 const LazyFileView = lazy(() => import("./features/text/FileView").then(({ FileView }) => ({ default: FileView })));
-const LazyHelpDocumentation = lazy(() =>
-  import("./components/HelpDocumentation").then(({ HelpDocumentation }) => ({ default: HelpDocumentation })),
-);
-const LazySettingsModal = lazy(() =>
-  import("./features/settings/SettingsModal").then(({ SettingsModal }) => ({ default: SettingsModal })),
-);
-
 function FeatureLoading({ label = uiText("正在加载...") }: { label?: string }) {
   return <div className="feature-loading" role="status">{label}</div>;
 }
@@ -846,6 +842,12 @@ function AppShell() {
 
   const languageReloadRef = useRef(false);
   useEffect(() => {
+    const donationImage = new Image();
+    donationImage.decoding = "async";
+    donationImage.src = donationImageUrl;
+  }, []);
+
+  useEffect(() => {
     if (!workspaceLoaded || languageReloadRef.current) return;
     if (settings.language === getUiLanguage()) {
       void window.superNote?.setLanguage(settings.language);
@@ -1452,6 +1454,22 @@ function AppShell() {
     const filePath = tabsRef.current.find((tab) => tab.id === tabId)?.filePath;
     if (filePath) void window.superNote?.showItemInFolder(filePath);
   }, []);
+
+  const copyTabAbsolutePath = useCallback(async (tabId: string) => {
+    const filePath = tabsRef.current.find((tab) => tab.id === tabId)?.filePath;
+    if (!filePath) return;
+    await writeClipboardText(filePath);
+    message.success(uiText("已复制文件绝对地址"));
+  }, [message]);
+
+  const copyTabRelativePath = useCallback(async (tabId: string) => {
+    const filePath = tabsRef.current.find((tab) => tab.id === tabId)?.filePath;
+    if (!filePath) return;
+    const result = await window.superNote?.getRelativeFilePath(filePath, settings.defaultSaveDirectory || undefined);
+    if (!result?.ok || !result.path) return;
+    await writeClipboardText(result.path);
+    message.success(uiText("已复制文件相对地址"));
+  }, [message, settings.defaultSaveDirectory]);
 
   const closeTab = useCallback(
     (targetId: string, pane?: PaneKey) => {
@@ -2736,6 +2754,26 @@ function AppShell() {
     };
   }, [handleGlobalKeyDown, handlePaste]);
 
+  useEffect(() => {
+    const setControlKeyState = (pressed: boolean) => document.body.classList.toggle("ctrl-key-down", pressed);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Control") setControlKeyState(true);
+    };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Control") setControlKeyState(false);
+    };
+    const handleWindowBlur = () => setControlKeyState(false);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleWindowBlur);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleWindowBlur);
+      setControlKeyState(false);
+    };
+  }, []);
+
   const startSidebarResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return;
@@ -3259,9 +3297,7 @@ function AppShell() {
           width: 760,
           content: (
             <div className="scrollable-modal-content">
-              <Suspense fallback={<FeatureLoading label={uiText("正在加载文档...")} />}>
-                <LazyHelpDocumentation canvasPluginEnabled={canvasPluginEnabled} shortcuts={settings.shortcuts} />
-              </Suspense>
+              <HelpDocumentation canvasPluginEnabled={canvasPluginEnabled} shortcuts={settings.shortcuts} />
             </div>
           ),
         }),
@@ -3666,6 +3702,8 @@ function AppShell() {
           onPinTab={pinTab}
           onRenameTab={renameTab}
           onOpenTabInExplorer={openTabInExplorer}
+          onCopyTabAbsolutePath={(tabId) => void copyTabAbsolutePath(tabId)}
+          onCopyTabRelativePath={(tabId) => void copyTabRelativePath(tabId)}
           onAddCanvas={addCanvasTab}
           onAddText={addTextTab}
           onStartSplitResize={startSplitResize}
@@ -3793,14 +3831,12 @@ function AppShell() {
       ) : null}
 
       {settingsOpen ? (
-        <Suspense fallback={<FeatureLoading label={uiText("正在加载设置...")} />}>
-          <LazySettingsModal
-            open
-            settings={settings}
-            onClose={() => setSettingsOpen(false)}
-            onChange={setSettings}
-          />
-        </Suspense>
+        <SettingsModal
+          open
+          settings={settings}
+          onClose={() => setSettingsOpen(false)}
+          onChange={setSettings}
+        />
       ) : null}
       {imagePreview ? (
         <div className="image-preview-layer" role="dialog" aria-modal="true" onClick={() => setImagePreview(null)}>

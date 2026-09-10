@@ -137,6 +137,7 @@ interface Window {
     getPathForFile: (file: File) => string;
     readClipboardText: () => Promise<string>;
     writeClipboardText: (text: string) => Promise<{ ok: boolean }>;
+    getRelativeFilePath: (filePath: string, basePath?: string) => Promise<{ ok: boolean; path?: string }>;
     openExternal: (url: string) => Promise<{ ok: boolean }>;
     showItemInFolder: (filePath: string) => Promise<{ ok: boolean }>;
     getAppInfo: () => Promise<AppInfo>;

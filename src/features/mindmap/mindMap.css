@@ -42,7 +42,7 @@
 }
 
 .mind-map-node:hover {
-  box-shadow: 0 7px 18px rgba(41, 55, 79, 0.16);
+  box-shadow: 0 6px 16px rgba(41, 55, 79, 0.11);
 }
 
 .mind-map-node:focus-visible,
