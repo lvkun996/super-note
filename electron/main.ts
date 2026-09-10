@@ -19,6 +19,9 @@ let trayMenuWindow: BrowserWindow | null = null;
 let forceQuit = false;
 let installUpdateAfterDownload = false;
 let updateDownloadPromise: Promise<UpdateStatus> | null = null;
+let updateCheckPromise: Promise<unknown> | null = null;
+let updateCheckTimer: NodeJS.Timeout | null = null;
+let lastResumeUpdateCheckAt = 0;
 let rendererReady = false;
 let windowLoaded = false;
 let pendingOpenFilePaths = new Set<string>();
@@ -32,6 +35,8 @@ const globalToggleShortcut = "Control+Alt+Space";
 const updateFeedUrl = "https://github.com/lvkun996/super-note/releases/latest/download/";
 const updateDownloadMaxAttempts = 3;
 const updateDownloadRetryDelayMs = 3000;
+const updateCheckIntervalMs = 30 * 60 * 1000;
+const updateResumeCheckCooldownMs = 60 * 1000;
 
 type TrayTab = { id: string; title: string; kind: "file" | "canvas" };
 let trayTabState: { activeTabId: string; tabs: TrayTab[] } = { activeTabId: "", tabs: [] };
@@ -471,13 +476,36 @@ function configureAutoUpdater() {
   });
 }
 
-function checkForUpdates() {
+function checkForUpdates(reason: "startup" | "resume" | "interval" | "manual" = "manual") {
   if (!app.isPackaged) {
     setUpdateStatus({ state: "not-available" });
     return updateStatus;
   }
-  void autoUpdater.checkForUpdates();
+
+  if (updateCheckPromise || ["downloading", "downloaded", "installing"].includes(updateStatus.state)) {
+    return updateStatus;
+  }
+
+  if (reason === "resume") {
+    const now = Date.now();
+    if (now - lastResumeUpdateCheckAt < updateResumeCheckCooldownMs) {
+      return updateStatus;
+    }
+    lastResumeUpdateCheckAt = now;
+  }
+
+  updateCheckPromise = autoUpdater.checkForUpdates().catch(() => undefined).finally(() => {
+    updateCheckPromise = null;
+  });
   return updateStatus;
+}
+
+function startUpdateChecks() {
+  setTimeout(() => checkForUpdates("startup"), 2500);
+  if (!app.isPackaged) {
+    return;
+  }
+  updateCheckTimer = setInterval(() => checkForUpdates("interval"), updateCheckIntervalMs);
 }
 
 async function downloadUpdate() {
@@ -659,6 +687,9 @@ function createWindow() {
     rendererReady = false;
     mainWindow = null;
   });
+  mainWindow.on("focus", () => {
+    checkForUpdates("resume");
+  });
 }
 
 if (!gotSingleInstanceLock) {
@@ -679,7 +710,7 @@ if (!gotSingleInstanceLock) {
     createWindow();
     createTray();
     registerGlobalShortcuts();
-    setTimeout(() => checkForUpdates(), 2500);
+    startUpdateChecks();
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -697,6 +728,10 @@ if (!gotSingleInstanceLock) {
   });
 
   app.on("before-quit", (event) => {
+    if (updateCheckTimer) {
+      clearInterval(updateCheckTimer);
+      updateCheckTimer = null;
+    }
     if (!forceQuit && rendererReady) {
       event.preventDefault();
       requestWorkspaceFlushBeforeQuit("quit");
