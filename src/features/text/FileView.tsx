@@ -60,6 +60,7 @@ export function FileView({
   const markdownPreviewRef = useRef<HTMLDivElement>(null);
   const markdownLivePreviewRef = useRef<HTMLDivElement>(null);
   const markdownScrollSyncRef = useRef<"source" | "preview" | null>(null);
+  const markdownScrollSnapshotRef = useRef<{ sourceTop: number; sourceLeft: number; previewTop: number } | null>(null);
   const restoredViewRef = useRef<string | null>(null);
   const [markdownEditorOpen, setMarkdownEditorOpen] = useState(false);
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
@@ -177,6 +178,41 @@ export function FileView({
       active = false;
     };
   }, [documentMode, tab.content, tab.filePath, tab.id]);
+
+  useLayoutEffect(() => {
+    if (documentMode !== "markdown" || !markdownEditorOpen || markdownRender?.content !== tab.content) {
+      return;
+    }
+    const snapshot = markdownScrollSnapshotRef.current;
+    const source = editorRef.current;
+    const preview = markdownLivePreviewRef.current;
+    if (!snapshot || !source || !preview) {
+      return;
+    }
+
+    source.scrollTop = snapshot.sourceTop;
+    source.scrollLeft = snapshot.sourceLeft;
+    const sourceMax = Math.max(0, source.scrollHeight - source.clientHeight);
+    const previewMax = Math.max(0, preview.scrollHeight - preview.clientHeight);
+    const ratio = sourceMax > 0
+      ? Math.min(1, Math.max(0, snapshot.sourceTop / sourceMax))
+      : previewMax > 0
+        ? Math.min(1, Math.max(0, snapshot.previewTop / previewMax))
+        : 0;
+    markdownScrollSyncRef.current = "source";
+    preview.scrollTop = ratio * previewMax;
+    markdownScrollSnapshotRef.current = null;
+    window.requestAnimationFrame(() => {
+      if (markdownScrollSyncRef.current === "source") {
+        markdownScrollSyncRef.current = null;
+      }
+    });
+    onViewStateChange({
+      editorScrollTop: source.scrollTop,
+      editorScrollLeft: source.scrollLeft,
+      livePreviewScrollTop: preview.scrollTop,
+    });
+  }, [documentMode, markdownEditorOpen, markdownRender?.content, tab.content]);
 
   useEffect(() => {
     if (!activeSearchTarget) {
@@ -481,6 +517,11 @@ export function FileView({
         onPaste={handleEditorPaste}
         onScroll={(event) => handleMarkdownSourceScroll(event.currentTarget)}
         onChange={(event) => {
+          markdownScrollSnapshotRef.current = {
+            sourceTop: event.currentTarget.scrollTop,
+            sourceLeft: event.currentTarget.scrollLeft,
+            previewTop: markdownLivePreviewRef.current?.scrollTop ?? 0,
+          };
           clearMultiCarets();
           onContentChange(event.target.value);
         }}
