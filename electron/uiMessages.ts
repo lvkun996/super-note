@@ -125,6 +125,7 @@ export const englishMessages: Record<string, string> = {
   "打开所在文件夹": "Open containing folder", "打开欢迎页": "Open welcome page", "文件": "File", "插件": "Plugins",
   "操作": "Actions", "设置": "Settings", "帮助": "Help", "搜索全部标签": "Search all tabs", "搜索": "Search",
   "窗口置顶": "Always on top", "切换为日间模式": "Switch to light mode", "切换为夜间模式": "Switch to dark mode",
+  "锚点导航与窗口层次优化": "Anchor navigation and window hierarchy refinements", "选中文本后可设置锚点，从标题栏列表快速跳转；窗口失焦时淡化非内容区域，并降低滚动条存在感。": "Set anchors from selected text and jump from the title-bar list; non-content areas fade when the window loses focus and scrollbars are more subtle.",
   "锚点": "Anchors", "显示锚点": "Show anchors", "隐藏锚点": "Hide anchors",
   "设为锚点": "Set as anchor", "选中文本后右键设为锚点": "Select text, then right-click to set an anchor",
   "锚点导航": "Anchor navigation", "跳转到锚点 {0}": "Jump to anchor {0}", "移除锚点 {0}": "Remove anchor {0}",

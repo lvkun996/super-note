@@ -153,6 +153,12 @@ const canvasThemes: CanvasTheme[] = [
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.29",
+    date: "2026-09-11",
+    title: uiText("锚点导航与窗口层次优化"),
+    description: uiText("选中文本后可设置锚点，从标题栏列表快速跳转；窗口失焦时淡化非内容区域，并降低滚动条存在感。"),
+  },
+  {
     version: "v0.1.27",
     date: "2026-09-07",
     title: uiText("欢迎页与文件保存修复"),

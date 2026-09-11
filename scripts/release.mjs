@@ -265,6 +265,14 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.29") {
+    return [
+      "Super Note v0.1.29", "",
+      "- 新增文本锚点，选中文本后可通过右键设置锚点。",
+      "- 锚点入口收进文档标题栏，支持从紧凑列表快速跳转和移除。",
+      "- 窗口失焦时淡化非内容区域，并进一步降低滚动条存在感。",
+    ].join("\n");
+  }
   if (version === "0.1.28") {
     return [
       "Super Note v0.1.28", "",
