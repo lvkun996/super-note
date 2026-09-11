@@ -13,7 +13,7 @@
 * {
   box-sizing: border-box;
   scrollbar-width: thin;
-  scrollbar-color: rgba(132, 146, 166, 0.48) transparent;
+  scrollbar-color: rgba(132, 146, 166, 0.34) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -28,12 +28,12 @@
 *::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: rgba(132, 146, 166, 0.46);
+  background: rgba(132, 146, 166, 0.32);
   background-clip: padding-box;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(105, 119, 139, 0.68);
+  background: rgba(105, 119, 139, 0.5);
   background-clip: padding-box;
 }
 
@@ -76,6 +76,7 @@ input {
   background: var(--navigation-background);
   -webkit-app-region: drag;
   user-select: none;
+  transition: opacity 140ms ease;
 }
 
 .titlebar-left {
@@ -175,6 +176,7 @@ input {
   gap: 0;
   border-bottom: 1px solid #e5e8ef;
   background: var(--navigation-background);
+  transition: opacity 140ms ease;
 }
 
 .dark-mode .tabs-bar {
@@ -400,6 +402,14 @@ input {
   background: var(--navigation-background);
   color: #27312f;
   user-select: none;
+  transition: opacity 140ms ease;
+}
+
+.app-shell.window-focused .app-titlebar,
+.app-shell.window-focused .tabs-bar,
+.app-shell.window-focused .tabs-sidebar,
+.app-shell.window-focused .tabs-sidebar-resizer {
+  opacity: 0.94;
 }
 
 .tabs-sidebar-header {
@@ -1448,6 +1458,32 @@ body.ctrl-key-down .text-http-link:hover {
   color: #30343a;
 }
 
+.file-title-anchor.ant-btn {
+  min-width: 28px;
+  height: 28px;
+  flex: none;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+  color: #68717d;
+}
+
+.file-title-anchor.ant-btn:hover,
+.file-title-anchor.ant-btn.active {
+  background: rgba(31, 35, 41, 0.05);
+  color: #1f2329;
+}
+
+.file-title-anchor-count {
+  min-width: 12px;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
 .file-title-edit.ant-btn:hover {
   background: rgba(31, 35, 41, 0.045);
   color: #111820;
@@ -1496,6 +1532,16 @@ body.ctrl-key-down .text-http-link:hover {
   color: #dce3ec;
 }
 
+.dark-mode .file-title-anchor.ant-btn {
+  color: #a9b6c8;
+}
+
+.dark-mode .file-title-anchor.ant-btn:hover,
+.dark-mode .file-title-anchor.ant-btn.active {
+  background: rgba(255, 255, 255, 0.05);
+  color: #edf3fb;
+}
+
 .dark-mode .file-title-edit.ant-btn:hover {
   background: rgba(255, 255, 255, 0.045);
   color: #fff;
@@ -1541,6 +1587,225 @@ body.ctrl-key-down .text-http-link:hover {
   position: relative;
   overflow: hidden;
   background: #fff;
+}
+
+.file-editor-wrap.has-text-anchors .file-highlight,
+.file-editor-wrap.has-text-anchors > .file-editor {
+  padding-left: 52px;
+}
+
+.markdown-source-anchor-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.markdown-source-anchor-wrap.has-text-anchors .markdown-source-editor.file-editor {
+  padding-left: 52px;
+}
+
+.text-anchor-rail {
+  position: absolute;
+  z-index: 7;
+  top: 12px;
+  bottom: 12px;
+  left: 5px;
+  width: 30px;
+  pointer-events: none;
+}
+
+.text-anchor-track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 11px;
+  width: 10px;
+  border-left: 1px solid rgba(88, 101, 118, 0.22);
+  background: repeating-linear-gradient(to bottom, transparent 0 8px, rgba(88, 101, 118, 0.24) 8px 9px, transparent 9px 16px);
+  background-size: 7px 16px;
+  background-position: left top;
+  background-repeat: repeat-y;
+}
+
+.text-anchor-item {
+  position: absolute;
+  left: 0;
+  width: 30px;
+  height: 14px;
+  transform: translateY(-50%);
+  pointer-events: auto;
+}
+
+.text-anchor-marker {
+  position: absolute;
+  inset: 0;
+  width: 30px;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.text-anchor-marker::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 11px;
+  width: 12px;
+  height: 1px;
+  border-radius: 999px;
+  background: #8f99a7;
+  transition: width 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.text-anchor-item:hover .text-anchor-marker::after,
+.text-anchor-item:focus-within .text-anchor-marker::after,
+.text-anchor-item.active .text-anchor-marker::after {
+  width: 20px;
+  background: #202124;
+  box-shadow: 0 0 0 2px rgba(32, 33, 36, 0.08);
+}
+
+.text-anchor-marker:focus-visible::after {
+  outline: 2px solid #1677ff;
+  outline-offset: 2px;
+}
+
+.text-anchor-card {
+  position: absolute;
+  z-index: 9;
+  top: 7px;
+  left: 29px;
+  width: min(310px, calc(100vw - 110px));
+  min-height: 58px;
+  padding: 5px;
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-50%) translateX(-4px);
+  border: 1px solid rgba(30, 42, 60, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 30px rgba(28, 39, 56, 0.16);
+  backdrop-filter: blur(16px) saturate(145%);
+  transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease;
+}
+
+.text-anchor-item.lower .text-anchor-card {
+  top: 14px;
+  transform: translateY(-100%) translateX(-4px);
+}
+
+.text-anchor-item:hover .text-anchor-card,
+.text-anchor-item:focus-within .text-anchor-card {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+.text-anchor-item.lower:hover .text-anchor-card,
+.text-anchor-item.lower:focus-within .text-anchor-card {
+  transform: translateY(-100%) translateX(0);
+}
+
+.text-anchor-card-main {
+  min-width: 0;
+  flex: 1;
+  padding: 7px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #20242a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.text-anchor-card-main:hover {
+  background: rgba(31, 35, 41, 0.04);
+}
+
+.text-anchor-card-main strong {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.text-anchor-card-main strong span {
+  margin-right: 4px;
+  color: #596473;
+}
+
+.text-anchor-card-main small {
+  color: #7a8596;
+  font-size: 11px;
+}
+
+.text-anchor-remove {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #8b94a2;
+  cursor: pointer;
+}
+
+.text-anchor-remove:hover {
+  background: rgba(31, 35, 41, 0.05);
+  color: #202124;
+}
+
+.dark-mode .text-anchor-track {
+  border-left-color: rgba(174, 190, 210, 0.22);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 8px, rgba(174, 190, 210, 0.24) 8px 9px, transparent 9px 16px);
+}
+
+.dark-mode .text-anchor-marker::after {
+  background: #718096;
+}
+
+.dark-mode .text-anchor-item:hover .text-anchor-marker::after,
+.dark-mode .text-anchor-item:focus-within .text-anchor-marker::after,
+.dark-mode .text-anchor-item.active .text-anchor-marker::after {
+  background: #edf3fb;
+  box-shadow: 0 0 0 2px rgba(237, 243, 251, 0.08);
+}
+
+.dark-mode .text-anchor-card {
+  border-color: rgba(222, 234, 249, 0.1);
+  background: rgba(24, 34, 48, 0.94);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+}
+
+.dark-mode .text-anchor-card-main {
+  color: #edf3fb;
+}
+
+.dark-mode .text-anchor-card-main:hover,
+.dark-mode .text-anchor-remove:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark-mode .text-anchor-card-main strong span,
+.dark-mode .text-anchor-card-main small,
+.dark-mode .text-anchor-remove {
+  color: #94a1b3;
 }
 
 .dark-mode .file-editor-wrap {
@@ -2339,17 +2604,35 @@ body.ctrl-key-down .text-http-link:hover {
 }
 
 .dark-mode * {
-  scrollbar-color: rgba(138, 154, 174, 0.58) transparent;
+  scrollbar-color: rgba(138, 154, 174, 0.42) transparent;
 }
 
 .dark-mode *::-webkit-scrollbar-thumb {
-  background: rgba(138, 154, 174, 0.5);
+  background: rgba(138, 154, 174, 0.38);
   background-clip: padding-box;
 }
 
 .dark-mode *::-webkit-scrollbar-thumb:hover {
-  background: rgba(174, 190, 210, 0.72);
+  background: rgba(174, 190, 210, 0.56);
   background-clip: padding-box;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-shell.window-focused .app-titlebar,
+  .app-shell.window-focused .tabs-bar,
+  .app-shell.window-focused .tabs-sidebar,
+  .app-shell.window-focused .tabs-sidebar-resizer {
+    opacity: 1;
+  }
+
+  .text-anchor-card {
+    background: #fff;
+    backdrop-filter: none;
+  }
+
+  .dark-mode .text-anchor-card {
+    background: #182230;
+  }
 }
 
 .shortcut-settings {

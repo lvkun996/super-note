@@ -100,6 +100,7 @@ import { TabNavigation } from "./features/tabs/TabNavigation";
 import { reorderTabsById, sortPinnedTabs, toggleTabPinned } from "./features/tabs/tabOrder";
 import type { TabDropPosition } from "./features/tabs/tabOrder";
 import { formatOpenedFileContent, getFileDocumentMode, isMarkdownFileName } from "./features/text/fileDocument";
+import { createTextAnchor, MAX_TEXT_ANCHORS, normalizeTextAnchors, updateTextAnchors } from "./features/text/textAnchors";
 import { hasExternalFileChange } from "./features/files/fileState";
 import { buildSaveFileName } from "./features/files/saveFileName";
 import {
@@ -396,6 +397,7 @@ function createFileTab(file: OpenedFile, themeIndex: number): FileTab {
     fileName: file.name,
     filePath: file.path,
     content: formatOpenedFileContent(file.content, file.name, file.path),
+    textAnchors: [],
     documentMode: isMarkdownFileName(file.name) || isMarkdownFileName(file.path) ? "markdown" : "text",
     fontSize: DEFAULT_FILE_FONT_SIZE,
     themeIndex,
@@ -412,6 +414,7 @@ function createTextTab(themeIndex: number): FileTab {
     title: uiText("未命名文本"),
     fileName: uiText("未命名文本.txt"),
     content: "",
+    textAnchors: [],
     documentMode: "text",
     fontSize: DEFAULT_FILE_FONT_SIZE,
     themeIndex,
@@ -426,6 +429,7 @@ function createMarkdownTab(themeIndex: number): FileTab {
     title: uiText("未命名 Markdown"),
     fileName: "untitled.md",
     content: uiText("# 未命名\n\n"),
+    textAnchors: [],
     documentMode: "markdown",
     fontSize: DEFAULT_FILE_FONT_SIZE,
     themeIndex,
@@ -453,6 +457,7 @@ function restoreTab(tab: PersistedTab): NoteTab {
   }
   return {
     ...tab,
+    textAnchors: normalizeTextAnchors(tab.textAnchors, tab.content),
     documentMode: tab.documentMode ?? (isMarkdownFileName(tab.fileName) || isMarkdownFileName(tab.filePath) ? "markdown" : "text"),
     fontSize: tab.fontSize ?? DEFAULT_FILE_FONT_SIZE,
     dirty: tab.dirty ?? false,
@@ -613,6 +618,7 @@ function AppShell() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [systemDarkMode, setSystemDarkMode] = useState(false);
+  const [windowFocused, setWindowFocused] = useState(() => document.hasFocus());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -993,8 +999,38 @@ function AppShell() {
         fileUndoRef.current[tabId] = [...history, tab.content].slice(-HISTORY_LIMIT);
       }
       fileRedoRef.current[tabId] = [];
-      return { ...tab, content, dirty: true };
+      return { ...tab, content, textAnchors: updateTextAnchors(tab.content, content, tab.textAnchors), dirty: true };
     }));
+  }, []);
+
+  useEffect(() => {
+    const handleFocus = () => setWindowFocused(true);
+    const handleBlur = () => setWindowFocused(false);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, []);
+
+  const addFileTextAnchor = useCallback((tabId: string, selectionStart: number, selectionEnd: number) => {
+    setTabs((current) => current.map((tab) => {
+      if (tab.id !== tabId || tab.kind !== "file") return tab;
+      const currentAnchors = normalizeTextAnchors(tab.textAnchors, tab.content);
+      if (currentAnchors.length >= MAX_TEXT_ANCHORS) return tab;
+      const anchor = createTextAnchor(tab.content, selectionStart, selectionEnd, makeId());
+      if (!anchor || currentAnchors.some((item) => item.start === anchor.start && item.end === anchor.end)) return tab;
+      return { ...tab, textAnchors: [...currentAnchors, anchor].sort((left, right) => left.start - right.start) };
+    }));
+  }, []);
+
+  const removeFileTextAnchor = useCallback((tabId: string, anchorId: string) => {
+    setTabs((current) => current.map((tab) =>
+      tab.id === tabId && tab.kind === "file"
+        ? { ...tab, textAnchors: (tab.textAnchors ?? []).filter((anchor) => anchor.id !== anchorId) }
+        : tab,
+    ));
   }, []);
 
   const updateFileFontSize = useCallback((tabId: string, updater: (fontSize: number) => number) => {
@@ -1179,7 +1215,13 @@ function AppShell() {
         return false;
       }
       const restored = createTabFromOpenedFile(result.file, tab.themeIndex);
-      setTabs((current) => current.map((item) => (item.id === tab.id ? { ...restored, id: tab.id } : item)));
+      setTabs((current) => current.map((item) => (item.id === tab.id ? {
+        ...restored,
+        id: tab.id,
+        ...(item.kind === "file" && restored.kind === "file"
+          ? { textAnchors: updateTextAnchors(item.content, restored.content, item.textAnchors) }
+          : {}),
+      } : item)));
       fileUndoRef.current[tab.id] = [];
       fileRedoRef.current[tab.id] = [];
       setRecentFiles((current) => rememberRecentFiles(current, [{ path: tab.filePath!, name: result.file!.name }]));
@@ -1698,7 +1740,12 @@ function AppShell() {
       fileUndoRef.current[activeTab.id] = history.slice(0, -1);
       fileRedoRef.current[activeTab.id] = [...(fileRedoRef.current[activeTab.id] ?? []), activeTab.content].slice(-HISTORY_LIMIT);
       setTabs((current) =>
-        current.map((tab) => (tab.id === activeTab.id && tab.kind === "file" ? { ...tab, content: previousContent, dirty: true } : tab)),
+        current.map((tab) => (tab.id === activeTab.id && tab.kind === "file" ? {
+          ...tab,
+          content: previousContent,
+          textAnchors: updateTextAnchors(tab.content, previousContent, tab.textAnchors),
+          dirty: true,
+        } : tab)),
       );
       window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(`.file-view[data-tab-id="${activeTab.id}"] .file-editor`)?.focus(), 0);
       return;
@@ -1735,7 +1782,12 @@ function AppShell() {
       fileRedoRef.current[activeTab.id] = history.slice(0, -1);
       fileUndoRef.current[activeTab.id] = [...(fileUndoRef.current[activeTab.id] ?? []), activeTab.content].slice(-HISTORY_LIMIT);
       setTabs((current) =>
-        current.map((tab) => (tab.id === activeTab.id && tab.kind === "file" ? { ...tab, content: nextContent, dirty: true } : tab)),
+        current.map((tab) => (tab.id === activeTab.id && tab.kind === "file" ? {
+          ...tab,
+          content: nextContent,
+          textAnchors: updateTextAnchors(tab.content, nextContent, tab.textAnchors),
+          dirty: true,
+        } : tab)),
       );
       window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(`.file-view[data-tab-id="${activeTab.id}"] .file-editor`)?.focus(), 0);
       return;
@@ -2049,7 +2101,12 @@ function AppShell() {
         fileUndoRef.current[tabId] = [...(fileUndoRef.current[tabId] ?? []), tab.content].slice(-HISTORY_LIMIT);
         fileRedoRef.current[tabId] = [];
         setTabs((current) =>
-          current.map((item) => (item.id === tabId && item.kind === "file" ? { ...item, content: nextContent, dirty: true } : item)),
+          current.map((item) => (item.id === tabId && item.kind === "file" ? {
+            ...item,
+            content: nextContent,
+            textAnchors: updateTextAnchors(item.content, nextContent, item.textAnchors),
+            dirty: true,
+          } : item)),
         );
       } catch (error) {
         message.error(uiText("JSON 处理失败：{0}", [String(error)]));
@@ -3544,6 +3601,8 @@ function AppShell() {
           fileViewStatesRef.current[key] = { ...currentViewState, ...patch };
         }}
         onContentChange={(content) => updateFileContent(tab.id, content)}
+        onAddTextAnchor={(selectionStart, selectionEnd) => addFileTextAnchor(tab.id, selectionStart, selectionEnd)}
+        onRemoveTextAnchor={(anchorId) => removeFileTextAnchor(tab.id, anchorId)}
         onFontSizeChange={(delta) => updateFileFontSize(tab.id, (fontSize) => fontSize + delta)}
         onProgrammerAction={(action, selectionStart, selectionEnd) =>
           applyFileProgrammerAction(tab.id, action, selectionStart, selectionEnd)
@@ -3583,7 +3642,7 @@ function AppShell() {
       }}
     >
     <div
-      className={`app-shell${settings.handwritten ? " handwritten-mode" : ""}${effectiveDarkMode ? " dark-mode" : ""}${sidebarResizing ? " sidebar-resizing" : ""}`}
+      className={`app-shell${settings.handwritten ? " handwritten-mode" : ""}${effectiveDarkMode ? " dark-mode" : ""}${sidebarResizing ? " sidebar-resizing" : ""}${windowFocused ? " window-focused" : ""}`}
       data-tab-layout={settings.tabLayout}
       style={{
         ["--pane-grid" as string]: makePaneGridTemplate(paneWidths),

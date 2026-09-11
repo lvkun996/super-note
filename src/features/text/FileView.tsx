@@ -1,10 +1,10 @@
 import { uiText } from "../../../electron/uiLanguage";
-import { CodeOutlined, CopyOutlined, EditOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
+import { CloseOutlined, CodeOutlined, CopyOutlined, EditOutlined, EllipsisOutlined, PushpinOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Tooltip } from "antd";
 import type { MenuProps } from "antd";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode, WheelEvent as ReactWheelEvent } from "react";
-import type { FileTab, FileViewState, ProgrammerAction, TextSearchTarget, TextSelection } from "../../appTypes";
+import type { FileTab, FileViewState, ProgrammerAction, TextAnchor, TextSearchTarget, TextSelection } from "../../appTypes";
 import {
   continueOrderedList,
   findHttpUrlAtOffset,
@@ -20,6 +20,7 @@ import {
 import { useTextEditorSelection } from "./useTextEditorSelection";
 import { getFileDocumentMode } from "./fileDocument";
 import { getTextCaretPositions, type TextCaretPosition } from "./textCaretLayout";
+import { getTextAnchorLine } from "./textAnchors";
 import { MarkdownEditorModal } from "./MarkdownEditorModal";
 
 const EMPTY_SELECTION: TextSelection = { start: 0, end: 0 };
@@ -35,6 +36,8 @@ type FileViewProps = {
   viewState?: FileViewState;
   onViewStateChange: (patch: Partial<FileViewState>) => void;
   onContentChange: (content: string) => void;
+  onAddTextAnchor: (selectionStart: number, selectionEnd: number) => void;
+  onRemoveTextAnchor: (anchorId: string) => void;
   onFontSizeChange: (delta: number) => void;
   onProgrammerAction: (action: ProgrammerAction, selectionStart: number, selectionEnd: number) => void;
   onSearchTargetHandled: (requestId: number) => void;
@@ -51,6 +54,8 @@ export function FileView({
   viewState,
   onViewStateChange,
   onContentChange,
+  onAddTextAnchor,
+  onRemoveTextAnchor,
   onFontSizeChange,
   onProgrammerAction,
   onSearchTargetHandled,
@@ -63,6 +68,8 @@ export function FileView({
   const markdownScrollSnapshotRef = useRef<{ sourceTop: number; sourceLeft: number; previewTop: number } | null>(null);
   const restoredViewRef = useRef<string | null>(null);
   const [markdownEditorOpen, setMarkdownEditorOpen] = useState(false);
+  const [anchorRailVisible, setAnchorRailVisible] = useState(true);
+  const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
   const [markdownRender, setMarkdownRender] = useState<{
     tabId: string;
@@ -73,11 +80,37 @@ export function FileView({
   const fontSize = tab.fontSize ?? 13;
   const documentMode = getFileDocumentMode(tab);
   const hasSelection = selection.end > selection.start;
+  const textAnchors = tab.textAnchors ?? [];
   const activeSearchTarget = searchTarget?.tabId === tab.id ? searchTarget : null;
   const displayTitle = title?.trim() || tab.title.trim() || uiText("未命名文本");
   const titleBar = (
     <header className="file-title-bar" aria-label={uiText("文档标题栏")}>
       <h1 className="file-title" title={displayTitle}>{displayTitle}</h1>
+      <Tooltip
+        title={textAnchors.length > 0
+          ? (anchorRailVisible ? uiText("隐藏锚点") : uiText("显示锚点"))
+          : uiText("选中文本后右键设为锚点")}
+        placement="bottom"
+      >
+        <Button
+          type="text"
+          className={`file-title-anchor${anchorRailVisible && textAnchors.length > 0 ? " active" : ""}`}
+          icon={<PushpinOutlined />}
+          aria-label={uiText("锚点")}
+          aria-pressed={anchorRailVisible && textAnchors.length > 0}
+          onClick={() => {
+            if (textAnchors.length === 0) return;
+            if (documentMode === "markdown" && !markdownEditorOpen) {
+              setAnchorRailVisible(true);
+              setMarkdownEditorOpen(true);
+              return;
+            }
+            setAnchorRailVisible((current) => !current);
+          }}
+        >
+          {textAnchors.length > 0 ? <span className="file-title-anchor-count">{textAnchors.length}</span> : null}
+        </Button>
+      </Tooltip>
       {documentMode === "markdown" ? (
         <Tooltip title={uiText("编辑")} placement="bottom">
           <Button
@@ -127,6 +160,8 @@ export function FileView({
 
   useEffect(() => {
     setMarkdownEditorOpen(false);
+    setAnchorRailVisible(true);
+    setActiveAnchorId(null);
     setSelection(EMPTY_SELECTION);
     clearMultiCarets();
   }, [clearMultiCarets, documentMode, tab.id]);
@@ -389,6 +424,20 @@ export function FileView({
       disabled: !hasSelection,
       onClick: () => void copySelection(),
     },
+    {
+      key: "set-text-anchor",
+      label: uiText("设为锚点"),
+      icon: <PushpinOutlined />,
+      disabled: !hasSelection,
+      onClick: () => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        const current = getTextSelection(editor);
+        if (current.end <= current.start) return;
+        setAnchorRailVisible(true);
+        onAddTextAnchor(current.start, current.end);
+      },
+    },
     ...(programmerMode
       ? [
           { type: "divider" as const },
@@ -485,6 +534,67 @@ export function FileView({
     }
   };
 
+  const jumpToTextAnchor = (anchor: TextAnchor) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const offset = Math.max(0, Math.min(anchor.start, editor.value.length));
+    const measured = getTextCaretPositions(highlightRef.current, [offset], editor.value.length)[0];
+    const lineHeight = Number.parseFloat(window.getComputedStyle(editor).lineHeight) || fontSize * 1.65;
+    const line = getTextAnchorLine(tab.content, offset) - 1;
+    const targetTop = measured
+      ? editor.scrollTop + measured.top - editor.clientHeight * 0.28
+      : line * lineHeight - editor.clientHeight * 0.28;
+    editor.scrollTop = Math.max(0, Math.min(targetTop, editor.scrollHeight - editor.clientHeight));
+    editor.focus({ preventScroll: true });
+    editor.setSelectionRange(offset, offset);
+    setSelection({ start: offset, end: offset });
+    setActiveAnchorId(anchor.id);
+    syncEditorScroll(editor);
+  };
+
+  const renderTextAnchorRail = () => {
+    if (!anchorRailVisible || textAnchors.length === 0) return null;
+    const totalLines = Math.max(1, tab.content.split(/\r?\n/u).length);
+    return (
+      <aside className="text-anchor-rail" aria-label={uiText("锚点导航")}>
+        <span className="text-anchor-track" aria-hidden />
+        {textAnchors.map((anchor, index) => {
+          const line = getTextAnchorLine(tab.content, anchor.start);
+          const progress = totalLines > 1 ? (line - 1) / (totalLines - 1) : 0;
+          const position = Math.max(2, Math.min(98, progress * 100));
+          return (
+            <div
+              key={anchor.id}
+              className={`text-anchor-item${activeAnchorId === anchor.id ? " active" : ""}${progress > 0.72 ? " lower" : ""}`}
+              style={{ top: `${position}%` }}
+            >
+              <button
+                type="button"
+                className="text-anchor-marker"
+                aria-label={uiText("跳转到锚点 {0}", [index + 1])}
+                onClick={() => jumpToTextAnchor(anchor)}
+              />
+              <div className="text-anchor-card" title={anchor.label}>
+                <button type="button" className="text-anchor-card-main" onClick={() => jumpToTextAnchor(anchor)}>
+                  <strong><span>{index + 1}.</span>{anchor.label}</strong>
+                  <small>{uiText("第 {0} 行", [line])}</small>
+                </button>
+                <button
+                  type="button"
+                  className="text-anchor-remove"
+                  aria-label={uiText("移除锚点 {0}", [index + 1])}
+                  onClick={() => onRemoveTextAnchor(anchor.id)}
+                >
+                  <CloseOutlined />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </aside>
+    );
+  };
+
   const renderedMarkdown =
     markdownRender?.tabId === tab.id &&
     markdownRender.content === tab.content &&
@@ -551,7 +661,10 @@ export function FileView({
           onClose={() => setMarkdownEditorOpen(false)}
           source={
             <Dropdown menu={{ items: contextMenuItems }} trigger={["contextMenu"]}>
-              {markdownEditor}
+              <div className={`markdown-source-anchor-wrap${anchorRailVisible && textAnchors.length > 0 ? " has-text-anchors" : ""}`}>
+                {renderTextAnchorRail()}
+                {markdownEditor}
+              </div>
             </Dropdown>
           }
           preview={
@@ -586,7 +699,8 @@ export function FileView({
   };
 
   const textEditor = (
-    <div className={`file-editor-wrap${multiCarets.length > 0 ? " has-multi-carets" : ""}`}>
+    <div className={`file-editor-wrap${multiCarets.length > 0 ? " has-multi-carets" : ""}${anchorRailVisible && textAnchors.length > 0 ? " has-text-anchors" : ""}`}>
+      {renderTextAnchorRail()}
       <pre ref={highlightRef} className="file-highlight" aria-hidden>
         {renderPlainHighlight()}<span className="file-highlight-end-marker">{"\u200b"}</span>
       </pre>

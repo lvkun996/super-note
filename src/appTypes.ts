@@ -40,6 +40,13 @@ export type CanvasSnapshot = {
 export type FileDocumentMode = "text" | "markdown";
 export type MarkdownRenderEnv = { filePath?: string };
 
+export type TextAnchor = {
+  id: string;
+  start: number;
+  end: number;
+  label: string;
+};
+
 export type CanvasTab = {
   id: string;
   pinned?: boolean;
@@ -68,6 +75,7 @@ export type FileTab = {
   fileName: string;
   filePath?: string;
   content: string;
+  textAnchors?: TextAnchor[];
   documentMode?: FileDocumentMode;
   fontSize?: number;
   themeIndex: number;
