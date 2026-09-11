@@ -1589,11 +1589,6 @@ body.ctrl-key-down .text-http-link:hover {
   background: #fff;
 }
 
-.file-editor-wrap.has-text-anchors .file-highlight,
-.file-editor-wrap.has-text-anchors > .file-editor {
-  padding-left: 52px;
-}
-
 .markdown-source-anchor-wrap {
   position: relative;
   width: 100%;
@@ -1601,211 +1596,91 @@ body.ctrl-key-down .text-http-link:hover {
   min-height: 0;
 }
 
-.markdown-source-anchor-wrap.has-text-anchors .markdown-source-editor.file-editor {
-  padding-left: 52px;
+.text-anchor-dropdown .ant-dropdown-menu {
+  width: min(340px, calc(100vw - 24px));
+  max-height: min(360px, calc(100vh - 84px));
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
-.text-anchor-rail {
-  position: absolute;
-  z-index: 7;
-  top: 12px;
-  bottom: 12px;
-  left: 5px;
-  width: 30px;
-  pointer-events: none;
+.text-anchor-dropdown .ant-dropdown-menu.ant-dropdown-menu .ant-dropdown-menu-item {
+  min-height: 30px;
+  padding: 3px 4px 3px 9px;
 }
 
-.text-anchor-track {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 11px;
-  width: 10px;
-  border-left: 1px solid rgba(88, 101, 118, 0.22);
-  background: repeating-linear-gradient(to bottom, transparent 0 8px, rgba(88, 101, 118, 0.24) 8px 9px, transparent 9px 16px);
-  background-size: 7px 16px;
-  background-position: left top;
-  background-repeat: repeat-y;
-}
-
-.text-anchor-item {
-  position: absolute;
-  left: 0;
-  width: 30px;
-  height: 14px;
-  transform: translateY(-50%);
-  pointer-events: auto;
-}
-
-.text-anchor-marker {
-  position: absolute;
-  inset: 0;
-  width: 30px;
-  height: 14px;
-  padding: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-.text-anchor-marker::after {
-  content: "";
-  position: absolute;
-  top: 6px;
-  left: 11px;
-  width: 12px;
-  height: 1px;
-  border-radius: 999px;
-  background: #8f99a7;
-  transition: width 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
-}
-
-.text-anchor-item:hover .text-anchor-marker::after,
-.text-anchor-item:focus-within .text-anchor-marker::after,
-.text-anchor-item.active .text-anchor-marker::after {
-  width: 20px;
-  background: #202124;
-  box-shadow: 0 0 0 2px rgba(32, 33, 36, 0.08);
-}
-
-.text-anchor-marker:focus-visible::after {
-  outline: 2px solid #1677ff;
-  outline-offset: 2px;
-}
-
-.text-anchor-card {
-  position: absolute;
-  z-index: 9;
-  top: 7px;
-  left: 29px;
-  width: min(310px, calc(100vw - 110px));
-  min-height: 58px;
-  padding: 5px;
+.text-anchor-menu-label {
+  width: 100%;
+  min-width: 0;
   display: flex;
-  align-items: flex-start;
-  gap: 2px;
-  visibility: hidden;
-  opacity: 0;
-  transform: translateY(-50%) translateX(-4px);
-  border: 1px solid rgba(30, 42, 60, 0.1);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 12px 30px rgba(28, 39, 56, 0.16);
-  backdrop-filter: blur(16px) saturate(145%);
-  transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease;
+  align-items: center;
+  gap: 6px;
 }
 
-.text-anchor-item.lower .text-anchor-card {
-  top: 14px;
-  transform: translateY(-100%) translateX(-4px);
+.text-anchor-dropdown .ant-dropdown-menu-title-content {
+  min-width: 0;
+  display: block;
 }
 
-.text-anchor-item:hover .text-anchor-card,
-.text-anchor-item:focus-within .text-anchor-card {
-  visibility: visible;
-  opacity: 1;
-  transform: translateY(-50%) translateX(0);
-}
-
-.text-anchor-item.lower:hover .text-anchor-card,
-.text-anchor-item.lower:focus-within .text-anchor-card {
-  transform: translateY(-100%) translateX(0);
-}
-
-.text-anchor-card-main {
+.text-anchor-menu-text {
   min-width: 0;
   flex: 1;
-  padding: 7px 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: #20242a;
-  text-align: left;
-  cursor: pointer;
-}
-
-.text-anchor-card-main:hover {
-  background: rgba(31, 35, 41, 0.04);
-}
-
-.text-anchor-card-main strong {
-  width: 100%;
   overflow: hidden;
+  color: #20242a;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
-  font-weight: 650;
 }
 
-.text-anchor-card-main strong span {
+.text-anchor-menu-text b {
   margin-right: 4px;
-  color: #596473;
+  font-weight: 700;
 }
 
-.text-anchor-card-main small {
-  color: #7a8596;
-  font-size: 11px;
-}
-
-.text-anchor-remove {
-  width: 24px;
-  height: 24px;
+.text-anchor-menu-remove {
+  width: 22px;
+  height: 22px;
+  flex: none;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 6px;
+  border-radius: 5px;
   background: transparent;
   color: #8b94a2;
   cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
 }
 
-.text-anchor-remove:hover {
-  background: rgba(31, 35, 41, 0.05);
+.text-anchor-dropdown .ant-dropdown-menu-item:hover .text-anchor-menu-remove,
+.text-anchor-menu-remove:focus-visible {
+  opacity: 1;
+}
+
+.text-anchor-menu-remove:hover {
+  background: rgba(31, 35, 41, 0.06);
   color: #202124;
 }
 
-.dark-mode .text-anchor-track {
-  border-left-color: rgba(174, 190, 210, 0.22);
-  background-image: repeating-linear-gradient(to bottom, transparent 0 8px, rgba(174, 190, 210, 0.24) 8px 9px, transparent 9px 16px);
+.text-anchor-dropdown .text-anchor-menu-item-active {
+  background: rgba(31, 35, 41, 0.045);
 }
 
-.dark-mode .text-anchor-marker::after {
-  background: #718096;
-}
-
-.dark-mode .text-anchor-item:hover .text-anchor-marker::after,
-.dark-mode .text-anchor-item:focus-within .text-anchor-marker::after,
-.dark-mode .text-anchor-item.active .text-anchor-marker::after {
-  background: #edf3fb;
-  box-shadow: 0 0 0 2px rgba(237, 243, 251, 0.08);
-}
-
-.dark-mode .text-anchor-card {
-  border-color: rgba(222, 234, 249, 0.1);
-  background: rgba(24, 34, 48, 0.94);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
-}
-
-.dark-mode .text-anchor-card-main {
+body:has(.app-shell.dark-mode) .text-anchor-menu-text {
   color: #edf3fb;
 }
 
-.dark-mode .text-anchor-card-main:hover,
-.dark-mode .text-anchor-remove:hover {
-  background: rgba(255, 255, 255, 0.05);
+body:has(.app-shell.dark-mode) .text-anchor-menu-remove {
+  color: #94a1b3;
 }
 
-.dark-mode .text-anchor-card-main strong span,
-.dark-mode .text-anchor-card-main small,
-.dark-mode .text-anchor-remove {
-  color: #94a1b3;
+body:has(.app-shell.dark-mode) .text-anchor-menu-remove:hover,
+body:has(.app-shell.dark-mode) .text-anchor-dropdown .text-anchor-menu-item-active {
+  background: rgba(255, 255, 255, 0.055);
+  color: #edf3fb;
 }
 
 .dark-mode .file-editor-wrap {
@@ -2625,12 +2500,12 @@ body.ctrl-key-down .text-http-link:hover {
     opacity: 1;
   }
 
-  .text-anchor-card {
+  .text-anchor-dropdown .ant-dropdown-menu {
     background: #fff;
     backdrop-filter: none;
   }
 
-  .dark-mode .text-anchor-card {
+  body:has(.app-shell.dark-mode) .text-anchor-dropdown .ant-dropdown-menu {
     background: #182230;
   }
 }
