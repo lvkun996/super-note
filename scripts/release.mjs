@@ -265,6 +265,14 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.30") {
+    return [
+      "Super Note v0.1.30", "",
+      "- 文本与 Markdown 源码中的锚点增加连续数字标识，与标题栏锚点列表保持一致。",
+      "- 顶部菜单悬浮状态统一为通栏矩形样式。",
+      "- 调整窗口聚焦时的顶栏和侧栏透明度，并统一侧栏操作区与文档标题栏高度。",
+    ].join("\n");
+  }
   if (version === "0.1.29") {
     return [
       "Super Note v0.1.29", "",

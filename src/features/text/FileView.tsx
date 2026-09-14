@@ -173,18 +173,30 @@ export function FileView({
   });
 
   const [caretPositions, setCaretPositions] = useState<TextCaretPosition[]>([]);
-  const syncCaretPositions = useCallback(() => {
+  const [anchorPositions, setAnchorPositions] = useState<Array<TextCaretPosition & { id: string; index: number }>>([]);
+  const syncEditorOverlayPositions = useCallback(() => {
     setCaretPositions(getTextCaretPositions(highlightRef.current, multiCarets, tab.content.length));
-  }, [multiCarets, tab.content.length]);
+    const measured = new Map(
+      getTextCaretPositions(highlightRef.current, textAnchors.map((anchor) => anchor.end), tab.content.length)
+        .map((position) => [position.offset, position]),
+    );
+    const maxLeft = Math.max(0, (editorRef.current?.clientWidth ?? 0) - 24);
+    setAnchorPositions(textAnchors.flatMap((anchor, index) => {
+      const position = measured.get(anchor.end);
+      return position
+        ? [{ ...position, id: anchor.id, index: index + 1, left: Math.min(position.left, maxLeft) }]
+        : [];
+    }));
+  }, [multiCarets, tab.content.length, textAnchors]);
 
   useLayoutEffect(() => {
-    syncCaretPositions();
+    syncEditorOverlayPositions();
     const mirror = highlightRef.current;
-    if (!mirror || multiCarets.length === 0) return;
-    const observer = new ResizeObserver(syncCaretPositions);
+    if (!mirror || (multiCarets.length === 0 && textAnchors.length === 0)) return;
+    const observer = new ResizeObserver(syncEditorOverlayPositions);
     observer.observe(mirror);
     return () => observer.disconnect();
-  }, [syncCaretPositions, multiCarets.length, tab.content, fontSize, searchValue, documentMode]);
+  }, [syncEditorOverlayPositions, multiCarets.length, textAnchors.length, tab.content, fontSize, searchValue, documentMode, markdownEditorOpen]);
 
   useEffect(() => {
     setMarkdownEditorOpen(false);
@@ -331,7 +343,7 @@ export function FileView({
       highlightRef.current.scrollTop = editor.scrollTop;
       highlightRef.current.scrollLeft = editor.scrollLeft;
     }
-    syncCaretPositions();
+    syncEditorOverlayPositions();
     onViewStateChange({ editorScrollTop: editor.scrollTop, editorScrollLeft: editor.scrollLeft });
   };
 
@@ -579,6 +591,37 @@ export function FileView({
     syncEditorScroll(editor);
   }
 
+  const renderPlainHighlight = (): ReactNode => {
+    const start = activeSearchTarget?.selectionStart;
+    const end = activeSearchTarget?.selectionEnd;
+    if (start == null || end == null || start < 0 || end < start || start > tab.content.length) {
+      return renderTextWithLinks(tab.content || " ", searchValue);
+    }
+    const boundedEnd = Math.min(end, tab.content.length);
+    return (
+      <>
+        {renderTextWithLinks(tab.content.slice(0, start), searchValue)}
+        <span className="file-search-position-marker">{"\u200b"}</span>
+        {renderTextWithLinks(tab.content.slice(start, boundedEnd), searchValue)}
+        {renderTextWithLinks(tab.content.slice(boundedEnd), searchValue)}
+      </>
+    );
+  };
+
+  const renderAnchorMarkers = () => (
+    <div className="file-anchor-layer" aria-hidden>
+      {anchorPositions.map((position) => (
+        <span
+          key={position.id}
+          className={`file-anchor-marker${activeAnchorId === position.id ? " active" : ""}`}
+          style={{ left: position.left, top: position.top }}
+        >
+          {position.index}
+        </span>
+      ))}
+    </div>
+  );
+
   const renderedMarkdown =
     markdownRender?.tabId === tab.id &&
     markdownRender.content === tab.content &&
@@ -645,7 +688,13 @@ export function FileView({
           onClose={() => setMarkdownEditorOpen(false)}
           source={
             <Dropdown menu={{ items: contextMenuItems }} trigger={["contextMenu"]}>
-              <div className="markdown-source-anchor-wrap">{markdownEditor}</div>
+              <div className="markdown-source-anchor-wrap">
+                <pre ref={highlightRef} className="file-highlight markdown-source-highlight" aria-hidden>
+                  {tab.content || " "}<span className="file-highlight-end-marker">{"\u200b"}</span>
+                </pre>
+                {markdownEditor}
+                {renderAnchorMarkers()}
+              </div>
             </Dropdown>
           }
           preview={
@@ -662,23 +711,6 @@ export function FileView({
     );
   }
 
-  const renderPlainHighlight = (): ReactNode => {
-    const start = activeSearchTarget?.selectionStart;
-    const end = activeSearchTarget?.selectionEnd;
-    if (start == null || end == null || start < 0 || end < start || start > tab.content.length) {
-      return renderTextWithLinks(tab.content || " ", searchValue);
-    }
-    const boundedEnd = Math.min(end, tab.content.length);
-    return (
-      <>
-        {renderTextWithLinks(tab.content.slice(0, start), searchValue)}
-        <span className="file-search-position-marker">{"\u200b"}</span>
-        {renderTextWithLinks(tab.content.slice(start, boundedEnd), searchValue)}
-        {renderTextWithLinks(tab.content.slice(boundedEnd), searchValue)}
-      </>
-    );
-  };
-
   const textEditor = (
     <div className={`file-editor-wrap${multiCarets.length > 0 ? " has-multi-carets" : ""}`}>
       <pre ref={highlightRef} className="file-highlight" aria-hidden>
@@ -689,6 +721,7 @@ export function FileView({
           <span key={caret.offset} className="file-multi-caret" style={{ left: caret.left, top: caret.top, height: caret.height }} />
         ))}
       </div>
+      {renderAnchorMarkers()}
       <textarea
         ref={editorRef}
         className="file-editor"

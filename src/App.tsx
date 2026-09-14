@@ -153,6 +153,12 @@ const canvasThemes: CanvasTheme[] = [
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
   {
+    version: "v0.1.30",
+    date: "2026-09-14",
+    title: uiText("锚点标识与导航细节统一"),
+    description: uiText("正文锚点增加连续数字标识；统一顶部菜单悬浮样式、窗口聚焦透明度和侧栏操作区高度。"),
+  },
+  {
     version: "v0.1.29",
     date: "2026-09-11",
     title: uiText("锚点导航与窗口层次优化"),
@@ -643,14 +649,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.27",
+    version: "0.1.30",
     author: "kunkun",
     desc: uiText("认识自身平凡后，依旧拥有改变世界的勇气"),
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.27",
+    currentVersion: "0.1.30",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);

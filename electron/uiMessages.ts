@@ -1,5 +1,7 @@
 // Exact source keys keep user-authored tab titles and document content out of translation.
 export const englishMessages: Record<string, string> = {
+  "锚点标识与导航细节统一": "Anchor markers and navigation refinements",
+  "正文锚点增加连续数字标识；统一顶部菜单悬浮样式、窗口聚焦透明度和侧栏操作区高度。": "Added numbered in-document anchor markers and aligned menu hover states, focused-window translucency, and sidebar action-row height.",
   "粘贴": "Paste",
   "你想写些什么？": "What would you like to write?",
   "JSON 与 Markdown 编辑体验": "JSON and Markdown editing",
