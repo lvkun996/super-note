@@ -234,7 +234,7 @@ export function FileView({
   }, [documentMode, markdownEditorOpen, tab.id, viewState]);
 
   useEffect(() => {
-    if (documentMode !== "markdown") {
+    if (documentMode !== "markdown" || tab.isPreviewOnly) {
       setMarkdownRender(null);
       return;
     }
@@ -477,7 +477,7 @@ export function FileView({
         onAddTextAnchor(current.start, current.end);
       },
     },
-    ...(programmerMode
+    ...(programmerMode && !tab.isPreviewOnly
       ? [
           { type: "divider" as const },
           {
@@ -641,6 +641,19 @@ export function FileView({
     ) : (
       <article className={`markdown-body markdown-empty ${className}`}>{uiText("开始写 Markdown...")}</article>
     );
+
+  if (tab.isPreviewOnly) {
+    const previewKilobytes = Math.max(1, Math.round((tab.previewBytes ?? tab.content.length) / 1024));
+    return (
+      <div className="file-view file-preview-only" data-tab-id={tab.id} style={{ ["--file-font-size" as string]: `${fontSize}px` }}>
+        {showTitleBar ? titleBar : null}
+        <section className="file-large-preview" aria-label={uiText("大文本预览")}>
+          <p>{uiText("为避免卡顿，仅显示前 {0} KB，原文件保持不变", [previewKilobytes])}</p>
+          <pre>{tab.content}</pre>
+        </section>
+      </div>
+    );
+  }
 
   if (documentMode === "markdown") {
     const markdownEditor = (

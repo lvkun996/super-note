@@ -81,6 +81,8 @@ export type FileTab = {
   themeIndex: number;
   lastKnownMtimeMs?: number;
   lastKnownSize?: number;
+  isPreviewOnly?: boolean;
+  previewBytes?: number;
   dirty: boolean;
 };
 
@@ -130,6 +132,7 @@ export type ShortcutAction =
   | "deleteSelected"
   | "previousTab"
   | "nextTab"
+  | "toggleSidebar"
   | "toggleTabLayout"
   | "splitLeft"
   | "splitRight";
@@ -143,6 +146,7 @@ export type AppSettings = {
   darkMode: boolean;
   followSystemTheme: boolean;
   tabLayout: TabLayout;
+  sidebarVisible: boolean;
   sidebarWidth: number;
   defaultSaveDirectory: string;
   plugins: PluginSettings;

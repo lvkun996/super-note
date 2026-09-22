@@ -265,6 +265,15 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.31") {
+    return [
+      "Super Note v0.1.31", "",
+      "- 保存 .json 文件时自动以统一缩进格式写入，保留合法 JSON 的必要语法。",
+      "- 大文本文件只读取并显示前 512 KB 的只读预览，避免完整内容进入编辑器导致卡死，也不会覆盖原始文件。",
+      "- 双击已选标签可编辑名称，Ctrl+B 显示或隐藏侧栏，Ctrl+Shift+B 切换标签栏布局。",
+      "- 进一步提高窗口聚焦时导航边框的透明程度。",
+    ].join("\n");
+  }
   if (version === "0.1.30") {
     return [
       "Super Note v0.1.30", "",

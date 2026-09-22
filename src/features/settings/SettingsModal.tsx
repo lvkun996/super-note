@@ -21,6 +21,7 @@ const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; desc: string
   { action: "deleteSelected", label: uiText("删除选中元素"), desc: uiText("删除画板中选中的元素") },
   { action: "previousTab", label: uiText("打开上一个标签"), desc: uiText("顶部布局使用当前设置；左侧布局固定使用 Ctrl+↑") },
   { action: "nextTab", label: uiText("打开下一个标签"), desc: uiText("顶部布局使用当前设置；左侧布局固定使用 Ctrl+↓") },
+  { action: "toggleSidebar", label: uiText("显示或隐藏左侧栏"), desc: uiText("仅在侧边模式中显示或隐藏左侧标签栏") },
   { action: "toggleTabLayout", label: uiText("切换标签栏位置"), desc: uiText("在顶部标签栏和左侧标签菜单之间切换") },
   { action: "splitLeft", label: uiText("向左分割视图"), desc: uiText("把当前标签分割到左侧视图") },
   { action: "splitRight", label: uiText("向右分割视图"), desc: uiText("把当前标签分割到右侧视图") },

@@ -6,6 +6,8 @@ type OpenedFile = {
   content: string;
   mtimeMs?: number;
   size?: number;
+  truncated?: boolean;
+  previewBytes?: number;
 };
 
 type WorkspaceResult = {
@@ -43,6 +45,7 @@ type SaveFileResult = {
   name?: string;
   mtimeMs?: number;
   size?: number;
+  content?: string;
   error?: string;
 };
 

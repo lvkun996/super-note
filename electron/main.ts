@@ -3,6 +3,7 @@ import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcM
 import { autoUpdater } from "electron-updater";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { formatContentForSave, LARGE_TEXT_PREVIEW_BYTES, readTextFilePreview } from "./fileContent";
 import { atomicWriteText, getFileMetadata, isWorkspaceJson, readJsonFileCandidate } from "./fileStorage";
 import { appendExtensionIfMissing } from "./filePathUtils";
 import { isNewerVersion } from "./versionUtils";
@@ -41,7 +42,7 @@ const updateResumeCheckCooldownMs = 60 * 1000;
 type TrayTab = { id: string; title: string; kind: "file" | "canvas" };
 let trayTabState: { activeTabId: string; tabs: TrayTab[] } = { activeTabId: "", tabs: [] };
 
-type OpenedFile = { path: string; name: string; content: string; mtimeMs?: number; size?: number };
+type OpenedFile = { path: string; name: string; content: string; mtimeMs?: number; size?: number; truncated?: boolean; previewBytes?: number };
 type MindMapStylePayload = { tabId: string; title?: string; style: Record<string, unknown>; darkMode: boolean };
 
 function parseMindMapStylePayload(value: unknown): MindMapStylePayload | null {
@@ -249,12 +250,18 @@ async function readOpenedFiles(filePaths: string[]): Promise<OpenedFile[]> {
   for (const filePath of filePaths) {
     try {
       const metadata = await getFileMetadata(filePath);
+      const shouldLimitPreview = path.extname(filePath).toLowerCase() !== ".snote";
+      const preview = shouldLimitPreview
+        ? await readTextFilePreview(filePath, metadata.size ?? 0)
+        : { content: await readFile(filePath, "utf8"), truncated: false };
       files.push({
         path: filePath,
         name: path.basename(filePath),
-        content: await readFile(filePath, "utf8"),
+        content: preview.content,
         mtimeMs: metadata.mtimeMs,
         size: metadata.size,
+        truncated: preview.truncated,
+        ...(preview.truncated ? { previewBytes: LARGE_TEXT_PREVIEW_BYTES } : {}),
       });
     } catch (error) {
       console.warn(`Unable to open file from command line: ${filePath}`, error);
@@ -934,7 +941,8 @@ ipcMain.handle(
     }
 
     try {
-      const metadata = await atomicWriteText(filePath, payload.content);
+      const content = formatContentForSave(filePath, payload.content);
+      const metadata = await atomicWriteText(filePath, content);
       return {
         ok: true,
         canceled: false,
@@ -942,6 +950,7 @@ ipcMain.handle(
         name: path.basename(filePath),
         mtimeMs: metadata.mtimeMs,
         size: metadata.size,
+        content,
       };
     } catch (error) {
       return { ok: false, canceled: false, path: filePath, error: String(error) };

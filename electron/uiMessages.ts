@@ -1,5 +1,7 @@
 // Exact source keys keep user-authored tab titles and document content out of translation.
 export const englishMessages: Record<string, string> = {
+  "大文本与保存体验优化": "Large text and saving improvements",
+  "保存 JSON 时自动规范格式；大文本改为安全只读预览，并优化窗口聚焦时的边框透明度。": "JSON saves now use consistent formatting, large text opens safely in read-only preview, and focused window borders are more translucent.",
   "锚点标识与导航细节统一": "Anchor markers and navigation refinements",
   "正文锚点增加连续数字标识；统一顶部菜单悬浮样式、窗口聚焦透明度和侧栏操作区高度。": "Added numbered in-document anchor markers and aligned menu hover states, focused-window translucency, and sidebar action-row height.",
   "粘贴": "Paste",
@@ -111,6 +113,8 @@ export const englishMessages: Record<string, string> = {
   "打开已有文件": "Open existing file", "快速打开 ({0})": "Quick open ({0})", "最近文件": "Recent files",
   "保存文件": "Save file", "关闭当前标签 ({0})": "Close current tab ({0})",
   "切换到顶部标签栏": "Switch to top tabs", "切换到左侧标签菜单": "Switch to sidebar tabs",
+  "显示左侧栏": "Show sidebar", "隐藏左侧栏": "Hide sidebar", "显示或隐藏左侧栏": "Show or hide sidebar",
+  "仅在侧边模式中显示或隐藏左侧标签栏": "Show or hide the tab sidebar in sidebar mode",
   "搜索当前页 ({0})": "Find in current tab ({0})", "撤销 ({0})": "Undo ({0})", "重做 ({0})": "Redo ({0})",
   "粘贴 ({0})": "Paste ({0})", "删除选中元素 ({0})": "Delete selection ({0})",
   "向左分割视图 ({0})": "Split left ({0})", "向右分割视图 ({0})": "Split right ({0})",
@@ -158,6 +162,7 @@ export const englishMessages: Record<string, string> = {
   "竖向选择": "Column selection", "在文本模块中按住鼠标左键片刻后竖向拖动，可连续选择多行内容；也支持中键直接拖动选择。": "Hold the left mouse button briefly, then drag vertically to select multiple lines, or drag with the middle mouse button.",
   "关闭标签": "Close tab", "关闭最后一个标签后会进入空工作区。": "Closing the last tab opens the empty workspace.",
   "切换标签栏位置": "Switch tab layout", "设置中可选择顶栏模式或侧边模式；标签支持拖拽排序，右键可置顶、移除、编辑名称或在资源管理器打开。": "Choose top or sidebar tabs in Settings. Drag to reorder, or right-click to pin, remove, rename, or reveal a file in Explorer.",
+  "Ctrl+B 显示或隐藏左侧栏，Ctrl+Shift+B 切换顶栏与侧边模式；双击已选中的标签可编辑名称。": "Ctrl+B shows or hides the sidebar, Ctrl+Shift+B switches tab layouts, and double-clicking the selected tab renames it.",
   "欢迎页": "Welcome", "你想让我们在": "What would you like to create in ", "中构建什么？": "?",
   "图片读取失败": "Could not read image", "图片无法读取": "Image is unreadable", "当前环境无法创建图片画布": "Image canvas is unavailable in this environment",
   "剪切": "Cut", "复制": "Copy", "输入文字": "Enter text", "编辑": "Edit", "删除": "Delete", "预览": "Preview",
@@ -203,6 +208,8 @@ export const englishMessages: Record<string, string> = {
   "标签菜单": "Tab menu", "标签": "Tabs", "调整侧边栏宽度": "Resize sidebar", "文档标题栏": "Document title bar", "文档操作": "Document actions",
   "正在加载 Markdown...": "Loading Markdown...", "开始写 Markdown...": "Start writing Markdown...", "# 标题\n\n开始编写 Markdown...": "# Title\n\nStart writing Markdown...",
   "文件为空，可以直接编辑": "This file is empty. Start typing.", "界面语言": "Language", "切换时自动保存工作区并重新加载界面。": "Switching saves your workspace and reloads the interface.", "简体中文": "简体中文",
+  "大文本预览": "Large text preview", "为避免卡顿，仅显示前 {0} KB，原文件保持不变": "To keep the app responsive, only the first {0} KB is shown. The original file remains unchanged.",
+  "大文本以只读预览打开，不能直接保存；原文件未被修改": "Large text files open as read-only previews and cannot be saved directly. The original file was not changed.",
   "下载中断，正在重试 {0}/{1}": "Download interrupted. Retrying {0}/{1}",
   "下载中断，{0} 秒后重试 {1}/{2}：{3}": "Download interrupted. Retrying {1}/{2} in {0} seconds: {3}",
   "下载失败，已重试 {0} 次：{1}": "Download failed after {0} retries: {1}",

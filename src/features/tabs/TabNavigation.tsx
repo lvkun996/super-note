@@ -293,6 +293,12 @@ function TabNavigationComponent({
           onContextMenu={(event) => event.preventDefault()}
           onPointerDown={(event) => beginPointerDrag(event, tab.id, pane)}
           onClick={suppressDragClick}
+          onDoubleClick={(event) => {
+            if (!isActive || event.target instanceof Element && event.target.closest(".tab-close")) return;
+            event.preventDefault();
+            event.stopPropagation();
+            onRenameTab(tab.id);
+          }}
         >
           <span className="tab-title" title={tab.title}>{tab.title}</span>
           {renderCloseButton(tab, pane, isActive)}
@@ -397,6 +403,12 @@ function TabNavigationComponent({
                     }
                   }}
                   onPointerDown={(event) => beginPointerDrag(event, tab.id, pane)}
+                  onDoubleClick={(event) => {
+                    if (!isActive || event.target instanceof Element && event.target.closest(".tab-close")) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onRenameTab(tab.id);
+                  }}
                   onContextMenu={(event) => event.preventDefault()}
                 >
                   <span className="tab-title" title={tab.title}>{tab.title}</span>

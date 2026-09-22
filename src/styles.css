@@ -410,7 +410,7 @@ input {
 .app-shell.window-focused .tabs-bar,
 .app-shell.window-focused .tabs-sidebar,
 .app-shell.window-focused .tabs-sidebar-resizer {
-  opacity: 0.9;
+  opacity: 0.86;
 }
 
 .tabs-sidebar-header {
@@ -1686,6 +1686,50 @@ body:has(.app-shell.dark-mode) .text-anchor-dropdown .text-anchor-menu-item-acti
 
 .dark-mode .file-editor-wrap {
   background: #101722;
+}
+
+.file-large-preview {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  background: #fff;
+}
+
+.file-large-preview > p {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 8px 20px;
+  border-bottom: 1px solid #e7ebf2;
+  background: rgba(250, 251, 252, 0.96);
+  color: #687385;
+  font-size: 12px;
+}
+
+.file-large-preview > pre {
+  margin: 0;
+  padding: 20px 20px 36px;
+  color: #1e2228;
+  font-family: var(--content-font-family);
+  font-size: var(--file-font-size, 13px);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dark-mode .file-large-preview {
+  background: #101722;
+}
+
+.dark-mode .file-large-preview > p {
+  border-bottom-color: #283648;
+  background: rgba(16, 23, 34, 0.96);
+  color: #9dacbf;
+}
+
+.dark-mode .file-large-preview > pre {
+  color: #e8eef7;
 }
 
 .file-highlight,

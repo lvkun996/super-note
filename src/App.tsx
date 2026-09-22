@@ -11,7 +11,7 @@ import {
   Tooltip,
   theme,
 } from "antd";
-import type { MenuProps } from "antd";
+import type { InputRef, MenuProps } from "antd";
 import {
   BookOutlined,
   CheckOutlined,
@@ -47,8 +47,6 @@ import donationImageUrl from "../assets/wechat-donation.jpg";
 import { flushSync } from "react-dom";
 import { neutralConfirmDialog, neutralInfoDialog } from "./features/overlays/dialogPresets";
 import { ZoomIndicator } from "./features/overlays/ZoomIndicator";
-import { HelpDocumentation } from "./components/HelpDocumentation";
-import { SettingsModal } from "./features/settings/SettingsModal";
 import type {
   AppSettings,
   CanvasItem,
@@ -133,11 +131,14 @@ const LONG_PRESS_MS = 160;
 const STORAGE_KEY = "super-note-workspace";
 const DEFAULT_FILE_FONT_SIZE = 13;
 const SEARCH_RESULT_LIMIT = 80;
+const WORKSPACE_SAVE_DEBOUNCE_MS = 600;
 const INITIAL_PANE_ID = "pane-main";
 const SITE_URL = "https://lvkun996.github.io/super-note/";
 
 const LazyCanvasView = lazy(() => import("./features/canvas/CanvasView").then(({ CanvasView }) => ({ default: CanvasView })));
 const LazyFileView = lazy(() => import("./features/text/FileView").then(({ FileView }) => ({ default: FileView })));
+const LazyHelpDocumentation = lazy(() => import("./components/HelpDocumentation").then(({ HelpDocumentation }) => ({ default: HelpDocumentation })));
+const LazySettingsModal = lazy(() => import("./features/settings/SettingsModal").then(({ SettingsModal }) => ({ default: SettingsModal })));
 function FeatureLoading({ label = uiText("正在加载...") }: { label?: string }) {
   return <div className="feature-loading" role="status">{label}</div>;
 }
@@ -152,6 +153,12 @@ const canvasThemes: CanvasTheme[] = [
 ];
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.31",
+    date: "2026-09-22",
+    title: uiText("大文本与保存体验优化"),
+    description: uiText("保存 JSON 时自动规范格式；大文本改为安全只读预览，并优化窗口聚焦时的边框透明度。"),
+  },
   {
     version: "v0.1.30",
     date: "2026-09-14",
@@ -415,6 +422,8 @@ function createFileTab(file: OpenedFile, themeIndex: number): FileTab {
     themeIndex,
     lastKnownMtimeMs: file.mtimeMs,
     lastKnownSize: file.size,
+    isPreviewOnly: file.truncated,
+    previewBytes: file.previewBytes,
     dirty: false,
   };
 }
@@ -649,14 +658,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.30",
+    version: "0.1.31",
     author: "kunkun",
     desc: uiText("认识自身平凡后，依旧拥有改变世界的勇气"),
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.30",
+    currentVersion: "0.1.31",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -860,12 +869,6 @@ function AppShell() {
 
   const languageReloadRef = useRef(false);
   useEffect(() => {
-    const donationImage = new Image();
-    donationImage.decoding = "async";
-    donationImage.src = donationImageUrl;
-  }, []);
-
-  useEffect(() => {
     if (!workspaceLoaded || languageReloadRef.current) return;
     if (settings.language === getUiLanguage()) {
       void window.superNote?.setLanguage(settings.language);
@@ -903,7 +906,14 @@ function AppShell() {
     setSettings((current) => ({
       ...current,
       tabLayout: current.tabLayout === "left" ? "top" : "left",
+      ...(current.tabLayout === "top" ? { sidebarVisible: true } : {}),
     }));
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSettings((current) => current.tabLayout === "left"
+      ? { ...current, sidebarVisible: !current.sidebarVisible }
+      : current);
   }, []);
 
   useEffect(() => {
@@ -913,7 +923,7 @@ function AppShell() {
     if (saveTimerRef.current !== null) {
       window.clearTimeout(saveTimerRef.current);
     }
-    saveTimerRef.current = window.setTimeout(() => void persistWorkspace(), 250);
+    saveTimerRef.current = window.setTimeout(() => void persistWorkspace(), WORKSPACE_SAVE_DEBOUNCE_MS);
     return () => {
       if (saveTimerRef.current !== null) {
         window.clearTimeout(saveTimerRef.current);
@@ -1280,11 +1290,20 @@ function AppShell() {
         }
         const filePath = window.superNote?.getPathForFile?.(file) || (file as File & { path?: string }).path;
         try {
-          fileTabs.push({
-            path: filePath,
-            name: file.name,
-            content: await file.text(),
-          });
+          if (filePath && window.superNote) {
+            const result = await window.superNote.readFile(filePath);
+            if (!result.ok || !result.file) {
+              throw new Error(result.error ?? file.name);
+            }
+            fileTabs.push(result.file);
+          } else {
+            fileTabs.push({
+              path: filePath,
+              name: file.name,
+              content: await file.text(),
+              size: file.size,
+            });
+          }
         } catch (error) {
           message.error(uiText("读取文件失败：{0}，{1}", [file.name, String(error)]));
         }
@@ -1490,10 +1509,14 @@ function AppShell() {
     const tab = tabsRef.current.find((item) => item.id === tabId);
     if (!tab) return;
     let nextTitle = getTabDisplayTitle(tab);
+    let inputRef: InputRef | null = null;
     modal.confirm({
       ...neutralConfirmDialog,
       title: uiText("重命名标签"),
-      content: <div className="rename-dialog"><p>{uiText("保持简短且易于识别")}</p><Input autoFocus defaultValue={nextTitle} maxLength={80} onChange={(event) => { nextTitle = event.target.value; }} /></div>,
+      content: <div className="rename-dialog"><p>{uiText("保持简短且易于识别")}</p><Input ref={(node) => { inputRef = node; }} autoFocus defaultValue={nextTitle} maxLength={80} onChange={(event) => { nextTitle = event.target.value; }} /></div>,
+      afterOpenChange: (open) => {
+        if (open) window.requestAnimationFrame(() => inputRef?.focus({ cursor: "all" }));
+      },
       okText: uiText("保存"),
       cancelText: uiText("取消"),
       onOk: () => {
@@ -1650,6 +1673,10 @@ function AppShell() {
 
     try {
       if (activeTab.kind === "file") {
+        if (activeTab.isPreviewOnly) {
+          message.warning(uiText("大文本以只读预览打开，不能直接保存；原文件未被修改"));
+          return;
+        }
         const isNewFile = !activeTab.filePath;
         const documentMode = getFileDocumentMode(activeTab);
         const requiredExtension = documentMode === "markdown" ? "md" : "txt";
@@ -1684,6 +1711,8 @@ function AppShell() {
                   documentMode: tab.documentMode === "markdown" || isMarkdownFileName(result.name) || isMarkdownFileName(result.path) ? "markdown" : "text",
                   lastKnownMtimeMs: result.mtimeMs,
                   lastKnownSize: result.size,
+                  content: result.content ?? tab.content,
+                  textAnchors: updateTextAnchors(tab.content, result.content ?? tab.content, tab.textAnchors),
                   dirty: false,
                 }
               : tab,
@@ -2099,6 +2128,10 @@ function AppShell() {
           message.warning(uiText("程序员工具仅支持文本模块和画布文字元素"));
           return;
         }
+        if (tab.isPreviewOnly) {
+          message.warning(uiText("大文本以只读预览打开，不能直接保存；原文件未被修改"));
+          return;
+        }
 
         const start = clamp(Math.min(selectionStart, selectionEnd), 0, tab.content.length);
         const end = clamp(Math.max(selectionStart, selectionEnd), 0, tab.content.length);
@@ -2331,6 +2364,9 @@ function AppShell() {
         window.setTimeout(() => document.getElementById("quick-open-input")?.focus(), 0);
       } else if (quickOpenOpen) {
         return;
+      } else if (!searchOpen && !settingsOpen && settings.tabLayout === "left" && shortcutMatches(event, settings.shortcuts.toggleSidebar)) {
+        event.preventDefault();
+        toggleSidebar();
       } else if (!searchOpen && !settingsOpen && shortcutMatches(event, settings.shortcuts.toggleTabLayout)) {
         event.preventDefault();
         toggleTabLayout();
@@ -2423,6 +2459,7 @@ function AppShell() {
       settings.shortcuts,
       settings.tabLayout,
       settingsOpen,
+      toggleSidebar,
       toggleTabLayout,
       undo,
       updateFileFontSize,
@@ -3278,6 +3315,12 @@ function AppShell() {
       icon: settings.tabLayout === "left" ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />,
       onClick: toggleTabLayout,
     },
+    ...(settings.tabLayout === "left" ? [{
+      key: "toggle-sidebar",
+      label: `${settings.sidebarVisible ? uiText("隐藏左侧栏") : uiText("显示左侧栏")} (${settings.shortcuts.toggleSidebar})`,
+      icon: settings.sidebarVisible ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />,
+      onClick: toggleSidebar,
+    }] : []),
     { type: "divider" },
     {
       key: "search",
@@ -3366,7 +3409,9 @@ function AppShell() {
           width: 760,
           content: (
             <div className="scrollable-modal-content">
-              <HelpDocumentation canvasPluginEnabled={canvasPluginEnabled} shortcuts={settings.shortcuts} />
+              <Suspense fallback={<FeatureLoading label={uiText("正在加载文档...")} />}>
+                <LazyHelpDocumentation canvasPluginEnabled={canvasPluginEnabled} shortcuts={settings.shortcuts} />
+              </Suspense>
             </div>
           ),
         }),
@@ -3750,7 +3795,7 @@ function AppShell() {
       </header>
 
       <div className={`app-content-shell tab-layout-${settings.tabLayout}`}>
-        <TabNavigation
+        {settings.tabLayout !== "left" || settings.sidebarVisible ? <TabNavigation
           layout={settings.tabLayout}
           tabs={tabNavigationItems}
           paneIds={renderedPaneIds}
@@ -3779,7 +3824,7 @@ function AppShell() {
           onAddText={addTextTab}
           onStartSplitResize={startSplitResize}
           onStartSidebarResize={startSidebarResize}
-        />
+        /> : null}
 
         <main className={renderedSplitView ? "workspace multi-pane" : "workspace"}>
           {renderedPaneIds.flatMap((paneId, index) => [
@@ -3902,12 +3947,14 @@ function AppShell() {
       ) : null}
 
       {settingsOpen ? (
-        <SettingsModal
-          open
-          settings={settings}
-          onClose={() => setSettingsOpen(false)}
-          onChange={setSettings}
-        />
+        <Suspense fallback={null}>
+          <LazySettingsModal
+            open
+            settings={settings}
+            onClose={() => setSettingsOpen(false)}
+            onChange={setSettings}
+          />
+        </Suspense>
       ) : null}
       {imagePreview ? (
         <div className="image-preview-layer" role="dialog" aria-modal="true" onClick={() => setImagePreview(null)}>

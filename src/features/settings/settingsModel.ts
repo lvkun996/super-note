@@ -19,7 +19,8 @@ export const DEFAULT_SHORTCUTS: ShortcutConfig = {
   deleteSelected: "Backspace",
   previousTab: "Ctrl+Left",
   nextTab: "Ctrl+Right",
-  toggleTabLayout: "Ctrl+B",
+  toggleSidebar: "Ctrl+B",
+  toggleTabLayout: "Ctrl+Shift+B",
   splitLeft: "Ctrl+Shift+Left",
   splitRight: "Ctrl+Shift+Right",
 };
@@ -31,6 +32,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   darkMode: false,
   followSystemTheme: false,
   tabLayout: "top",
+  sidebarVisible: true,
   sidebarWidth: 220,
   defaultSaveDirectory: "",
   plugins: DEFAULT_PLUGIN_SETTINGS,
@@ -105,6 +107,7 @@ export function shortcutMatches(event: KeyboardEvent, shortcut: string) {
 
 export function normalizeSettings(value?: Partial<AppSettings>): AppSettings {
   const shortcuts = { ...DEFAULT_SHORTCUTS, ...(value?.shortcuts ?? {}) };
+  if (value?.shortcuts?.toggleTabLayout === "Ctrl+B") shortcuts.toggleTabLayout = DEFAULT_SHORTCUTS.toggleTabLayout;
   if (!value?.shortcuts?.deleteSelected || value.shortcuts.deleteSelected === "Delete") shortcuts.deleteSelected = DEFAULT_SHORTCUTS.deleteSelected;
   if (!value?.shortcuts?.previousTab && value?.shortcuts?.splitLeft === "Ctrl+Left") shortcuts.splitLeft = DEFAULT_SHORTCUTS.splitLeft;
   if (!value?.shortcuts?.nextTab && value?.shortcuts?.splitRight === "Ctrl+Right") shortcuts.splitRight = DEFAULT_SHORTCUTS.splitRight;
@@ -116,6 +119,7 @@ export function normalizeSettings(value?: Partial<AppSettings>): AppSettings {
     darkMode: Boolean(value?.darkMode),
     followSystemTheme: Boolean(value?.followSystemTheme),
     tabLayout: value?.tabLayout === "left" ? "left" : "top",
+    sidebarVisible: value?.sidebarVisible !== false,
     sidebarWidth: Math.min(480, Math.max(160, Number(value?.sidebarWidth) || DEFAULT_SETTINGS.sidebarWidth)),
     defaultSaveDirectory: typeof value?.defaultSaveDirectory === "string" ? value.defaultSaveDirectory : "",
     plugins: normalizePluginSettings(value?.plugins),
