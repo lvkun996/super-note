@@ -175,11 +175,15 @@ export function FileView({
   const [caretPositions, setCaretPositions] = useState<TextCaretPosition[]>([]);
   const [anchorPositions, setAnchorPositions] = useState<Array<TextCaretPosition & { id: string; index: number }>>([]);
   const syncEditorOverlayPositions = useCallback(() => {
-    setCaretPositions(getTextCaretPositions(highlightRef.current, multiCarets, tab.content.length));
+    const anchorOffsets = textAnchors.map((anchor) => anchor.end);
     const measured = new Map(
-      getTextCaretPositions(highlightRef.current, textAnchors.map((anchor) => anchor.end), tab.content.length)
+      getTextCaretPositions(highlightRef.current, [...multiCarets, ...anchorOffsets], tab.content.length)
         .map((position) => [position.offset, position]),
     );
+    setCaretPositions(multiCarets.flatMap((offset) => {
+      const position = measured.get(offset);
+      return position ? [position] : [];
+    }));
     const maxLeft = Math.max(0, (editorRef.current?.clientWidth ?? 0) - 24);
     setAnchorPositions(textAnchors.flatMap((anchor, index) => {
       const position = measured.get(anchor.end);

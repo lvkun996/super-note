@@ -166,6 +166,22 @@ input {
   flex-direction: row;
 }
 
+.tab-navigation-loading {
+  flex: 0 0 32px;
+  height: 32px;
+  border-bottom: 1px solid #e5e8ef;
+  background: var(--navigation-background);
+}
+
+.tab-layout-left .tab-navigation-loading {
+  width: var(--sidebar-width, 220px);
+  min-width: var(--sidebar-width, 220px);
+  height: auto;
+  flex-basis: var(--sidebar-width, 220px);
+  border-right: 1px solid #dfe7e5;
+  border-bottom: 0;
+}
+
 .tabs-bar {
   height: 32px;
   min-height: 32px;
@@ -696,10 +712,34 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   width: 100%;
   height: 100%;
   min-height: 72px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   color: #8c96a8;
   font-size: 12px;
+}
+
+.feature-loading-indicator {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: feature-loading-spin 800ms linear infinite;
+}
+
+@keyframes feature-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feature-loading-indicator {
+    animation: none;
+    border-right-color: currentColor;
+    opacity: 0.55;
+  }
 }
 
 .dark-mode .feature-loading {

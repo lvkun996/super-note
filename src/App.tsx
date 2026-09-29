@@ -3,12 +3,7 @@ import enUS from "antd/locale/en_US";
 import zhCN from "antd/locale/zh_CN";
 import {
   App as AntApp,
-  Button,
   ConfigProvider,
-  Dropdown,
-  Empty,
-  Input,
-  Tooltip,
   theme,
 } from "antd";
 import type { InputRef, MenuProps } from "antd";
@@ -75,6 +70,8 @@ import type {
   TabLayout,
 } from "./appTypes";
 import { EmptyWorld } from "./components/EmptyWorld";
+import { FeatureLoading } from "./components/FeatureLoading";
+import type { QuickOpenItem } from "./components/GlobalSearchOverlays";
 import { WelcomeWorld } from "./components/WelcomeWorld";
 import { dispatchCanvasItemDrag, dispatchCanvasItemDragEnd } from "./features/canvas/canvasLiveDrag";
 import {
@@ -88,13 +85,11 @@ import {
 } from "./features/canvas/canvasUtils";
 import {
   openExternalUrl,
-  renderHighlightedText,
   transformJsonText,
   writeClipboardText,
 } from "./features/editor/editorUtils";
 import { DEFAULT_SETTINGS, normalizeSettings, shortcutMatches } from "./features/settings/settingsModel";
 import { rememberTabVisit, removeTabVisit, resolveTabAfterClose } from "./features/tabs/tabHistory";
-import { TabNavigation } from "./features/tabs/TabNavigation";
 import { reorderTabsById, sortPinnedTabs, toggleTabPinned } from "./features/tabs/tabOrder";
 import type { TabDropPosition } from "./features/tabs/tabOrder";
 import { formatOpenedFileContent, getFileDocumentMode, isMarkdownFileName } from "./features/text/fileDocument";
@@ -136,13 +131,13 @@ const INITIAL_PANE_ID = "pane-main";
 const SITE_URL = "https://lvkun996.github.io/super-note/";
 
 const LazyCanvasView = lazy(() => import("./features/canvas/CanvasView").then(({ CanvasView }) => ({ default: CanvasView })));
+const LazyAppTitleBar = lazy(() => import("./components/AppTitleBar").then(({ AppTitleBar }) => ({ default: AppTitleBar })));
 const LazyFileView = lazy(() => import("./features/text/FileView").then(({ FileView }) => ({ default: FileView })));
 const LazyHelpDocumentation = lazy(() => import("./components/HelpDocumentation").then(({ HelpDocumentation }) => ({ default: HelpDocumentation })));
 const LazySettingsModal = lazy(() => import("./features/settings/SettingsModal").then(({ SettingsModal }) => ({ default: SettingsModal })));
-function FeatureLoading({ label = uiText("正在加载...") }: { label?: string }) {
-  return <div className="feature-loading" role="status">{label}</div>;
-}
-
+const LazyTabNavigation = lazy(() => import("./features/tabs/TabNavigation").then(({ TabNavigation }) => ({ default: TabNavigation })));
+const LazyGlobalSearchOverlays = lazy(() => import("./components/GlobalSearchOverlays").then(({ GlobalSearchOverlays }) => ({ default: GlobalSearchOverlays })));
+const LazyRenameTabInput = lazy(() => import("./components/RenameTabInput").then(({ RenameTabInput }) => ({ default: RenameTabInput })));
 const canvasThemes: CanvasTheme[] = [
   { accent: "#1677ff" },
   { accent: "#13c2c2" },
@@ -1513,7 +1508,7 @@ function AppShell() {
     modal.confirm({
       ...neutralConfirmDialog,
       title: uiText("重命名标签"),
-      content: <div className="rename-dialog"><p>{uiText("保持简短且易于识别")}</p><Input ref={(node) => { inputRef = node; }} autoFocus defaultValue={nextTitle} maxLength={80} onChange={(event) => { nextTitle = event.target.value; }} /></div>,
+      content: <div className="rename-dialog"><p>{uiText("保持简短且易于识别")}</p><Suspense fallback={<span />}><LazyRenameTabInput inputRef={(node) => { inputRef = node; }} defaultValue={nextTitle} onChange={(value) => { nextTitle = value; }} /></Suspense></div>,
       afterOpenChange: (open) => {
         if (open) window.requestAnimationFrame(() => inputRef?.focus({ cursor: "all" }));
       },
@@ -3210,7 +3205,7 @@ function AppShell() {
   );
 
   const openQuickOpenResult = useCallback(
-    async (result: (typeof quickOpenResults)[number]) => {
+    async (result: QuickOpenItem) => {
       if (result.kind === "recent") {
         await openFilePath(result.filePath);
         closeQuickOpen();
@@ -3708,94 +3703,37 @@ function AppShell() {
       onDragOver={handleAppDragOver}
       onDrop={handleAppDrop}
     >
-      <header className="app-titlebar">
-        <div className="titlebar-left">
-          <span className="app-brand" role="button" tabIndex={0} aria-label={uiText("打开欢迎页")} onClick={() => setWelcomeVisible(true)} onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              setWelcomeVisible(true);
-            }
-          }}>
-            <span className="app-title-stack">
-              <span className="app-title">Super Note</span>
-            </span>
-          </span>
-        <div className="menu-left">
-          <Dropdown menu={{ items: fileMenu }} trigger={["click"]}>
-            <Button type="text">{uiText("文件")}</Button>
-          </Dropdown>
-          <Dropdown menu={{ items: pluginMenu }} trigger={["click"]}>
-            <Button type="text">{uiText("插件")}</Button>
-          </Dropdown>
-          <Dropdown menu={{ items: operationMenu }} trigger={["click"]}>
-            <Button type="text">{uiText("操作")}</Button>
-          </Dropdown>
-          <Button type="text" onClick={() => setSettingsOpen(true)}>{uiText("设置")}</Button>
-          <Dropdown menu={{ items: helpMenu }} trigger={["click"]}>
-            <Button type="text">{uiText("帮助")}</Button>
-          </Dropdown>
-          {updateButtonVisible ? (
-            <Tooltip title={updateButtonTitle}>
-              <Button
-                type="primary"
-                size="small"
-                className="update-button"
-                icon={<CloudDownloadOutlined />}
-                loading={updateButtonLoading}
-                onClick={handleUpdateClick}
-              >
-                {updateButtonText}
-              </Button>
-            </Tooltip>
-          ) : null}
-        </div>
-
-        </div>
-
-        <div className="window-controls">
-          <Tooltip title={uiText("搜索全部标签")}>
-            <Button
-              type="text"
-              className="window-control"
-              aria-label={uiText("搜索")}
-              icon={<SearchOutlined />}
-              onClick={() => openSearch("all")}
-            />
-          </Tooltip>
-          <Tooltip title={alwaysOnTop ? uiText("取消置顶") : uiText("窗口置顶")}>
-            <Button
-              type="text"
-              className="window-control"
-              icon={alwaysOnTop ? <PushpinFilled /> : <PushpinOutlined />}
-              onClick={async () => {
-                const next = !alwaysOnTop;
-                setAlwaysOnTop(next);
-                await window.superNote?.setAlwaysOnTop(next);
-              }}
-            />
-          </Tooltip>
-          <Tooltip title={effectiveDarkMode ? uiText("切换为日间模式") : uiText("切换为夜间模式")}>
-            <Button
-              type="text"
-              className="window-control"
-              icon={effectiveDarkMode ? <SunOutlined /> : <MoonOutlined />}
-              onClick={() =>
-                setSettings((current) => ({
-                  ...current,
-                  followSystemTheme: false,
-                  darkMode: !effectiveDarkMode,
-                }))
-              }
-            />
-          </Tooltip>
-          <Button type="text" className="window-control" icon={<MinusOutlined />} onClick={() => window.superNote?.minimizeWindow()} />
-          <Button type="text" className="window-control" icon={<BorderOutlined />} onClick={() => window.superNote?.toggleMaximizeWindow()} />
-          <Button type="text" className="window-control close" icon={<CloseOutlined />} onClick={() => window.superNote?.closeWindow()} />
-        </div>
-      </header>
+      <Suspense fallback={<div className="app-titlebar" aria-hidden="true" />}>
+        <LazyAppTitleBar
+          fileMenu={fileMenu}
+          pluginMenu={pluginMenu}
+          operationMenu={operationMenu}
+          helpMenu={helpMenu}
+          updateButtonVisible={updateButtonVisible}
+          updateButtonTitle={updateButtonTitle}
+          updateButtonLoading={updateButtonLoading}
+          updateButtonText={updateButtonText}
+          alwaysOnTop={alwaysOnTop}
+          darkMode={effectiveDarkMode}
+          onOpenWelcome={() => setWelcomeVisible(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSearch={() => openSearch("all")}
+          onToggleAlwaysOnTop={async () => {
+            const next = !alwaysOnTop;
+            setAlwaysOnTop(next);
+            await window.superNote?.setAlwaysOnTop(next);
+          }}
+          onToggleTheme={() => setSettings((current) => ({
+            ...current,
+            followSystemTheme: false,
+            darkMode: !effectiveDarkMode,
+          }))}
+          onUpdateClick={handleUpdateClick}
+        />
+      </Suspense>
 
       <div className={`app-content-shell tab-layout-${settings.tabLayout}`}>
-        {settings.tabLayout !== "left" || settings.sidebarVisible ? <TabNavigation
+        {settings.tabLayout !== "left" || settings.sidebarVisible ? <Suspense fallback={<div className="tab-navigation-loading" aria-hidden="true" />}><LazyTabNavigation
           layout={settings.tabLayout}
           tabs={tabNavigationItems}
           paneIds={renderedPaneIds}
@@ -3824,7 +3762,7 @@ function AppShell() {
           onAddText={addTextTab}
           onStartSplitResize={startSplitResize}
           onStartSidebarResize={startSidebarResize}
-        /> : null}
+        /></Suspense> : null}
 
         <main className={renderedSplitView ? "workspace multi-pane" : "workspace"}>
           {renderedPaneIds.flatMap((paneId, index) => [
@@ -3859,91 +3797,24 @@ function AppShell() {
         </div>
       ) : null}
 
-      {quickOpenOpen ? (
-        <div className="global-search-layer">
-          <div className="global-search-box">
-            <Input
-              id="quick-open-input"
-              autoFocus
-              allowClear
-              prefix={<FolderOpenOutlined />}
-              placeholder={uiText("输入标签名、文件名或路径")}
-              value={quickOpenValue}
-              onChange={(event) => setQuickOpenValue(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && quickOpenResults[0]) {
-                  event.preventDefault();
-                  void openQuickOpenResult(quickOpenResults[0]);
-                }
-              }}
-              suffix={uiText("{0} 个结果", [quickOpenResults.length])}
-            />
-            <div className="search-results">
-              {quickOpenResults.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={uiText("没有匹配的标签或最近文件")} /> : null}
-              {quickOpenResults.map((result) => (
-                <button
-                  key={result.id}
-                  type="button"
-                  className="search-result"
-                  onClick={() => void openQuickOpenResult(result)}
-                >
-                  <span className="search-result-title">
-                    {result.kind === "recent" ? <HistoryOutlined /> : <FileTextOutlined />}
-                    {result.title}
-                  </span>
-                  <span className="search-result-preview">{result.detail}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {searchOpen ? (
-        <div className="global-search-layer">
-          <div className="global-search-box">
-            <Input
-              id="global-search-input"
-              autoFocus
-              allowClear
-              prefix={<SearchOutlined />}
-              placeholder={searchScope === "current" ? uiText("搜索当前页内容，再按一次 Ctrl+F 搜索全部标签") : uiText("搜索所有标签内容")}
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && searchResults[0]) {
-                  event.preventDefault();
-                  void openSearchResult(searchResults[0]);
-                  closeSearch();
-                }
-              }}
-              suffix={searchValue ? uiText("{0} · {1} 个匹配", [searchScope === "current" ? uiText("当前页") : uiText("全部标签"), searchResults.length]) : null}
-            />
-            {searchValue.trim() ? (
-              <div className="search-results">
-                {searchResults.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={uiText("没有匹配内容")} /> : null}
-                {searchResults.map((result) => (
-                  <button
-                    key={result.id}
-                    type="button"
-                    className="search-result"
-                    onClick={() => {
-                      void openSearchResult(result);
-                      closeSearch();
-                    }}
-                  >
-                    <span className="search-result-title">
-                      {result.kind !== "canvas-text" ? <FileTextOutlined /> : null}
-                      {result.title}
-                      {result.line ? uiText(" · 第 {0} 行", [result.line]) : ""}
-                    </span>
-                    <span className="search-result-preview">{renderHighlightedText(result.preview, deferredSearchValue)}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
+      {quickOpenOpen || searchOpen ? (
+        <Suspense fallback={null}>
+          <LazyGlobalSearchOverlays
+            quickOpenOpen={quickOpenOpen}
+            quickOpenValue={quickOpenValue}
+            quickOpenResults={quickOpenResults}
+            onQuickOpenValueChange={setQuickOpenValue}
+            onOpenQuickOpenResult={openQuickOpenResult}
+            searchOpen={searchOpen}
+            searchScope={searchScope}
+            searchValue={searchValue}
+            deferredSearchValue={deferredSearchValue}
+            searchResults={searchResults}
+            onSearchValueChange={setSearchValue}
+            onOpenSearchResult={openSearchResult}
+            onCloseSearch={closeSearch}
+          />
+        </Suspense>
       ) : null}
 
       {settingsOpen ? (
