@@ -25,6 +25,12 @@ type PointerDrag = {
   startX: number;
   startY: number;
   dragging: boolean;
+  element: HTMLElement;
+  clientX: number;
+  clientY: number;
+  offsetX: number;
+  offsetY: number;
+  preview: { title: string; width: number; height: number } | null;
 };
 
 type DropIndicator = {
@@ -99,9 +105,25 @@ function TabNavigationComponent({
 }: TabNavigationProps) {
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [dropIndicator, setDropIndicator] = useState<DropIndicator>(null);
+  const [dragPreview, setDragPreview] = useState<PointerDrag["preview"]>(null);
   const pointerDragRef = useRef<PointerDrag | null>(null);
+  const previewElementRef = useRef<HTMLDivElement | null>(null);
+  const previewFrameRef = useRef<number | null>(null);
   const dropIndicatorRef = useRef<DropIndicator>(null);
   const suppressClickRef = useRef(false);
+
+  const positionDragPreview = useCallback(() => {
+    const drag = pointerDragRef.current;
+    const element = previewElementRef.current;
+    if (drag && element) {
+      element.style.transform = `translate3d(${drag.clientX - drag.offsetX}px, ${drag.clientY - drag.offsetY}px, 0)`;
+    }
+  }, []);
+
+  const attachDragPreview = useCallback((element: HTMLDivElement | null) => {
+    previewElementRef.current = element;
+    positionDragPreview();
+  }, [positionDragPreview]);
 
   const paneTabs = useMemo(() => {
     const tabById = new Map(tabs.map((tab) => [tab.id, tab]));
@@ -111,25 +133,48 @@ function TabNavigationComponent({
   }, [paneIds, paneTabIds, tabs]);
 
   const finishDrag = useCallback(() => {
+    const drag = pointerDragRef.current;
     pointerDragRef.current = null;
+    if (previewFrameRef.current !== null) {
+      cancelAnimationFrame(previewFrameRef.current);
+      previewFrameRef.current = null;
+    }
+    if (drag?.element.hasPointerCapture(drag.pointerId)) {
+      drag.element.releasePointerCapture(drag.pointerId);
+    }
     dropIndicatorRef.current = null;
     setDraggedTabId(null);
     setDropIndicator(null);
+    setDragPreview(null);
   }, []);
 
-  const beginPointerDrag = useCallback((event: ReactPointerEvent<HTMLElement>, tabId: string, sourcePane: PaneKey) => {
+  const beginPointerDrag = useCallback((event: ReactPointerEvent<HTMLElement>, tab: TabNavigationItem, sourcePane: PaneKey) => {
     if (event.button !== 0 || event.target instanceof Element && event.target.closest(".tab-close")) {
       return;
     }
+    const rect = event.currentTarget.getBoundingClientRect();
     pointerDragRef.current = {
       pointerId: event.pointerId,
-      tabId,
+      tabId: tab.id,
       sourcePane,
       startX: event.clientX,
       startY: event.clientY,
       dragging: false,
+      element: event.currentTarget,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      preview: layout === "left" ? { title: tab.title, width: rect.width, height: rect.height } : null,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
+  }, [layout]);
+
+  useEffect(() => () => {
+    if (previewFrameRef.current !== null) cancelAnimationFrame(previewFrameRef.current);
+    const drag = pointerDragRef.current;
+    pointerDragRef.current = null;
+    if (drag?.element.hasPointerCapture(drag.pointerId)) drag.element.releasePointerCapture(drag.pointerId);
   }, []);
 
   useEffect(() => {
@@ -138,6 +183,8 @@ function TabNavigationComponent({
       if (!drag || drag.pointerId !== event.pointerId) {
         return;
       }
+      drag.clientX = event.clientX;
+      drag.clientY = event.clientY;
       if (!drag.dragging) {
         if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) {
           return;
@@ -145,9 +192,17 @@ function TabNavigationComponent({
         drag.dragging = true;
         suppressClickRef.current = true;
         setDraggedTabId(drag.tabId);
+        setDragPreview(drag.preview);
       }
 
       event.preventDefault();
+      // Follow the grab point without rerendering the list for every pointer move.
+      if (drag.preview && previewFrameRef.current === null) {
+        previewFrameRef.current = requestAnimationFrame(() => {
+          previewFrameRef.current = null;
+          positionDragPreview();
+        });
+      }
       const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-tab-id]");
       const targetId = target?.dataset.tabId;
       if (!target || !targetId || targetId === drag.tabId) {
@@ -189,15 +244,31 @@ function TabNavigationComponent({
       }
     };
 
+    const cancelDrag = () => {
+      if (!pointerDragRef.current) return;
+      suppressClickRef.current = false;
+      finishDrag();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && pointerDragRef.current) {
+        event.preventDefault();
+        cancelDrag();
+      }
+    };
+
     window.addEventListener("pointermove", handlePointerMove, { passive: false });
     window.addEventListener("pointerup", handlePointerUp);
     window.addEventListener("pointercancel", handlePointerCancel);
+    window.addEventListener("blur", cancelDrag);
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerCancel);
+      window.removeEventListener("blur", cancelDrag);
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [finishDrag, layout, onMoveTabToPane, onReorderTab]);
+  }, [finishDrag, layout, onMoveTabToPane, onReorderTab, positionDragPreview]);
 
   const suppressDragClick = useCallback((event: MouseEvent<HTMLElement>) => {
     if (suppressClickRef.current) {
@@ -291,7 +362,7 @@ function TabNavigationComponent({
           className={`tab-label${draggedTabId === tab.id ? " dragging" : ""}${indicator}`}
           style={{ ["--tab-accent" as string]: TAB_ACCENTS[tab.themeIndex % TAB_ACCENTS.length] } as CSSProperties}
           onContextMenu={(event) => event.preventDefault()}
-          onPointerDown={(event) => beginPointerDrag(event, tab.id, pane)}
+          onPointerDown={(event) => beginPointerDrag(event, tab, pane)}
           onClick={suppressDragClick}
           onDoubleClick={(event) => {
             if (!isActive || event.target instanceof Element && event.target.closest(".tab-close")) return;
@@ -402,7 +473,7 @@ function TabNavigationComponent({
                       onFocusTab(tab.id, pane);
                     }
                   }}
-                  onPointerDown={(event) => beginPointerDrag(event, tab.id, pane)}
+                  onPointerDown={(event) => beginPointerDrag(event, tab, pane)}
                   onDoubleClick={(event) => {
                     if (!isActive || event.target instanceof Element && event.target.closest(".tab-close")) return;
                     event.preventDefault();
@@ -420,6 +491,16 @@ function TabNavigationComponent({
           })}
         </div>
       </aside>
+      {dragPreview ? (
+        <div
+          ref={attachDragPreview}
+          className="tabs-sidebar-drag-preview"
+          aria-hidden="true"
+          style={{ width: dragPreview.width, height: dragPreview.height }}
+        >
+          <span className="tab-title">{dragPreview.title}</span>
+        </div>
+      ) : null}
       <div
         className="tabs-sidebar-resizer"
         role="separator"

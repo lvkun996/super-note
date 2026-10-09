@@ -62,6 +62,7 @@ import type {
   PersistedTab,
   PersistedWorkspace,
   ProgrammerAction,
+  QuickOpenItem,
   RecentFile,
   SearchResult,
   SelectedItem,
@@ -71,7 +72,6 @@ import type {
 } from "./appTypes";
 import { EmptyWorld } from "./components/EmptyWorld";
 import { FeatureLoading } from "./components/FeatureLoading";
-import type { QuickOpenItem } from "./components/GlobalSearchOverlays";
 import { WelcomeWorld } from "./components/WelcomeWorld";
 import { dispatchCanvasItemDrag, dispatchCanvasItemDragEnd } from "./features/canvas/canvasLiveDrag";
 import {
@@ -90,6 +90,8 @@ import {
 } from "./features/editor/editorUtils";
 import { DEFAULT_SETTINGS, normalizeSettings, shortcutMatches } from "./features/settings/settingsModel";
 import { rememberTabVisit, removeTabVisit, resolveTabAfterClose } from "./features/tabs/tabHistory";
+import { getTabDisplayTitle } from "./features/tabs/tabTitle";
+import { getQuickOpenResults, searchWorkspace } from "./features/search/searchModel";
 import { reorderTabsById, sortPinnedTabs, toggleTabPinned } from "./features/tabs/tabOrder";
 import type { TabDropPosition } from "./features/tabs/tabOrder";
 import { formatOpenedFileContent, getFileDocumentMode, isMarkdownFileName } from "./features/text/fileDocument";
@@ -125,7 +127,6 @@ const HISTORY_LIMIT = 80;
 const LONG_PRESS_MS = 160;
 const STORAGE_KEY = "super-note-workspace";
 const DEFAULT_FILE_FONT_SIZE = 13;
-const SEARCH_RESULT_LIMIT = 80;
 const WORKSPACE_SAVE_DEBOUNCE_MS = 600;
 const INITIAL_PANE_ID = "pane-main";
 const SITE_URL = "https://lvkun996.github.io/super-note/";
@@ -148,6 +149,12 @@ const canvasThemes: CanvasTheme[] = [
 ];
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.32",
+    date: "2026-10-09",
+    title: uiText("侧栏拖拽与性能优化"),
+    description: uiText("侧栏拖拽新增半透明浮动预览；优化搜索、标题生成和编辑器覆盖层更新，减少无效计算。"),
+  },
   {
     version: "v0.1.31",
     date: "2026-09-22",
@@ -545,17 +552,6 @@ function isTabEmpty(tab: NoteTab) {
   return !tab.mindMap && tab.items.every((item) => item.type === "text" && item.text.trim().length === 0);
 }
 
-function getTabDisplayTitle(tab: NoteTab) {
-  if (tab.kind !== "file" || tab.filePath || !tab.title.startsWith(uiText("未命名"))) {
-    return tab.title;
-  }
-  const preview = tab.content.replace(/\s+/g, " ").trim();
-  if (!preview) {
-    return tab.title;
-  }
-  return `${Array.from(preview).slice(0, 14).join("")}...`;
-}
-
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -609,18 +605,6 @@ function makePaneGridTemplate(widths: number[]) {
   ]).join(" ");
 }
 
-function makePreview(text: string, query: string, matchIndex?: number) {
-  const lowerText = text.toLowerCase();
-  const lowerQuery = query.toLowerCase();
-  const index = matchIndex ?? lowerText.indexOf(lowerQuery);
-  if (index < 0) {
-    return text.slice(0, 80);
-  }
-  const start = Math.max(0, index - 28);
-  const end = Math.min(text.length, index + query.length + 36);
-  return `${start > 0 ? "..." : ""}${text.slice(start, end)}${end < text.length ? "..." : ""}`;
-}
-
 function AppShell() {
   const { message, modal } = AntApp.useApp();
   const [tabs, setTabs] = useState<NoteTab[]>(() => [createTextTab(0)]);
@@ -653,14 +637,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.31",
+    version: "0.1.32",
     author: "kunkun",
     desc: uiText("认识自身平凡后，依旧拥有改变世界的勇气"),
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.31",
+    currentVersion: "0.1.32",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -3042,115 +3026,16 @@ function AppShell() {
     };
   }, [clearHoldTimer, getTabPanes, scheduleDragPaint, setPaneViewState, updateCanvasTab]);
 
-  const quickOpenResults = useMemo(() => {
-    const needle = quickOpenValue.trim().toLowerCase();
-    const openTabs = tabs
-      .filter((tab) => !needle || getTabDisplayTitle(tab).toLowerCase().includes(needle) || tab.filePath?.toLowerCase().includes(needle))
-      .map((tab) => ({
-        id: `tab:${tab.id}`,
-        kind: "tab" as const,
-        title: getTabDisplayTitle(tab),
-        detail: tab.filePath ?? (tab.kind === "canvas" ? uiText("当前画板") : uiText("未保存文本")),
-        tabId: tab.id,
-      }));
-    const openPaths = new Set(tabs.flatMap((tab) => (tab.filePath ? [tab.filePath.toLowerCase()] : [])));
-    const recent = recentFiles
-      .filter((file) => !openPaths.has(file.path.toLowerCase()))
-      .filter((file) => !needle || file.name.toLowerCase().includes(needle) || file.path.toLowerCase().includes(needle))
-      .map((file) => ({
-        id: `recent:${file.path.toLowerCase()}`,
-        kind: "recent" as const,
-        title: file.name,
-        detail: file.path,
-        filePath: file.path,
-      }));
-    return [...openTabs, ...recent].slice(0, 40);
-  }, [quickOpenValue, recentFiles, tabs]);
+  const quickOpenResults = useMemo(
+    () => quickOpenOpen ? getQuickOpenResults(tabs, recentFiles, quickOpenValue) : [],
+    [quickOpenOpen, quickOpenValue, recentFiles, tabs],
+  );
 
   const deferredSearchValue = useDeferredValue(searchValue);
-  const searchResults = useMemo<SearchResult[]>(() => {
-    const needle = deferredSearchValue.trim();
-    if (!needle) {
-      return [];
-    }
-
-    const results: SearchResult[] = [];
-    const lowerNeedle = needle.toLowerCase();
-    const searchableTabs = searchScope === "current" ? tabs.filter((tab) => tab.id === activeTabId) : tabs;
-    searchableTabs.forEach((tab) => {
-      if (results.length >= SEARCH_RESULT_LIMIT) return;
-      if (getTabDisplayTitle(tab).toLowerCase().includes(lowerNeedle)) {
-        results.push({
-          id: `${tab.id}:title`,
-          tabId: tab.id,
-          kind: "tab-title",
-          title: getTabDisplayTitle(tab),
-          preview: tab.filePath ?? (tab.kind === "canvas" ? uiText("画板标题匹配") : uiText("标签标题匹配")),
-        });
-      }
-      if (tab.kind === "canvas") {
-        tab.items.forEach((item) => {
-          if (results.length < SEARCH_RESULT_LIMIT && item.type === "text" && item.text.toLowerCase().includes(lowerNeedle)) {
-            results.push({
-              id: `${tab.id}:${item.id}`,
-              tabId: tab.id,
-              itemId: item.id,
-              kind: "canvas-text",
-              title: tab.title,
-              preview: makePreview(item.text, needle),
-            });
-          }
-        });
-        return;
-      }
-
-      const lines = tab.content.split(/\r\n|\r|\n/);
-      let lineStart = 0;
-      lines.forEach((line, index) => {
-        if (results.length >= SEARCH_RESULT_LIMIT) return;
-        const lowerLine = line.toLowerCase();
-        let searchFrom = 0;
-        let localIndex = lowerLine.indexOf(lowerNeedle, searchFrom);
-        while (localIndex >= 0) {
-          const selectionStart = lineStart + localIndex;
-          results.push({
-            id: `${tab.id}:match:${selectionStart}`,
-            tabId: tab.id,
-            kind: "file",
-            title: tab.title,
-            line: index + 1,
-            preview: makePreview(line, needle, localIndex),
-            selectionStart,
-            selectionEnd: selectionStart + needle.length,
-          });
-          if (results.length >= SEARCH_RESULT_LIMIT) break;
-          searchFrom = localIndex + Math.max(1, lowerNeedle.length);
-          localIndex = lowerLine.indexOf(lowerNeedle, searchFrom);
-        }
-        const separator = tab.content.slice(lineStart + line.length).match(/^(?:\r\n|\r|\n)/)?.[0] ?? "";
-        lineStart += line.length + separator.length;
-      });
-    });
-    if (searchScope === "all") {
-      const openPaths = new Set(tabs.flatMap((tab) => (tab.filePath ? [tab.filePath.toLowerCase()] : [])));
-      recentFiles.forEach((file) => {
-        if (
-          results.length < SEARCH_RESULT_LIMIT &&
-          !openPaths.has(file.path.toLowerCase()) &&
-          (file.name.toLowerCase().includes(lowerNeedle) || file.path.toLowerCase().includes(lowerNeedle))
-        ) {
-          results.push({
-            id: `recent:${file.path.toLowerCase()}`,
-            filePath: file.path,
-            kind: "recent-file",
-            title: file.name,
-            preview: file.path,
-          });
-        }
-      });
-    }
-    return results;
-  }, [activeTabId, deferredSearchValue, recentFiles, searchScope, tabs]);
+  const searchResults = useMemo(
+    () => searchOpen ? searchWorkspace({ tabs, recentFiles, query: deferredSearchValue, scope: searchScope, activeTabId }) : [],
+    [activeTabId, deferredSearchValue, recentFiles, searchOpen, searchScope, tabs],
+  );
 
   const openSearchResult = useCallback(
     async (result: SearchResult) => {
@@ -3215,7 +3100,7 @@ function AppShell() {
       focusTabInPane(result.tabId, availablePanes.includes(activePane) ? activePane : availablePanes[0]);
       closeQuickOpen();
     },
-    [activePane, closeQuickOpen, focusTabInPane, getTabPanes, openFilePath, quickOpenResults],
+    [activePane, closeQuickOpen, focusTabInPane, getTabPanes, openFilePath],
   );
 
   const pluginMenu: MenuProps["items"] = [

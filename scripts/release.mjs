@@ -265,6 +265,16 @@ function uploadAsset(token, uploadPath, assetPath) {
 }
 
 function releaseBody() {
+  if (version === "0.1.32") {
+    return [
+      "Super Note v0.1.32", "",
+      "- 左侧标签拖拽新增半透明浮动预览，保留抓取位置、原条目淡化和蓝色落点提示。",
+      "- 支持按 Esc 或窗口失焦取消拖拽，适配明暗主题与减少透明度偏好。",
+      "- 搜索与快速打开仅在面板打开时计算；文本搜索达到结果上限后停止扫描。",
+      "- 优化大文本标签标题生成、编辑器高亮缓存与锚点/多光标覆盖层更新。",
+      "- 拆分搜索与标题逻辑，并行加载应用代码和样式，减少启动等待。",
+    ].join("\n");
+  }
   if (version === "0.1.31") {
     return [
       "Super Note v0.1.31", "",

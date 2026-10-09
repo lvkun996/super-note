@@ -1,5 +1,7 @@
 // Exact source keys keep user-authored tab titles and document content out of translation.
 export const englishMessages: Record<string, string> = {
+  "侧栏拖拽与性能优化": "Sidebar dragging and performance improvements",
+  "侧栏拖拽新增半透明浮动预览；优化搜索、标题生成和编辑器覆盖层更新，减少无效计算。": "Sidebar dragging now has a translucent floating preview. Search, title generation, and editor overlays perform less unnecessary work.",
   "大文本与保存体验优化": "Large text and saving improvements",
   "保存 JSON 时自动规范格式；大文本改为安全只读预览，并优化窗口聚焦时的边框透明度。": "JSON saves now use consistent formatting, large text opens safely in read-only preview, and focused window borders are more translucent.",
   "锚点标识与导航细节统一": "Anchor markers and navigation refinements",

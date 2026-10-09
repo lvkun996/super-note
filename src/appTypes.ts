@@ -237,6 +237,20 @@ export type SplitDragState = {
 
 export type DragState = ItemDragState | PanDragState | SplitDragState;
 
+export type QuickOpenItem = {
+  id: string;
+  kind: "tab";
+  title: string;
+  detail: string;
+  tabId: string;
+} | {
+  id: string;
+  kind: "recent";
+  title: string;
+  detail: string;
+  filePath: string;
+};
+
 export type SearchResult = {
   id: string;
   tabId?: string;

@@ -64,7 +64,7 @@ export function useTextEditorSelection({
     pendingLongPressRef.current = null;
   }, []);
 
-  const clearMultiCarets = useCallback(() => setMultiCarets([]), []);
+  const clearMultiCarets = useCallback(() => setMultiCarets((current) => current.length === 0 ? current : []), []);
 
   const clearMultiCaretHistory = useCallback(() => {
     multiCaretUndoRef.current = [];

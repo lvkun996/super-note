@@ -13,19 +13,21 @@ const root = ReactDOM.createRoot(document.getElementById("root")!);
 
 async function mount() {
   if (isMindMapStyleWindow) {
-    await import("./features/mindmap/mindMapStylePanel.css");
-    const { MindMapStyleWindow } = await import("./features/mindmap/MindMapStyleWindow");
+    const [, { MindMapStyleWindow }] = await Promise.all([
+      import("./features/mindmap/mindMapStylePanel.css"),
+      import("./features/mindmap/MindMapStyleWindow"),
+    ]);
     root.render(<React.StrictMode><MindMapStyleWindow /></React.StrictMode>);
     return;
   }
 
-  await Promise.all([
+  const [{ default: App }] = await Promise.all([
+    import("./App"),
     import("antd/dist/reset.css"),
     import("./styles.css"),
     import("./features/mindmap/mindMap.css"),
+    import("./features/overlays/overlayStyles.css"),
   ]);
-  await import("./features/overlays/overlayStyles.css");
-  const { default: App } = await import("./App");
   root.render(<React.StrictMode><App /></React.StrictMode>);
 }
 

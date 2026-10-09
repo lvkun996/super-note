@@ -1,22 +1,8 @@
 import { uiText } from "../../electron/uiLanguage";
 import { FileTextOutlined, FolderOpenOutlined, HistoryOutlined, SearchOutlined } from "@ant-design/icons";
 import { Empty, Input } from "antd";
-import type { SearchResult } from "../appTypes";
+import type { QuickOpenItem, SearchResult } from "../appTypes";
 import { renderHighlightedText } from "../features/editor/editorUtils";
-
-export type QuickOpenItem = {
-  id: string;
-  kind: "tab";
-  title: string;
-  detail: string;
-  tabId: string;
-} | {
-  id: string;
-  kind: "recent";
-  title: string;
-  detail: string;
-  filePath: string;
-};
 
 type GlobalSearchOverlaysProps = {
   quickOpenOpen: boolean;
