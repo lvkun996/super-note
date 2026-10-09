@@ -14,6 +14,12 @@ describe("multi-caret editing", () => {
     });
   });
 
+  it("normalizes pasted CRLF before advancing multiple carets", () => {
+    expect(insertAtCarets("a\nb", [1, 3], "X\r\r\nY")).toEqual({
+      content: "aX\n\nY\nbX\n\nY", carets: [5, 11],
+    });
+  });
+
   it("deletes backward at every caret", () => {
     expect(deleteAtCarets("a1\nb2\nc3", [2, 5, 8], "backward")).toEqual({
       content: "a\nb\nc",

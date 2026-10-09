@@ -24,4 +24,10 @@ describe("file document mode", () => {
     expect(formatOpenedFileContent('{"compact":true}', "notes.txt")).toBe('{"compact":true}');
     expect(formatOpenedFileContent("{ invalid", "broken.json")).toBe("{ invalid");
   });
+
+  it("normalizes existing text and Markdown files to the textarea's line breaks", () => {
+    expect(formatOpenedFileContent("first\r\r\n\r\r\n232", "notes.txt")).toBe("first\n\n\n\n232");
+    expect(formatOpenedFileContent("# title\r\n\r\ntext", "notes.md")).toBe("# title\n\ntext");
+    expect(formatOpenedFileContent("{ invalid\r\n", "broken.json")).toBe("{ invalid\n");
+  });
 });

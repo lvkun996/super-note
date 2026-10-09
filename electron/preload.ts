@@ -16,6 +16,7 @@ function getInitialMindMapStyleState() {
 }
 
 contextBridge.exposeInMainWorld("superNote", {
+  windowBackdropEnabled: process.argv.includes("--super-note-window-backdrop"),
   loadWorkspace: () => ipcRenderer.invoke("workspace:load"),
   saveWorkspace: (workspace: unknown) => ipcRenderer.invoke("workspace:save", workspace),
   openFile: () => ipcRenderer.invoke("dialog:openFile"),

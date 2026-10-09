@@ -1,4 +1,5 @@
 import type { FileDocumentMode, FileTab } from "../../appTypes";
+import { normalizeTextLineEndings } from "./textLineEndings";
 
 export function isMarkdownFileName(fileName?: string) {
   return Boolean(fileName && /\.(md|markdown|mdown|mkd)$/i.test(fileName));
@@ -9,6 +10,7 @@ export function isJsonFileName(fileName?: string) {
 }
 
 export function formatOpenedFileContent(content: string, ...fileNames: Array<string | undefined>) {
+  content = normalizeTextLineEndings(content);
   if (!fileNames.some(isJsonFileName) || !content.trim()) return content;
   try {
     return JSON.stringify(JSON.parse(content), null, 2);

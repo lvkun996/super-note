@@ -1,5 +1,7 @@
 // Exact source keys keep user-authored tab titles and document content out of translation.
 export const englishMessages: Record<string, string> = {
+  "输入修复与聚焦背景优化": "Input fixes and focused background improvements",
+  "修复已有文件异常换行造成的光标错位；聚焦时仅导航背景半透明，欢迎词随机切换，并完善一键发布校验。": "Fixed caret misalignment caused by unusual line endings in existing files. Only navigation backgrounds become translucent on focus, welcome messages are randomized, and one-command releases include verification.",
   "侧栏拖拽与性能优化": "Sidebar dragging and performance improvements",
   "侧栏拖拽新增半透明浮动预览；优化搜索、标题生成和编辑器覆盖层更新，减少无效计算。": "Sidebar dragging now has a translucent floating preview. Search, title generation, and editor overlays perform less unnecessary work.",
   "大文本与保存体验优化": "Large text and saving improvements",
@@ -8,6 +10,8 @@ export const englishMessages: Record<string, string> = {
   "正文锚点增加连续数字标识；统一顶部菜单悬浮样式、窗口聚焦透明度和侧栏操作区高度。": "Added numbered in-document anchor markers and aligned menu hover states, focused-window translucency, and sidebar action-row height.",
   "粘贴": "Paste",
   "你想写些什么？": "What would you like to write?",
+  "灵感涌现": "Let inspiration flow",
+  "记录此时": "Capture this moment",
   "JSON 与 Markdown 编辑体验": "JSON and Markdown editing",
   "打开 JSON 文件时自动格式化内容，Markdown 默认预览并通过独立弹窗实时编辑，同时优化保存目录输入和网站界面。": "Automatically format JSON files on open, preview Markdown by default with live editing in a separate dialog, and refine the save directory field and website.",
   "编辑 Markdown": "Edit Markdown",

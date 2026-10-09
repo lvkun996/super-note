@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { createTextAnchor, normalizeTextAnchors, updateTextAnchors } from "./textAnchors";
+import { createTextAnchor, normalizeTextAnchors, normalizeTextAnchorsForEditor, updateTextAnchors } from "./textAnchors";
 
 describe("text anchors", () => {
+  it("preserves anchor targets across persisted CRLF normalization", () => {
+    const content = "first\r\r\n\r\r\n232\r\nlast";
+    const start = content.indexOf("232");
+    expect(normalizeTextAnchorsForEditor([
+      { id: "a", start, end: start + 3, label: "232" },
+      { id: "b", start: content.indexOf("last"), end: content.length, label: "last" },
+    ], content)).toEqual([
+      { id: "a", start: 9, end: 12, label: "232" },
+      { id: "b", start: 13, end: 17, label: "last" },
+    ]);
+  });
   it("trims selection whitespace and creates a readable label", () => {
     expect(createTextAnchor("  first\nsecond  ", 0, 16, "a")).toEqual({
       id: "a",

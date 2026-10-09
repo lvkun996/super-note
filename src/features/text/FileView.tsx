@@ -22,6 +22,7 @@ import { useTextEditorOverlays } from "./useTextEditorOverlays";
 import { getFileDocumentMode } from "./fileDocument";
 import { getTextCaretPositions } from "./textCaretLayout";
 import { getTextAnchorLine } from "./textAnchors";
+import { normalizeTextLineEndings } from "./textLineEndings";
 import { MarkdownEditorModal } from "./MarkdownEditorModal";
 
 const EMPTY_SELECTION: TextSelection = { start: 0, end: 0 };
@@ -374,6 +375,7 @@ export function FileView({
     if (!editor) {
       return;
     }
+    insertion = normalizeTextLineEndings(insertion);
     const current = getTextSelection(editor);
     const start = removeSelection ? current.start : current.end;
     const end = removeSelection ? current.end : current.end;

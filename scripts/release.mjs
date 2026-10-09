@@ -1,9 +1,12 @@
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, createReadStream, existsSync, lstatSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import https from "node:https";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+import os from "node:os";
+import { ensureReleaseBranch, ensureReleaseCanResume, ensureTagMatchesHead, ensureVersionAdvances, ensureVersionMetadata, parseReleaseOptions, selectPagesRun, verifyAssetMetadata } from "./release-policy.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packageJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
@@ -11,8 +14,11 @@ const version = packageJson.version;
 const tag = `v${version}`;
 const releaseDir = path.join(root, "release");
 const legacyReleaseDir = path.join(root, "release-win7-8");
-const includeLegacy = !process.argv.includes("--no-win7-8");
-const replaceExistingTag = process.argv.includes("--replace-existing-tag");
+const options = parseReleaseOptions(process.argv.slice(2));
+const includeLegacy = options.includeLegacy;
+const require = createRequire(import.meta.url);
+const { load: loadYaml } = createRequire(require.resolve("electron-updater"))("js-yaml");
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function run(command, args, options = {}) {
   console.log(`\n> ${command} ${args.join(" ")}`);
@@ -64,21 +70,14 @@ function parseGitHubRemote() {
   const remote = capture("git", ["remote", "get-url", "origin"]);
   const match = remote.match(/github\.com[:/](?<owner>[^/]+)\/(?<repo>[^/.]+)(?:\.git)?$/);
   if (!match?.groups) {
-    throw new Error(`Cannot parse GitHub origin remote: ${remote}`);
+    throw new Error("Cannot parse the GitHub origin remote.");
   }
   return match.groups;
 }
 
 function ensureSiteMatchesVersion() {
   const site = readFileSync(path.join(root, "site", "index.html"), "utf8");
-  const winCurrent = `releases/download/${tag}/Super.Note.Setup.${version}.exe`;
-  const winLegacy = `releases/download/${tag}/Super.Note.Setup.${version}.Win7-8.exe`;
-  if (!site.includes(tag) || !site.includes(winCurrent)) {
-    throw new Error(`site/index.html does not reference the ${tag} Windows download link yet.`);
-  }
-  if (includeLegacy && !site.includes(winLegacy)) {
-    throw new Error(`site/index.html does not reference the ${tag} Win7/8 download link yet.`);
-  }
+  ensureVersionMetadata(packageJson, JSON.parse(readFileSync(path.join(root, "package-lock.json"), "utf8")), site, includeLegacy);
 }
 
 function ensureCurrentUpdateManifest() {
@@ -110,13 +109,17 @@ function ensureCurrentUpdateManifest() {
 }
 
 function buildInstallers() {
-  rmSync(releaseDir, { recursive: true, force: true });
-  if (includeLegacy) {
-    rmSync(legacyReleaseDir, { recursive: true, force: true });
-  }
-
   run(process.execPath, [path.join(root, "node_modules", "typescript", "bin", "tsc"), "--noEmit"]);
   run(process.execPath, [path.join(root, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.electron.json", "--noEmit"]);
+  run(process.execPath, [path.join(root, "node_modules", "vitest", "vitest.mjs"), "run"]);
+  const backup = path.join(root, ".cache", "release-backups", `${tag}-${Date.now()}`);
+  for (const directory of [releaseDir, ...(includeLegacy ? [legacyReleaseDir] : [])]) {
+    if (!existsSync(directory)) continue;
+    if (lstatSync(directory).isSymbolicLink() || path.dirname(directory) !== root) throw new Error("Unsafe release output directory.");
+    mkdirSync(backup, { recursive: true });
+    renameSync(directory, path.join(backup, path.basename(directory)));
+    console.log(`Previous build preserved in ${path.relative(root, backup)}.`);
+  }
   run(process.execPath, [path.join(root, "scripts", "build-installer.mjs"), "--low-memory"]);
   ensureCurrentUpdateManifest();
   if (!includeLegacy) {
@@ -204,10 +207,13 @@ function requestJson(token, method, apiPath, body) {
       },
       (response) => {
         const chunks = [];
+        response.on("error", reject);
         response.on("data", (chunk) => chunks.push(chunk));
         response.on("end", () => {
           const raw = Buffer.concat(chunks).toString("utf8");
-          const data = raw ? JSON.parse(raw) : null;
+          let data;
+          try { data = raw ? JSON.parse(raw) : null; }
+          catch { reject(new Error(`Invalid JSON from GitHub API (HTTP ${response.statusCode}).`)); return; }
           if ((response.statusCode ?? 500) >= 400) {
             const error = new Error(data?.message || raw || `GitHub API error ${response.statusCode}`);
             error.statusCode = response.statusCode;
@@ -218,6 +224,7 @@ function requestJson(token, method, apiPath, body) {
         });
       },
     );
+    request.setTimeout(60000, () => request.destroy(new Error("GitHub API request timed out.")));
     request.on("error", reject);
     if (payload) {
       request.write(payload);
@@ -227,7 +234,6 @@ function requestJson(token, method, apiPath, body) {
 }
 
 function uploadAsset(token, uploadPath, assetPath) {
-  const body = readFileSync(assetPath);
   const name = encodeURIComponent(path.basename(assetPath));
   return new Promise((resolve, reject) => {
     const request = https.request(
@@ -239,17 +245,20 @@ function uploadAsset(token, uploadPath, assetPath) {
           Accept: "application/vnd.github+json",
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/octet-stream",
-          "Content-Length": body.length,
+          "Content-Length": statSync(assetPath).size,
           "User-Agent": "super-note-release-script",
           "X-GitHub-Api-Version": "2022-11-28",
         },
       },
       (response) => {
         const chunks = [];
+        response.on("error", reject);
         response.on("data", (chunk) => chunks.push(chunk));
         response.on("end", () => {
           const raw = Buffer.concat(chunks).toString("utf8");
-          const data = raw ? JSON.parse(raw) : null;
+          let data;
+          try { data = raw ? JSON.parse(raw) : null; }
+          catch { reject(new Error(`Invalid upload response (HTTP ${response.statusCode}).`)); return; }
           if ((response.statusCode ?? 500) >= 400) {
             reject(new Error(data?.message || raw || `Upload failed ${response.statusCode}`));
             return;
@@ -258,13 +267,23 @@ function uploadAsset(token, uploadPath, assetPath) {
         });
       },
     );
+    request.setTimeout(60000, () => request.destroy(new Error(`Upload timed out: ${path.basename(assetPath)}`)));
     request.on("error", reject);
-    request.write(body);
-    request.end();
+    const stream = createReadStream(assetPath);
+    request.on("close", () => stream.destroy());
+    stream.on("error", error => request.destroy(error));
+    stream.pipe(request);
   });
 }
 
 function releaseBody() {
+  const defaultNotes = path.join(root, "docs", "releases", `${tag}.md`);
+  const notesFile = options.notesFile ?? (existsSync(defaultNotes) ? defaultNotes : undefined);
+  if (notesFile) {
+    const notes = readFileSync(path.resolve(root, notesFile), "utf8").trim();
+    if (!notes) throw new Error("Release notes must not be empty.");
+    return notes;
+  }
   if (version === "0.1.32") {
     return [
       "Super Note v0.1.32", "",
@@ -530,17 +549,18 @@ function releaseBody() {
     ].join("\n");
   }
 
-  return `Super Note ${tag}`;
+  throw new Error(`Missing release notes. Add docs/releases/${tag}.md or pass --notes-file <file>.`);
 }
 
-async function getOrCreateRelease(token, owner, repo, branch) {
+async function getOrCreateRelease(token, owner, repo, head) {
   const releasePath = `/repos/${owner}/${repo}/releases/tags/${tag}`;
   try {
     const existing = await requestJson(token, "GET", releasePath);
+    ensureReleaseCanResume(existing, options.resume);
     return requestJson(token, "PATCH", `/repos/${owner}/${repo}/releases/${existing.id}`, {
       name: tag,
       body: releaseBody(),
-      draft: false,
+      draft: true,
       prerelease: false,
     });
   } catch (error) {
@@ -549,10 +569,10 @@ async function getOrCreateRelease(token, owner, repo, branch) {
     }
     return requestJson(token, "POST", `/repos/${owner}/${repo}/releases`, {
       tag_name: tag,
-      target_commitish: branch,
+      target_commitish: head,
       name: tag,
       body: releaseBody(),
-      draft: false,
+      draft: true,
       prerelease: false,
     });
   }
@@ -575,38 +595,187 @@ async function uploadReleaseAssets(token, owner, repo, release, assets) {
   }
 }
 
-function pushBranchAndTag(branch) {
+function pushTag(head) {
   const localTag = captureMaybe("git", ["tag", "--list", tag]);
-  if (replaceExistingTag) {
-    run("git", ["tag", "-f", "-a", tag, "-m", `Super Note ${tag}`]);
-  } else if (!localTag) {
+  if (!localTag) {
     run("git", ["tag", "-a", tag, "-m", `Super Note ${tag}`]);
   }
+  ensureTagMatchesHead(capture("git", ["rev-list", "-n", "1", tag]), head);
+  run("git", ["push", "origin", tag]);
+}
 
-  run("git", ["push", "origin", branch]);
-  run("git", ["push", "origin", tag, ...(replaceExistingTag ? ["--force"] : [])]);
+async function hashFile(file, algorithm = "sha256") {
+  const hash = createHash(algorithm);
+  for await (const chunk of createReadStream(file)) hash.update(chunk);
+  return hash.digest(algorithm === "sha512" ? "base64" : "hex");
+}
+
+async function verifyManifests() {
+  for (const [directory, manifestName, installerName] of [
+    [releaseDir, "latest.yml", `Super.Note.Setup.${version}.exe`],
+    ...(includeLegacy ? [[legacyReleaseDir, "win7-8.yml", `Super.Note.Setup.${version}.Win7-8.exe`]] : []),
+  ]) {
+    const manifest = loadYaml(readFileSync(path.join(directory, manifestName), "utf8"));
+    const installer = path.join(directory, installerName);
+    const checksum = await hashFile(installer, "sha512");
+    const entry = manifest?.files?.find(file => file.url === installerName);
+    if (manifest?.version !== version || manifest.path !== installerName || manifest.sha512 !== checksum || entry?.sha512 !== checksum || entry.size !== statSync(installer).size) {
+      throw new Error(`Updater manifest does not match the installer: ${manifestName}`);
+    }
+  }
+}
+
+function getPublicResource(url, digest = false, redirects = 0) {
+  if (new URL(url).protocol !== "https:" || redirects > 5) throw new Error("Unsafe or excessive public resource redirect.");
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, { headers: { "User-Agent": "super-note-release-verification", "Cache-Control": "no-cache" } }, response => {
+      if ([301, 302, 303, 307, 308].includes(response.statusCode) && response.headers.location) {
+        response.resume();
+        resolve(getPublicResource(new URL(response.headers.location, url).href, digest, redirects + 1));
+        return;
+      }
+      if (response.statusCode !== 200) { response.resume(); reject(new Error(`Public resource returned HTTP ${response.statusCode} on ${new URL(url).hostname}.`)); return; }
+      const hash = createHash("sha256"), chunks = [];
+      let size = 0;
+      response.on("data", chunk => {
+        size += chunk.length;
+        if (digest) hash.update(chunk);
+        else if (size <= 2 * 1024 * 1024) chunks.push(chunk);
+        else request.destroy(new Error("Public text response exceeds 2 MB."));
+      });
+      response.on("error", reject);
+      response.on("end", () => resolve(digest ? { digest: `sha256:${hash.digest("hex")}`, size } : Buffer.concat(chunks).toString("utf8")));
+    });
+    request.setTimeout(60000, () => request.destroy(new Error("Public verification request timed out.")));
+    request.on("error", reject);
+  });
+}
+
+async function verifyReleaseAssets(token, owner, repo, release, assets, publicDownloads = false) {
+  const remoteAssets = await requestJson(token, "GET", `/repos/${owner}/${repo}/releases/${release.id}/assets?per_page=100`);
+  for (const file of assets) {
+    const local = { name: path.basename(file), size: statSync(file).size, digest: `sha256:${await hashFile(file)}` };
+    const remote = remoteAssets.find(asset => asset.name === local.name);
+    verifyAssetMetadata(local, remote);
+    if (publicDownloads) {
+      const downloaded = await getPublicResource(remote.browser_download_url, true);
+      if (downloaded.digest !== local.digest || downloaded.size !== local.size) throw new Error(`Public download checksum mismatch: ${local.name}`);
+    }
+    console.log(`Verified ${publicDownloads ? "public download" : "uploaded asset"}: ${local.name}`);
+  }
+}
+
+async function verifyPages(token, owner, repo, branch, head) {
+  const workflowPath = `/repos/${owner}/${repo}/actions/workflows/pages.yml`;
+  const deadline = Date.now() + options.pagesTimeoutMs;
+  let completed = false;
+  while (Date.now() < deadline) {
+    const runs = await requestJson(token, "GET", `${workflowPath}/runs?branch=${encodeURIComponent(branch)}&head_sha=${head}&per_page=10`);
+    const run = selectPagesRun(runs.workflow_runs ?? [], head, branch);
+    if (run?.status === "completed") {
+      if (run.conclusion !== "success") throw new Error(`Pages deployment ${run.conclusion}: ${run.html_url}`);
+      completed = true;
+      console.log(`Pages deployment succeeded: ${run.html_url}`);
+      break;
+    }
+    console.log(`Waiting for Pages deployment of ${head.slice(0, 8)} (${run?.status ?? "not started"})...`);
+    await delay(10000);
+  }
+  if (!completed) throw new Error("Pages deployment timed out; the release may already be public. Check Actions before retrying.");
+  const pages = await requestJson(token, "GET", `/repos/${owner}/${repo}/pages`);
+  while (Date.now() < deadline) {
+    try {
+      const url = new URL(pages.html_url);
+      url.searchParams.set("release-check", `${tag}-${Date.now()}`);
+      const html = await getPublicResource(url.href);
+      if (html.includes(tag) && html.includes(`releases/download/${tag}/Super.Note.Setup.${version}.exe`)) {
+        console.log(`Live Pages version and download link verified: ${pages.html_url}`);
+        return;
+      }
+    } catch (error) { console.log(`Pages propagation pending: ${error.message}`); }
+    await delay(10000);
+  }
+  throw new Error("Live Pages did not show the new version within the timeout.");
+}
+
+async function verifyOnline(token, owner, repo, branch, head, release, assets) {
+  await verifyPages(token, owner, repo, branch, head);
+  await verifyReleaseAssets(token, owner, repo, release, assets, true);
+  const latest = await requestJson(token, "GET", `/repos/${owner}/${repo}/releases/latest`);
+  if (latest.tag_name !== tag) throw new Error("The latest-release updater route does not point at this version.");
+  for (const name of ["latest.yml", ...(includeLegacy ? ["win7-8.yml"] : [])]) {
+    const remote = await getPublicResource(`https://github.com/${owner}/${repo}/releases/latest/download/${name}`);
+    const local = assets.find(file => path.basename(file) === name);
+    if (loadYaml(remote)?.version !== version || remote !== readFileSync(local, "utf8")) throw new Error(`The public updater manifest is incorrect: ${name}`);
+  }
+  console.log(`\nSUCCESS: Release ${tag}, public assets, updater and live Pages all verified.`);
+}
+
+function printPlan() {
+  if (options.verifyOnly) { console.log(`Read-only online verification for ${tag}: no build, push, upload or publication.`); return; }
+  console.log(`Super Note ${tag} release plan (${includeLegacy ? "Windows 10/11 + Win7/8" : "Windows 10/11"}):\n1. Validate clean master branch, versions, tag and credentials\n2. Typecheck, unit tests, build and package verification\n3. Editor regression checks and updater checksums\n4. Push the immutable version tag; create/resume a draft release\n5. Upload and verify assets, then publish the release\n6. Push master, wait for Pages and verify public downloads/site\nNo automatic staging, commits, version bumps, force pushes or published asset replacement.`);
 }
 
 async function main() {
-  ensureCleanWorktree();
-  ensureSiteMatchesVersion();
-
-  const branch = capture("git", ["branch", "--show-current"]);
-  if (!branch) {
-    throw new Error("Release script must run on a branch, not detached HEAD.");
+  if (options.help) {
+    console.log("Usage: npm run release -- [--check | --dry-run | --verify-only] [--with-win7-8] [--notes-file notes.md] [--resume] [--pages-timeout 600]\n--check: local preflight only (no authentication, build or network)\n--dry-run: print plan only (no authentication, build or network)\n--verify-only: online read-only verification of an already published release\n--resume: resume an interrupted draft at the same commit; never overwrite a published release");
+    return;
   }
-
+  printPlan();
+  if (options.dryRun) return;
+  if (options.verifyOnly) {
+    const { owner, repo } = parseGitHubRemote();
+    const token = getToken();
+    const release = await requestJson(token, "GET", `/repos/${owner}/${repo}/releases/tags/${tag}`);
+    if (release.draft) throw new Error("--verify-only requires an already published release.");
+    const rows = capture("git", ["ls-remote", "--tags", "origin", `refs/tags/${tag}`, `refs/tags/${tag}^{}`]).split(/\r?\n/).filter(Boolean);
+    const head = (rows.find(row => row.endsWith("^{}")) ?? rows[0])?.split(/\s+/)[0];
+    if (!head) throw new Error("Published tag not found on origin.");
+    await verifyOnline(token, owner, repo, "master", head, release, getAssets());
+    return;
+  }
+  ensureCleanWorktree();
+  run("git", ["diff", "--check"]);
+  ensureSiteMatchesVersion();
+  const branch = capture("git", ["branch", "--show-current"]);
+  ensureReleaseBranch(branch, readFileSync(path.join(root, ".github", "workflows", "pages.yml"), "utf8"));
+  const head = capture("git", ["rev-parse", "HEAD"]);
+  ensureTagMatchesHead(captureMaybe("git", ["rev-list", "-n", "1", tag]), head);
+  releaseBody(); // Validate an optional notes file before any mutation.
   const { owner, repo } = parseGitHubRemote();
+  if (options.check) { console.log("Local preflight passed. No build, push, upload or deployment was performed."); return; }
+  const token = getToken();
+  await requestJson(token, "GET", `/repos/${owner}/${repo}`);
+  await requestJson(token, "GET", `/repos/${owner}/${repo}/actions/workflows/pages.yml`);
+  await requestJson(token, "GET", `/repos/${owner}/${repo}/pages`);
+  let existing;
+  try { existing = await requestJson(token, "GET", `/repos/${owner}/${repo}/releases/tags/${tag}`); }
+  catch (error) { if (error.statusCode !== 404) throw error; }
+  ensureReleaseCanResume(existing, options.resume);
+  let latest;
+  try { latest = await requestJson(token, "GET", `/repos/${owner}/${repo}/releases/latest`); }
+  catch (error) { if (error.statusCode !== 404) throw error; }
+  ensureVersionAdvances(version, latest?.tag_name);
+  run("git", ["fetch", "--no-tags", "origin", branch]);
+  run("git", ["merge-base", "--is-ancestor", "FETCH_HEAD", head]);
+  const remoteTags = capture("git", ["ls-remote", "--tags", "origin", `refs/tags/${tag}`, `refs/tags/${tag}^{}`]).split(/\r?\n/).filter(Boolean);
+  const remoteTag = remoteTags.find(line => line.endsWith("^{}")) ?? remoteTags[0];
+  ensureTagMatchesHead(remoteTag?.split(/\s+/)[0], head);
   buildInstallers();
   const assets = getAssets();
-  pushBranchAndTag(branch);
-
-  const token = getToken();
-  const release = await getOrCreateRelease(token, owner, repo, branch);
+  await verifyManifests();
+  run(require("electron"), [path.join(root, "scripts", "verify-text-line-endings.cjs")]);
+  if (process.platform === "win32" && Number(os.release().split(".")[2]) >= 22621) run(require("electron"), [path.join(root, "scripts", "verify-window-chrome.cjs")]);
+  ensureCleanWorktree();
+  if (capture("git", ["rev-parse", "HEAD"]) !== head) throw new Error("Source commit changed during the build. Release canceled.");
+  pushTag(head);
+  const release = await getOrCreateRelease(token, owner, repo, head);
   await uploadReleaseAssets(token, owner, repo, release, assets);
-
-  console.log(`\nRelease ${tag} is ready.`);
-  console.log("Pages will update from the pushed branch via the GitHub Pages workflow.");
+  await verifyReleaseAssets(token, owner, repo, release, assets);
+  const published = await requestJson(token, "PATCH", `/repos/${owner}/${repo}/releases/${release.id}`, { draft: false, make_latest: "true" });
+  console.log(`Release published: ${published.html_url}. Completing online verification...`);
+  run("git", ["push", "origin", `${head}:refs/heads/${branch}`]);
+  await verifyOnline(token, owner, repo, branch, head, published, assets);
 }
 
 main().catch((error) => {

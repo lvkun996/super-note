@@ -1,6 +1,6 @@
 {
   "name": "super-note",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "private": true,
   "description": "编辑你的世界",
   "author": "kunkun",
@@ -12,11 +12,15 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:editor-line-endings": "electron scripts/verify-text-line-endings.cjs",
+    "test:window-chrome": "electron scripts/verify-window-chrome.cjs",
     "verify:package": "node scripts/verify-packaged-app.mjs",
     "pack": "node scripts/build-installer.mjs --dir",
     "dist": "node scripts/build-installer.mjs",
     "dist:win7-8": "node scripts/build-installer.mjs --win7-8",
-    "release:full": "node scripts/release.mjs",
+    "release": "node scripts/release.mjs",
+    "release:check": "node scripts/release.mjs --check",
+    "release:full": "node scripts/release.mjs --with-win7-8",
     "release:current": "node scripts/release.mjs --no-win7-8"
   },
   "dependencies": {

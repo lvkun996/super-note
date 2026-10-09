@@ -1,3 +1,5 @@
+import { normalizeTextLineEndings } from "./textLineEndings";
+
 export type MultiCaretEditResult = {
   content: string;
   carets: number[];
@@ -22,6 +24,7 @@ export function getDirectionalSelectionRange(anchor: number, offset: number): Di
 }
 
 export function insertAtCarets(content: string, carets: number[], insertion: string): MultiCaretEditResult {
+  insertion = normalizeTextLineEndings(insertion);
   const positions = normalizeCarets(carets, content.length);
   let cursor = 0;
   let nextContent = "";

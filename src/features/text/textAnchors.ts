@@ -1,4 +1,5 @@
 import type { TextAnchor } from "../../appTypes";
+import { normalizeTextLineEndings, normalizeTextLineEndingOffsets } from "./textLineEndings";
 
 export const MAX_TEXT_ANCHORS = 80;
 const MAX_ANCHOR_LABEL_LENGTH = 88;
@@ -54,6 +55,15 @@ export function normalizeTextAnchors(value: unknown, content: string): TextAncho
   }
 
   return normalized.sort((left, right) => left.start - right.start || left.end - right.end);
+}
+
+export function normalizeTextAnchorsForEditor(value: unknown, content: string): TextAnchor[] {
+  const anchors = normalizeTextAnchors(value, content);
+  if (!content.includes("\r") || anchors.length === 0) return anchors;
+  const offsets = normalizeTextLineEndingOffsets(content, anchors.flatMap((anchor) => [anchor.start, anchor.end]));
+  return normalizeTextAnchors(anchors.map((anchor, index) => ({
+    ...anchor, start: offsets[index * 2], end: offsets[index * 2 + 1],
+  })), normalizeTextLineEndings(content));
 }
 
 function findChangedRange(previousContent: string, nextContent: string) {

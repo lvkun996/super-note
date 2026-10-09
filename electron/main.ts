@@ -3,6 +3,8 @@ import { app, BrowserWindow, Menu, Tray, clipboard, dialog, globalShortcut, ipcM
 import { autoUpdater } from "electron-updater";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
+import { getWindowMaterial } from "./windowMaterial";
 import { formatContentForSave, LARGE_TEXT_PREVIEW_BYTES, readTextFilePreview } from "./fileContent";
 import { atomicWriteText, getFileMetadata, isWorkspaceJson, readJsonFileCandidate } from "./fileStorage";
 import { appendExtensionIfMissing } from "./filePathUtils";
@@ -651,6 +653,7 @@ function createMindMapStyleWindow() {
 }
 
 function createWindow() {
+  const backgroundMaterial = getWindowMaterial(process.platform, os.release(), typeof BrowserWindow.prototype.setBackgroundMaterial === "function");
   mainWindow = new BrowserWindow({
     width: 1320,
     height: 860,
@@ -660,8 +663,10 @@ function createWindow() {
     icon: getIconPath(),
     frame: false,
     autoHideMenuBar: true,
-    backgroundColor: "#ffffff",
+    backgroundColor: backgroundMaterial ? "#00000000" : "#ffffff",
+    backgroundMaterial,
     webPreferences: {
+      additionalArguments: backgroundMaterial ? ["--super-note-window-backdrop"] : [],
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,

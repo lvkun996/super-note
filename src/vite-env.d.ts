@@ -109,6 +109,7 @@ type TrayAction = { type: "new-text" } | { type: "open-tab"; tabId: string };
 
 interface Window {
   superNote?: {
+    windowBackdropEnabled?: boolean;
     loadWorkspace: () => Promise<WorkspaceResult>;
     saveWorkspace: (workspace: unknown) => Promise<SaveWorkspaceResult>;
     openFile: () => Promise<OpenFileResult>;

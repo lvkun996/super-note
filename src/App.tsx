@@ -95,7 +95,8 @@ import { getQuickOpenResults, searchWorkspace } from "./features/search/searchMo
 import { reorderTabsById, sortPinnedTabs, toggleTabPinned } from "./features/tabs/tabOrder";
 import type { TabDropPosition } from "./features/tabs/tabOrder";
 import { formatOpenedFileContent, getFileDocumentMode, isMarkdownFileName } from "./features/text/fileDocument";
-import { createTextAnchor, MAX_TEXT_ANCHORS, normalizeTextAnchors, updateTextAnchors } from "./features/text/textAnchors";
+import { createTextAnchor, MAX_TEXT_ANCHORS, normalizeTextAnchors, normalizeTextAnchorsForEditor, updateTextAnchors } from "./features/text/textAnchors";
+import { normalizeTextLineEndings } from "./features/text/textLineEndings";
 import { hasExternalFileChange } from "./features/files/fileState";
 import { buildSaveFileName } from "./features/files/saveFileName";
 import {
@@ -149,6 +150,12 @@ const canvasThemes: CanvasTheme[] = [
 ];
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.33",
+    date: "2026-10-09",
+    title: uiText("输入修复与聚焦背景优化"),
+    description: uiText("修复已有文件异常换行造成的光标错位；聚焦时仅导航背景半透明，欢迎词随机切换，并完善一键发布校验。"),
+  },
   {
     version: "v0.1.32",
     date: "2026-10-09",
@@ -480,7 +487,8 @@ function restoreTab(tab: PersistedTab): NoteTab {
   }
   return {
     ...tab,
-    textAnchors: normalizeTextAnchors(tab.textAnchors, tab.content),
+    content: normalizeTextLineEndings(tab.content),
+    textAnchors: normalizeTextAnchorsForEditor(tab.textAnchors, tab.content),
     documentMode: tab.documentMode ?? (isMarkdownFileName(tab.fileName) || isMarkdownFileName(tab.filePath) ? "markdown" : "text"),
     fontSize: tab.fontSize ?? DEFAULT_FILE_FONT_SIZE,
     dirty: tab.dirty ?? false,
@@ -637,14 +645,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.32",
+    version: "0.1.33",
     author: "kunkun",
     desc: uiText("认识自身平凡后，依旧拥有改变世界的勇气"),
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.32",
+    currentVersion: "0.1.33",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -991,6 +999,7 @@ function AppShell() {
   }, []);
 
   const updateFileContent = useCallback((tabId: string, content: string) => {
+    content = normalizeTextLineEndings(content);
     setTabs((current) => current.map((tab) => {
       if (tab.id !== tabId || tab.kind !== "file" || tab.content === content) {
         return tab;
@@ -3579,7 +3588,7 @@ function AppShell() {
       }}
     >
     <div
-      className={`app-shell${settings.handwritten ? " handwritten-mode" : ""}${effectiveDarkMode ? " dark-mode" : ""}${sidebarResizing ? " sidebar-resizing" : ""}${windowFocused ? " window-focused" : ""}`}
+      className={`app-shell${window.superNote?.windowBackdropEnabled ? " native-window-backdrop" : ""}${settings.handwritten ? " handwritten-mode" : ""}${effectiveDarkMode ? " dark-mode" : ""}${sidebarResizing ? " sidebar-resizing" : ""}${windowFocused ? " window-focused" : ""}`}
       data-tab-layout={settings.tabLayout}
       style={{
         ["--pane-grid" as string]: makePaneGridTemplate(paneWidths),
