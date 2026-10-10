@@ -25,7 +25,6 @@ async function mount() {
     import("./App"),
     import("antd/dist/reset.css"),
     import("./styles.css"),
-    import("./features/mindmap/mindMap.css"),
     import("./features/overlays/overlayStyles.css"),
   ]);
   root.render(<React.StrictMode><App /></React.StrictMode>);

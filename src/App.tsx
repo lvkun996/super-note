@@ -136,6 +136,7 @@ const INITIAL_PANE_ID = "pane-main";
 const SITE_URL = "https://lvkun996.github.io/super-note/";
 
 const LazyCanvasView = lazy(() => import("./features/canvas/CanvasView").then(({ CanvasView }) => ({ default: CanvasView })));
+const LazyMindMapCanvasView = lazy(() => import("./features/mindmap/MindMapCanvasView").then(({ MindMapCanvasView }) => ({ default: MindMapCanvasView })));
 const LazyAppTitleBar = lazy(() => import("./components/AppTitleBar").then(({ AppTitleBar }) => ({ default: AppTitleBar })));
 const LazyFileView = lazy(() => import("./features/text/FileView").then(({ FileView }) => ({ default: FileView })));
 const LazyHelpDocumentation = lazy(() => import("./components/HelpDocumentation").then(({ HelpDocumentation }) => ({ default: HelpDocumentation })));
@@ -3467,9 +3468,10 @@ function AppShell() {
         return <div className="plugin-disabled" data-plugin="mindmap"><span>{uiText("启用思维导图插件后查看和编辑，已有内容已保留。")}</span><Button onClick={toggleMindMapPlugin}>{uiText("启用思维导图插件")}</Button></div>;
       }
       const viewState = getPaneViewState(tab, pane);
+      const CanvasDocumentView = getCanvasMode(tab) === "mindmap" ? LazyMindMapCanvasView : LazyCanvasView;
       return (
         <Suspense fallback={<FeatureLoading label={uiText("正在加载画板...")} />}>
-        <LazyCanvasView
+        <CanvasDocumentView
           tab={tab}
           pane={pane}
           viewState={viewState}

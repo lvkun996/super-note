@@ -29,12 +29,8 @@ import type {
   TextCanvasItem,
   TextSelection,
 } from "../../appTypes";
-import { MindMapLayer } from "../mindmap/MindMapLayer";
-import { MindMapRelationsLayer } from "../mindmap/MindMapRelationsLayer";
-import {
-  resolveMindMapCanvasLinkAnchors,
-  type ResolvedMindMapRelationAnchors,
-} from "../mindmap/mindMapRelations";
+import type { MindMapCanvasRuntime } from "../mindmap/mindMapCanvasRuntime";
+import type { ResolvedMindMapRelationAnchors } from "../mindmap/mindMapRelations";
 import type { MindMapCanvasLink, SelectedMindMapNode } from "../mindmap/mindMapTypes";
 import {
   continueOrderedList,
@@ -202,7 +198,8 @@ function CanvasTextEditor({
   );
 }
 
-type CanvasViewProps = {
+export type CanvasViewProps = {
+  mindMapRuntime?: MindMapCanvasRuntime;
   tab: CanvasTab;
   pane: PaneKey;
   viewState: CanvasViewState;
@@ -245,6 +242,7 @@ type CanvasViewProps = {
 };
 
 export function CanvasView({
+  mindMapRuntime,
   tab,
   pane,
   viewState,
@@ -285,6 +283,8 @@ export function CanvasView({
   onOpenMindMapStyle,
   onExportImage,
 }: CanvasViewProps) {
+  const MindMapLayer = mindMapRuntime?.MindMapLayer;
+  const MindMapRelationsLayer = mindMapRuntime?.MindMapRelationsLayer;
   const needle = searchValue.trim().toLowerCase();
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [mindMapEditRequestId, setMindMapEditRequestId] = useState<string | null>(null);
@@ -335,6 +335,9 @@ export function CanvasView({
   }, [frozenRelationAnchors, liveItemDrag, tab.mindMap]);
 
   useEffect(() => {
+    // Item movement is painted directly by the canvas drag controller. Only
+    // documents with graph links need React updates for their moving endpoints.
+    if (!mindMapRuntime || !tab.mindMap?.canvasLinks.length) return;
     const handleDrag = (event: Event) => {
       const detail = (event as CustomEvent<LiveCanvasItemDrag>).detail;
       if (detail.tabId !== tab.id || detail.pane !== pane) {
@@ -344,7 +347,7 @@ export function CanvasView({
         const frozen = Object.fromEntries(tab.mindMap.canvasLinks
           .filter((link) => link.itemId === detail.itemId)
           .flatMap((link) => {
-            const anchors = resolveMindMapCanvasLinkAnchors(tab.mindMap!, tab.items, viewState, link);
+            const anchors = mindMapRuntime?.resolveMindMapCanvasLinkAnchors(tab.mindMap!, tab.items, viewState, link);
             return anchors ? [[link.id, anchors] as const] : [];
           }));
         setFrozenRelationAnchors(frozen);
@@ -365,7 +368,7 @@ export function CanvasView({
       window.removeEventListener(CANVAS_ITEM_DRAG_EVENT, handleDrag);
       window.removeEventListener(CANVAS_ITEM_DRAG_END_EVENT, handleDragEnd);
     };
-  }, [pane, tab.id, tab.items, tab.mindMap, viewState]);
+  }, [mindMapRuntime, pane, tab.id, tab.items, tab.mindMap, viewState]);
 
   useEffect(() => {
     if (!selectedRelation) {
@@ -395,7 +398,7 @@ export function CanvasView({
       if (!mindMap) {
         return true;
       }
-      const anchors = resolveMindMapCanvasLinkAnchors(mindMap, tab.items, viewState, {
+      const anchors = mindMapRuntime?.resolveMindMapCanvasLinkAnchors(mindMap, tab.items, viewState, {
         id: "preview-link",
         nodeId: relationSourceNodeId,
         itemId,
@@ -550,7 +553,7 @@ export function CanvasView({
           onDoubleClick={(event) => onDoubleClick(tab, pane, viewState, event)}
           onMouseDown={(event) => onSurfaceMouseDown(tab, pane, viewState, event)}
         >
-          {tab.mindMap ? (
+          {tab.mindMap && MindMapLayer && MindMapRelationsLayer ? (
             <>
               <MindMapRelationsLayer
                 document={relationDocument ?? tab.mindMap}

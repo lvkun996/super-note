@@ -45,6 +45,8 @@ async function inspect(expectedOpacity) {
       material:window.superNote.windowBackdropEnabled,
       overflow:document.documentElement.scrollWidth > innerWidth,
       titleHeight:document.querySelector('.app-titlebar').getBoundingClientRect().height,
+      titleDivider:getComputedStyle(document.querySelector('.app-titlebar')).borderBottomColor,
+      sidebarDivider:document.querySelector('.tabs-sidebar') && getComputedStyle(document.querySelector('.tabs-sidebar')).borderRightColor,
       sidebarHeight:document.querySelector('.tabs-sidebar-header')?.getBoundingClientRect().height,
       documentHeight:document.querySelector('.file-title-bar')?.getBoundingClientRect().height,
       sidebarRight:document.querySelector('.tabs-sidebar')?.getBoundingClientRect().right,
@@ -60,6 +62,8 @@ async function inspect(expectedOpacity) {
   assert.equal(result.rootBackground, "rgba(0, 0, 0, 0)");
   assert.equal(result.overflow, false);
   assert.equal(result.titleHeight, 32);
+  assert.equal(result.titleDivider, "rgba(0, 0, 0, 0)");
+  if (result.sidebarDivider) assert.equal(result.sidebarDivider, "rgba(0, 0, 0, 0)");
   if (result.sidebarHeight) assert.equal(result.sidebarHeight, result.documentHeight);
   if (result.sidebarRight) {
     assert.equal(result.workspaceLeft, result.sidebarRight, "No pale gutter between navigation and document");

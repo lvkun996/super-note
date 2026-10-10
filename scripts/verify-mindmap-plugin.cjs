@@ -8,6 +8,7 @@ const output = mkdtempSync(path.join(os.tmpdir(), 'super-note-plugin-'));
 app.setPath('userData', output);
 let win, saved, workspace;
 const errors = [];
+const requestedResources = new Set();
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const evaluate = code => win.webContents.executeJavaScript(`{ ${code} }`, true);
 async function waitFor(code) {
@@ -27,6 +28,7 @@ async function plugin(text) {
   await waitFor("!document.querySelector('.ant-dropdown:not(.ant-dropdown-hidden)')");
 }
 async function load(value) {
+  requestedResources.clear();
   workspace = value;
   saved = null;
   await win.loadFile(path.resolve(__dirname, '../dist/index.html'));
@@ -40,14 +42,28 @@ async function verify() {
   for (const name of ['app:rendererReady', 'app:setLanguage', 'tray:syncTabs', 'mindmap-style:sync']) ipcMain.handle(name, () => ({ ok: true }));
   win = new BrowserWindow({ show: true, width: 1000, height: 700, webPreferences: { preload: path.resolve(__dirname, '../dist-electron/preload.js'), contextIsolation: true, sandbox: false, backgroundThrottling: false } });
   win.webContents.on('console-message', event => { if (event.level === 'error') errors.push(event.message); });
+  win.webContents.session.webRequest.onBeforeRequest((details, callback) => {
+    requestedResources.add(details.url);
+    callback({});
+  });
   const initial = { version: 5, savedAt: new Date().toISOString(), tabs: [], paneIds: ['pane-main'], paneWidths: [100], activePane: 'pane-main', splitView: false, settings: { tabLayout: 'left', plugins: { canvas: false, mindMap: false } } };
   await load(initial);
   assert.equal(await evaluate("Boolean(document.querySelector('[aria-label=\"新建思维导图\"]'))"), false);
+  // file:// does not expose all resource entries through Performance APIs.
+  const graphLoaded = () => [...requestedResources].some(url => url.includes('/MindMapCanvasView-'));
+  assert.equal(await graphLoaded(), false, 'Initial navigation must not load graph JS or CSS');
+  await plugin('画板插件');
+  await waitFor("Boolean(document.querySelector('[aria-label=\"新建画板\"]'))");
+  await evaluate("document.querySelector('[aria-label=\"新建画板\"]').click()");
+  await waitFor("Boolean(document.querySelector('.canvas-frame'))");
+  assert.equal(await graphLoaded(), false, 'Plain boards must not load graph JS or CSS');
+  await load(initial);
   await plugin('思维导图插件');
   await waitFor("Boolean(document.querySelector('[aria-label=\"新建思维导图\"]'))");
   assert.equal(await evaluate("Boolean(document.querySelector('[aria-label=\"新建画板\"]'))"), false);
   await evaluate("document.querySelector('[aria-label=\"新建思维导图\"]').click()");
   await waitFor("Boolean(document.querySelector('.mind-map-node'))");
+  assert.equal(await graphLoaded(), true, 'Graph resources load when a map is opened');
   await evaluate("document.querySelector('.mind-map-node').click()");
   await waitFor("[...document.querySelectorAll('.canvas-command-bar button')].some(el => el.textContent.trim() === '子主题' && !el.disabled)");
   await click('子主题');
@@ -92,7 +108,7 @@ async function verify() {
   assert.equal(saved.tabs[0].items[0].text, 'Preserved legacy note');
   assert.equal(saved.tabs[0].canvasMode, 'mindmap');
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ independentOptIn: 'passed', independentCreation: 'passed', editing: 'passed', disablePreservesContents: 'passed', persistence: 'passed', boardSeparation: 'passed', legacyMigration: 'passed', screenshots: output }));
+  console.log(JSON.stringify({ lazyGraphResources: 'passed', independentOptIn: 'passed', independentCreation: 'passed', editing: 'passed', disablePreservesContents: 'passed', persistence: 'passed', boardSeparation: 'passed', legacyMigration: 'passed', screenshots: output }));
 }
 app.whenReady().then(verify).then(() => { win.destroy(); app.exit(0); }).catch(async error => { console.error(error.stack); console.error(errors); console.error(await evaluate('document.body.innerText').catch(() => 'unavailable')); win?.destroy(); app.exit(1); });
 setTimeout(() => { console.error('Plugin verification timed out'); app.exit(1); }, 60000).unref();
