@@ -59,17 +59,25 @@ async function inspect(expectedOpacity) {
   if (result.sidebarHeight) assert.equal(result.sidebarHeight, result.documentHeight);
   return result;
 }
-async function screenshot(label) {
-  const shot = await win.webContents.capturePage();
-  writeFileSync(path.join(output, `${label}.png`), shot.toPNG());
-  const bitmap = shot.toBitmap();
-  const alpha = await evaluate("Number(getComputedStyle(document.querySelector('.app-shell')).getPropertyValue('--navigation-background-opacity'))");
+async function screenshot(label, alpha) {
   const points = [[500, 12]];
   if (await evaluate("Boolean(document.querySelector('.tabs-sidebar'))")) points.push([20, 250]);
-  for (const [x, y] of points) {
-    const offset = (y * shot.getSize().width + x) * 4;
-    assert(Math.abs(bitmap[offset + 3] - Math.round(alpha * 255)) <= 1, `${label}: rendered chrome must have the expected alpha`);
+  let samples;
+  // Computed styles can settle before the compositor submits the matching frame.
+  // Require the expected pixels, rather than sampling a stale frame once.
+  for (let attempt = 0; attempt < 20; attempt++) {
+    await inspect(alpha);
+    const shot = await win.webContents.capturePage();
+    const bitmap = shot.toBitmap();
+    const scale = shot.getSize().width / await evaluate("innerWidth");
+    samples = points.map(([x, y]) => bitmap[(Math.floor(y * scale) * shot.getSize().width + Math.floor(x * scale)) * 4 + 3]);
+    if (samples.every(value => Math.abs(value - Math.round(alpha * 255)) <= 1)) {
+      writeFileSync(path.join(output, `${label}.png`), shot.toPNG());
+      return;
+    }
+    await delay(100);
   }
+  assert.fail(`${label}: rendered chrome alpha ${samples} must match ${Math.round(alpha * 255)}`);
 }
 async function verify() {
   const material = getWindowMaterial(process.platform, os.release(), typeof BrowserWindow.prototype.setBackgroundMaterial === "function");
@@ -91,11 +99,15 @@ async function verify() {
     await evaluate("document.querySelector('.menu-left button').click()");
     await waitFor("Boolean(document.querySelector('.ant-dropdown:not(.ant-dropdown-hidden)'))");
     await inspect(dark ? .8 : .72);
-    await evaluate("document.querySelector('.file-editor').click()");
-    await screenshot(`${dark ? "dark" : "light"}-focused`);
+    const editorPoint = await evaluate("(() => { const r = document.querySelector('.file-editor').getBoundingClientRect(); return { x: Math.round(r.right - 30), y: Math.round(r.bottom - 30) }; })()");
+    win.webContents.sendInputEvent({ type: "mouseDown", button: "left", clickCount: 1, ...editorPoint });
+    win.webContents.sendInputEvent({ type: "mouseUp", button: "left", clickCount: 1, ...editorPoint });
+    await waitFor("!document.querySelector('.ant-dropdown:not(.ant-dropdown-hidden)')");
+    await focus(true);
+    await screenshot(`${dark ? "dark" : "light"}-focused`, dark ? .8 : .72);
     await focus(false);
     await inspect(1);
-    await screenshot(`${dark ? "dark" : "light"}-unfocused`);
+    await screenshot(`${dark ? "dark" : "light"}-unfocused`, 1);
     await focus(true);
     win.setSize(960, 680);
     await delay(200);
@@ -122,7 +134,7 @@ async function verify() {
   await fixture(false, "top");
   await focus(true);
   await inspect(.72);
-  await screenshot("top-tabs-focused");
+  await screenshot("top-tabs-focused", .72);
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ nativeFocusBlur: "passed", backgroundOnly: "passed", lightDark: "passed", resizeMaximize: "passed", reducedTransparencyMotion: "passed", topTabs: "passed", screenshots: output, rendererErrors: errors }));
 }
