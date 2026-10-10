@@ -188,6 +188,11 @@ input {
 
 .app-content-shell.tab-layout-left {
   flex-direction: row;
+  background: var(--navigation-background);
+}
+
+.tab-layout-left .tabs-sidebar {
+  background: transparent;
 }
 
 .tab-navigation-loading {
