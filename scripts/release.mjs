@@ -765,6 +765,7 @@ async function main() {
   const assets = getAssets();
   await verifyManifests();
   run(require("electron"), [path.join(root, "scripts", "verify-text-line-endings.cjs")]);
+  run(require("electron"), [path.join(root, "scripts", "verify-mindmap-plugin.cjs")]);
   if (process.platform === "win32" && Number(os.release().split(".")[2]) >= 22621) run(require("electron"), [path.join(root, "scripts", "verify-window-chrome.cjs")]);
   ensureCleanWorktree();
   if (capture("git", ["rev-parse", "HEAD"]) !== head) throw new Error("Source commit changed during the build. Release canceled.");

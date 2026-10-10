@@ -1,5 +1,5 @@
 import { uiText } from "../../../electron/uiLanguage";
-import { BorderOutlined, CloseOutlined, CopyOutlined, DeleteOutlined, EditOutlined, FolderOpenOutlined, LinkOutlined, PlusOutlined, SplitCellsOutlined, VerticalAlignTopOutlined } from "@ant-design/icons";
+import { ApartmentOutlined, BorderOutlined, CloseOutlined, CopyOutlined, DeleteOutlined, EditOutlined, FolderOpenOutlined, LinkOutlined, PlusOutlined, SplitCellsOutlined, VerticalAlignTopOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Tabs, Tooltip } from "antd";
 import type { MenuProps, TabsProps } from "antd";
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -48,6 +48,8 @@ type TabNavigationProps = {
   activePane: PaneKey;
   splitView: boolean;
   canvasPluginEnabled: boolean;
+  mindMapPluginEnabled: boolean;
+  onAddMindMap: () => void;
   newCanvasShortcut: string;
   newTextShortcut: string;
   getTabPanes: (tabId: string) => PaneKey[];
@@ -84,6 +86,8 @@ function TabNavigationComponent({
   activePane,
   splitView,
   canvasPluginEnabled,
+  mindMapPluginEnabled,
+  onAddMindMap,
   newCanvasShortcut,
   newTextShortcut,
   getTabPanes,
@@ -404,6 +408,7 @@ function TabNavigationComponent({
           onChange={(key) => onFocusTab(key, pane)}
           tabBarExtraContent={showAddButtons ? (
             <div className="tabs-extra-actions">
+              {mindMapPluginEnabled ? <Tooltip title={uiText("新建思维导图")}><Button type="text" aria-label={uiText("新建思维导图")} icon={<ApartmentOutlined />} onClick={onAddMindMap} /></Tooltip> : null}
               {canvasPluginEnabled ? (
                 <Tooltip title={uiText("新建画板 ({0})", [newCanvasShortcut])}>
                   <Button className="tabs-canvas-add-button" type="text" aria-label={uiText("新建画板")} icon={<BorderOutlined />} onClick={onAddCanvas} />
@@ -426,6 +431,7 @@ function TabNavigationComponent({
       <aside className="tabs-sidebar" data-tab-layout="left" aria-label={uiText("标签菜单")}>
         <div className="tabs-sidebar-header">
           <div className="tabs-sidebar-actions">
+            {mindMapPluginEnabled ? <Tooltip title={uiText("新建思维导图")}><Button type="text" size="small" aria-label={uiText("新建思维导图")} icon={<ApartmentOutlined />} onClick={onAddMindMap} /></Tooltip> : null}
             {canvasPluginEnabled ? (
               <Tooltip title={uiText("新建画板 ({0})", [newCanvasShortcut])}>
                 <Button type="text" size="small" aria-label={uiText("新建画板")} icon={<BorderOutlined />} onClick={onAddCanvas} />

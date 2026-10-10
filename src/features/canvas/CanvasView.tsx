@@ -1,4 +1,5 @@
 import { uiText } from "../../../electron/uiLanguage";
+import { getCanvasMode } from "../../pluginSettings";
 import {
   ApartmentOutlined,
   BgColorsOutlined,
@@ -514,10 +515,10 @@ export function CanvasView({
               <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={onRemoveMindMap}>{uiText("导图")}</Button>
             </Tooltip>
           </>
-        ) : (
+        ) : getCanvasMode(tab) === "mindmap" ? (
           <Button size="small" type="text" icon={<ApartmentOutlined />} onClick={() => onCreateMindMap(getViewportCenter())}>{uiText("新建思维导图")}</Button>
-        )}
-        <span className="canvas-command-divider" />
+        ) : null}
+        {getCanvasMode(tab) === "mindmap" ? <span className="canvas-command-divider" /> : null}
         <Tooltip title={uiText("按全部内容边界导出 2× PNG")}>
           <Button size="small" type="text" icon={<ExportOutlined />} onClick={onExportImage}>{uiText("导出图片")}</Button>
         </Tooltip>

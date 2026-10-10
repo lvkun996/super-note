@@ -51,6 +51,7 @@ export type CanvasTab = {
   id: string;
   pinned?: boolean;
   kind: "canvas";
+  canvasMode?: "board" | "mindmap";
   title: string;
   autoTitle: boolean;
   themeIndex: number;

@@ -4,11 +4,13 @@ import zhCN from "antd/locale/zh_CN";
 import {
   App as AntApp,
   ConfigProvider,
+  Button,
   theme,
 } from "antd";
 import type { InputRef, MenuProps } from "antd";
 import {
   BookOutlined,
+  ApartmentOutlined,
   CheckOutlined,
   CloudDownloadOutlined,
   CloseOutlined,
@@ -89,6 +91,7 @@ import {
   writeClipboardText,
 } from "./features/editor/editorUtils";
 import { DEFAULT_SETTINGS, normalizeSettings, shortcutMatches } from "./features/settings/settingsModel";
+import { getCanvasMode } from "./pluginSettings";
 import { rememberTabVisit, removeTabVisit, resolveTabAfterClose } from "./features/tabs/tabHistory";
 import { getTabDisplayTitle } from "./features/tabs/tabTitle";
 import { getQuickOpenResults, searchWorkspace } from "./features/search/searchModel";
@@ -150,6 +153,12 @@ const canvasThemes: CanvasTheme[] = [
 ];
 
 const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
+  {
+    version: "v0.1.34",
+    date: "2026-10-10",
+    title: uiText("导航边界与独立思维导图"),
+    description: uiText("修复导航白线并增加正文左上圆角；思维导图独立为需勾选启用的插件，保留已有导图与混合内容。"),
+  },
   {
     version: "v0.1.33",
     date: "2026-10-09",
@@ -480,6 +489,7 @@ function restoreTab(tab: PersistedTab): NoteTab {
       panY: tab.panY ?? 0,
       items,
       mindMap,
+      canvasMode: getCanvasMode({ ...tab, mindMap }),
       history: [cloneCanvasSnapshot(items, mindMap)],
       historyIndex: 0,
       dirty: tab.dirty ?? false,
@@ -645,14 +655,14 @@ function AppShell() {
   const [fileSearchTarget, setFileSearchTarget] = useState<TextSearchTarget | null>(null);
   const [imagePreview, setImagePreview] = useState<{ src: string; name: string } | null>(null);
   const [appInfo, setAppInfo] = useState<AppInfo>({
-    version: "0.1.33",
+    version: "0.1.34",
     author: "kunkun",
     desc: uiText("认识自身平凡后，依旧拥有改变世界的勇气"),
   });
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
     channel: "latest",
-    currentVersion: "0.1.33",
+    currentVersion: "0.1.34",
   });
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
@@ -671,9 +681,10 @@ function AppShell() {
   const zoomFeedbackPendingRef = useRef(false);
   const zoomFeedbackTimerRef = useRef<number | null>(null);
   tabsRef.current = tabs;
-  const paneTabHistoryRef = useRef<Record<PaneKey, string[]>>({ [INITIAL_PANE_ID]: [tabs[0].id] });
+  const paneTabHistoryRef = useRef<Record<PaneKey, string[]>>({ [INITIAL_PANE_ID]: tabs[0] ? [tabs[0].id] : [] });
   const effectiveDarkMode = settings.followSystemTheme ? systemDarkMode : settings.darkMode;
   const canvasPluginEnabled = settings.plugins.canvas;
+  const mindMapPluginEnabled = settings.plugins.mindMap;
 
   const closeSearch = useCallback(() => {
     setSearchOpen(false);
@@ -777,6 +788,10 @@ function AppShell() {
         canvas: !current.plugins.canvas,
       },
     }));
+  }, []);
+
+  const toggleMindMapPlugin = useCallback(() => {
+    setSettings(current => ({ ...current, plugins: { ...current.plugins, mindMap: !current.plugins.mindMap } }));
   }, []);
 
   const scheduleDragPaint = useCallback(() => {
@@ -995,8 +1010,8 @@ function AppShell() {
   }, [paneActiveTabIds, paneIds]);
 
   const updateCanvasTab = useCallback((tabId: string, updater: (tab: CanvasTab) => CanvasTab) => {
-    setTabs((current) => current.map((tab) => (tab.id === tabId && tab.kind === "canvas" ? updater(tab) : tab)));
-  }, []);
+    setTabs((current) => current.map((tab) => (tab.id === tabId && tab.kind === "canvas" && (getCanvasMode(tab) !== "mindmap" || mindMapPluginEnabled) ? updater(tab) : tab)));
+  }, [mindMapPluginEnabled]);
 
   const updateFileContent = useCallback((tabId: string, content: string) => {
     content = normalizeTextLineEndings(content);
@@ -1114,6 +1129,17 @@ function AppShell() {
     focusTabInPane(nextTab.id, targetPane);
     setSelectedItem(null);
   }, [activePane, focusTabInPane, paneIds, tabs.length]);
+
+  const addMindMapTab = useCallback(() => {
+    if (!mindMapPluginEnabled) return;
+    const mindMap = createMindMap({ x: 320, y: 240 });
+    const nextTab: CanvasTab = { ...createCanvasTab(tabs.length), canvasMode: "mindmap", title: uiText("思维导图"), mindMap, history: [cloneCanvasSnapshot([], mindMap)] };
+    const targetPane = paneIds.includes(activePane) ? activePane : paneIds[0];
+    setTabs(current => [...current, nextTab]);
+    setTabPaneIds(current => ({ ...current, [nextTab.id]: [targetPane] }));
+    focusTabInPane(nextTab.id, targetPane);
+    setSelectedItem(null);
+  }, [activePane, focusTabInPane, mindMapPluginEnabled, paneIds, tabs.length]);
 
   const addTextTab = useCallback((targetPane?: PaneKey) => {
     const nextTab = createTextTab(tabs.length);
@@ -3124,9 +3150,16 @@ function AppShell() {
       icon: canvasPluginEnabled ? <CheckOutlined /> : <BorderOutlined />,
       onClick: toggleCanvasPlugin,
     },
+    {
+      key: "mindmap-plugin",
+      label: <span className="new-module-menu-label"><strong>{uiText("思维导图插件")}</strong><small>{mindMapPluginEnabled ? uiText("已启用 · 可独立新建思维导图") : uiText("未启用 · 点击启用思维导图能力")}</small></span>,
+      icon: mindMapPluginEnabled ? <CheckOutlined /> : <BorderOutlined />,
+      onClick: toggleMindMapPlugin,
+    },
   ];
 
   const fileMenu: MenuProps["items"] = [
+    ...(mindMapPluginEnabled ? [{ key: "new-mindmap", label: uiText("新建思维导图"), icon: <ApartmentOutlined />, onClick: addMindMapTab }] : []),
     {
       key: "new-text",
       label: uiText("新建文本模块 ({0})", [settings.shortcuts.newText]),
@@ -3430,6 +3463,9 @@ function AppShell() {
 
   const renderPaneContent = (tab: NoteTab, pane: PaneKey) => {
     if (tab.kind === "canvas") {
+      if (getCanvasMode(tab) === "mindmap" && !mindMapPluginEnabled) {
+        return <div className="plugin-disabled" data-plugin="mindmap"><span>{uiText("启用思维导图插件后查看和编辑，已有内容已保留。")}</span><Button onClick={toggleMindMapPlugin}>{uiText("启用思维导图插件")}</Button></div>;
+      }
       const viewState = getPaneViewState(tab, pane);
       return (
         <Suspense fallback={<FeatureLoading label={uiText("正在加载画板...")} />}>
@@ -3638,6 +3674,8 @@ function AppShell() {
           activePane={activePane}
           splitView={renderedSplitView}
           canvasPluginEnabled={canvasPluginEnabled}
+          mindMapPluginEnabled={mindMapPluginEnabled}
+          onAddMindMap={addMindMapTab}
           newCanvasShortcut={settings.shortcuts.newCanvas}
           newTextShortcut={settings.shortcuts.newText}
           getTabPanes={getTabPanes}

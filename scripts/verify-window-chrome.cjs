@@ -47,6 +47,10 @@ async function inspect(expectedOpacity) {
       titleHeight:document.querySelector('.app-titlebar').getBoundingClientRect().height,
       sidebarHeight:document.querySelector('.tabs-sidebar-header')?.getBoundingClientRect().height,
       documentHeight:document.querySelector('.file-title-bar')?.getBoundingClientRect().height,
+      sidebarRight:document.querySelector('.tabs-sidebar')?.getBoundingClientRect().right,
+      workspaceLeft:document.querySelector('.workspace').getBoundingClientRect().left,
+      corner:getComputedStyle(document.querySelector('.workspace')).borderTopLeftRadius,
+      resizerBackground:document.querySelector('.tabs-sidebar-resizer') && getComputedStyle(document.querySelector('.tabs-sidebar-resizer')).backgroundColor,
     };
   })()`);
   assert.equal(result.alpha, expectedOpacity);
@@ -57,11 +61,17 @@ async function inspect(expectedOpacity) {
   assert.equal(result.overflow, false);
   assert.equal(result.titleHeight, 32);
   if (result.sidebarHeight) assert.equal(result.sidebarHeight, result.documentHeight);
+  if (result.sidebarRight) {
+    assert.equal(result.workspaceLeft, result.sidebarRight, "No pale gutter between navigation and document");
+    assert.equal(result.corner, "12px");
+    assert.equal(result.resizerBackground, "rgba(0, 0, 0, 0)");
+  }
   return result;
 }
 async function screenshot(label, alpha) {
-  const points = [[500, 12]];
-  if (await evaluate("Boolean(document.querySelector('.tabs-sidebar'))")) points.push([20, 250]);
+  const points = [[500, 12], [500, 30]];
+  const sidebarWidth = await evaluate("document.querySelector('.tabs-sidebar')?.getBoundingClientRect().width");
+  if (sidebarWidth) points.push([20, 250], [sidebarWidth - 3, 250]);
   let samples;
   // Computed styles can settle before the compositor submits the matching frame.
   // Require the expected pixels, rather than sampling a stale frame once.

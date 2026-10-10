@@ -1,5 +1,13 @@
 // Exact source keys keep user-authored tab titles and document content out of translation.
 export const englishMessages: Record<string, string> = {
+  "导航边界与独立思维导图": "Navigation boundaries and standalone mind maps",
+  "修复导航白线并增加正文左上圆角；思维导图独立为需勾选启用的插件，保留已有导图与混合内容。": "Removed navigation seams and rounded the upper-left content corner. Mind maps are now a separate opt-in plugin; existing maps and mixed content are preserved.",
+  "思维导图插件": "Mind map plugin",
+  "已启用 · 可独立新建思维导图": "Enabled · Create standalone mind maps",
+  "未启用 · 点击启用思维导图能力": "Disabled · Click to enable mind maps",
+  "启用思维导图插件后查看和编辑，已有内容已保留。": "Enable the mind map plugin to view and edit. Existing content is preserved.",
+  "启用思维导图插件": "Enable mind map plugin",
+  "在“插件”菜单中勾选“思维导图插件”，再通过标签栏导图图标或“文件”菜单独立新建；用工具栏添加主题、删除分支，双击主题编辑内容。": "Enable the Mind map plugin in Plugins, then create a standalone map from the tab-bar icon or File menu. Use the toolbar to add topics or remove branches; double-click a topic to edit.",
   "输入修复与聚焦背景优化": "Input fixes and focused background improvements",
   "修复已有文件异常换行造成的光标错位；聚焦时仅导航背景半透明，欢迎词随机切换，并完善一键发布校验。": "Fixed caret misalignment caused by unusual line endings in existing files. Only navigation backgrounds become translucent on focus, welcome messages are randomized, and one-command releases include verification.",
   "侧栏拖拽与性能优化": "Sidebar dragging and performance improvements",
