@@ -69,6 +69,8 @@ async function inspect(expectedOpacity) {
     assert.equal(result.workspaceLeft, result.sidebarRight, "No pale gutter between navigation and document");
     assert.equal(result.corner, "12px");
     assert.equal(result.resizerBackground, "rgba(0, 0, 0, 0)");
+  } else {
+    assert.equal(result.corner, "0px", "A full-width workspace must have square corners");
   }
   return result;
 }
@@ -119,6 +121,15 @@ async function verify() {
     await waitFor("!document.querySelector('.ant-dropdown:not(.ant-dropdown-hidden)')");
     await focus(true);
     await screenshot(`${dark ? "dark" : "light"}-focused`, dark ? .8 : .72);
+    await evaluate("document.querySelector('.file-editor').focus()");
+    win.webContents.sendInputEvent({ type: "keyDown", keyCode: "B", modifiers: ["control"] });
+    win.webContents.sendInputEvent({ type: "keyUp", keyCode: "B", modifiers: ["control"] });
+    await waitFor("!document.querySelector('.tabs-sidebar')");
+    await inspect(dark ? .8 : .72);
+    await screenshot(`${dark ? "dark" : "light"}-sidebar-collapsed`, dark ? .8 : .72);
+    win.webContents.sendInputEvent({ type: "keyDown", keyCode: "B", modifiers: ["control"] });
+    win.webContents.sendInputEvent({ type: "keyUp", keyCode: "B", modifiers: ["control"] });
+    await waitFor("Boolean(document.querySelector('.tabs-sidebar'))");
     await focus(false);
     await inspect(1);
     await screenshot(`${dark ? "dark" : "light"}-unfocused`, 1);

@@ -115,6 +115,25 @@ async function verify() {
     await assertAligned("selection replacement");
   }
 
+  // Real keyboard events must retain focus/caret through controlled updates.
+  await fixture("6. Parent\n");
+  await evaluate("const e=document.querySelector('.file-editor'); e.focus(); e.setSelectionRange(e.value.length,e.value.length)");
+  for (const type of ["keyDown", "keyUp"]) win.webContents.sendInputEvent({ type, keyCode: "Tab" });
+  await waitFor("document.querySelector('.file-editor').value === '6. Parent\\n6.1 '");
+  await win.webContents.insertText("Child");
+  for (const type of ["keyDown", "keyUp"]) win.webContents.sendInputEvent({ type, keyCode: "Return", modifiers: ["shift"] });
+  await waitFor("document.querySelector('.file-editor').value === '6. Parent\\n6.1 Child\\n6.2 '");
+  await win.webContents.insertText("Sibling");
+  assert.equal(await editorValue(), "6. Parent\n6.1 Child\n6.2 Sibling");
+  assert.equal(await evaluate("document.querySelector('.file-editor').selectionStart"), (await editorValue()).length);
+  await assertAligned("nested ordered list");
+  await fixture("6. Parent");
+  await evaluate("const e=document.querySelector('.file-editor'); e.focus(); e.setSelectionRange(e.value.length,e.value.length)");
+  for (const type of ["keyDown", "keyUp"]) win.webContents.sendInputEvent({ type, keyCode: "Return", modifiers: ["shift"] });
+  await waitFor("document.querySelector('.file-editor').value === '6. Parent\\n7. '");
+  for (const type of ["keyDown", "keyUp"]) win.webContents.sendInputEvent({ type, keyCode: "Tab" });
+  await waitFor("document.querySelector('.file-editor').value === '6. Parent\\n6.1 '");
+
   await fixture(broken);
   await clickAtEnd();
   win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Return" });

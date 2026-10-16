@@ -1,6 +1,7 @@
 import { uiText } from "../../../electron/uiLanguage";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import type { ProgrammerAction, TextSelection } from "../../appTypes";
+import { orderedListEdit } from "./orderedList";
 
 const HTTP_URL_PATTERN = /https?:\/\/[^\s<>"']+/gi;
 const TRAILING_URL_PUNCTUATION = /[),.;!?\]}，。！？；：、》】」』）]$/u;
@@ -299,8 +300,7 @@ export function continueOrderedList(
   onChange: (content: string) => void,
 ) {
   if (
-    event.key !== "Enter" ||
-    !event.shiftKey ||
+    !((event.key === "Enter" && event.shiftKey) || (event.key === "Tab" && !event.shiftKey)) ||
     event.ctrlKey ||
     event.altKey ||
     event.metaKey ||
@@ -312,28 +312,13 @@ export function continueOrderedList(
   const editor = event.currentTarget;
   const selectionStart = editor.selectionStart;
   const selectionEnd = editor.selectionEnd;
-  const lineStart = selectionStart === 0 ? 0 : editor.value.lastIndexOf("\n", selectionStart - 1) + 1;
-  const nextLineBreak = editor.value.indexOf("\n", selectionStart);
-  const lineEnd = nextLineBreak < 0 ? editor.value.length : nextLineBreak;
-  const currentLine = editor.value.slice(lineStart, lineEnd).replace(/\r$/, "");
-  const match = /^(\s*)(\d+)([.)])(\s+)(.*)$/.exec(currentLine);
-  if (!match) {
-    return;
-  }
-
-  const currentNumber = Number(match[2]);
-  if (!Number.isSafeInteger(currentNumber)) {
-    return;
-  }
+  const edit = orderedListEdit(editor.value, selectionStart, selectionEnd, event.key === "Tab" ? "child" : "continue");
+  if (!edit) return;
 
   event.preventDefault();
-  const nextNumber = String(currentNumber + 1).padStart(match[2].length, "0");
-  const insertion = `\n${match[1]}${nextNumber}${match[3]}${match[4]}`;
-  const nextContent = `${editor.value.slice(0, selectionStart)}${insertion}${editor.value.slice(selectionEnd)}`;
-  const nextCaret = selectionStart + insertion.length;
-  onChange(nextContent);
+  onChange(edit.content);
   window.requestAnimationFrame(() => {
     editor.focus();
-    editor.setSelectionRange(nextCaret, nextCaret);
+    editor.setSelectionRange(edit.caret, edit.caret);
   });
 }

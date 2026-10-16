@@ -820,6 +820,10 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   background: transparent;
 }
 
+.tab-layout-left.sidebar-collapsed .workspace {
+  border-radius: 0;
+}
+
 .plugin-disabled {
   height: 100%;
   display: flex;

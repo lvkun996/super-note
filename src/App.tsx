@@ -3664,7 +3664,7 @@ function AppShell() {
         />
       </Suspense>
 
-      <div className={`app-content-shell tab-layout-${settings.tabLayout}`}>
+      <div className={`app-content-shell tab-layout-${settings.tabLayout}${settings.tabLayout === "left" && !settings.sidebarVisible ? " sidebar-collapsed" : ""}`}>
         {settings.tabLayout !== "left" || settings.sidebarVisible ? <Suspense fallback={<div className="tab-navigation-loading" aria-hidden="true" />}><LazyTabNavigation
           layout={settings.tabLayout}
           tabs={tabNavigationItems}
