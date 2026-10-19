@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Super Note 是一款为 Windows 打造的多栏桌面笔记工具，让文字、画板和搜索保持在同一个工作空间里。" />
-    <meta name="theme-color" content="#f5f5f7" />
+    <meta name="theme-color" content="#f2f2f7" />
     <title>Super Note — 把想法放到一张桌面上</title>
     <link rel="icon" href="./assets/app-icon.png" />
     <script>
@@ -28,7 +28,7 @@
           <span>Super Note</span>
         </a>
         <nav class="site-nav" aria-label="主要导航">
-            <a href="#features">界面</a>
+          <a href="#features">界面</a>
           <a href="#updates">更新</a>
           <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换到夜间模式">
             <svg class="theme-icon theme-icon-sun" aria-hidden="true" viewBox="0 0 24 24">
@@ -46,11 +46,9 @@
 
     <main id="top">
       <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-orb hero-orb-one" aria-hidden="true"></div>
-        <div class="hero-orb hero-orb-two" aria-hidden="true"></div>
         <div class="hero-layout">
           <div class="hero-copy">
-            <p class="hero-version-badge"><span aria-hidden="true"></span>Super Note 0.1.36</p>
+            <p class="hero-version-badge">Super Note <span>0.1.36</span></p>
             <p class="eyebrow">Windows 桌面笔记</p>
             <h1 id="hero-title">阅读保持安静，<br /><span>编辑随时展开</span></h1>
             <p class="hero-description">JSON 打开即整理，Markdown 默认专注预览。需要修改时，用独立实时编辑窗口把源码和结果并排放在眼前。</p>
@@ -62,14 +60,12 @@
           </div>
 
           <div class="hero-visual" aria-label="Super Note 多栏工作区预览">
-            <div class="visual-glow" aria-hidden="true"></div>
             <figure class="product-window">
               <img src="./assets/super-note-welcome.svg" alt="Super Note 欢迎页工作区" />
             </figure>
             <div class="visual-caption"><span>JSON · Markdown · Canvas</span></div>
           </div>
         </div>
-        <a class="scroll-hint" href="#features" aria-label="向下查看产品能力"><span></span></a>
       </section>
 
       <section class="feature-section" id="features" aria-labelledby="features-title">
@@ -111,498 +107,383 @@
       </section>
 
       <section class="updates" id="updates" aria-labelledby="updates-title">
-        <div class="updates-parallax" aria-hidden="true">
-          <span class="updates-orb updates-orb-one"></span>
-          <span class="updates-orb updates-orb-two"></span>
-        </div>
         <div class="updates-stage">
           <div class="section-heading updates-heading">
             <p class="eyebrow">版本更新</p>
             <h2 id="updates-title">每一次迭代，都更接近顺手</h2>
-            <p>滚动滚轮，让版本沿着时间之环来到眼前。</p>
-            <div class="update-scroll-hint" aria-hidden="true">
-              <span class="update-wheel"><i></i></span>
-              <span>滚动切换版本</span>
-            </div>
+            <p>持续打磨日常使用中的每一个细节。</p>
           </div>
           <div class="update-ring-scene">
-            <div class="update-ring-glow" aria-hidden="true"></div>
-             <ol class="update-timeline">
+             <ol class="update-timeline" id="release-list">
            <li class="update-item update-item-current">
-              <div class="update-marker" aria-hidden="true"></div>
-              <article>
-                <div class="update-meta"><strong>v0.1.36</strong><time datetime="2026-10-19">2026.10.19</time></div>
-                <h3>子编号与侧栏收起体验</h3>
-                <p class="update-summary">Tab 快速创建列表子编号，侧栏收起后正文恢复直角。</p>
+              <article><details open>
+                <summary><div class="update-meta"><strong>v0.1.36</strong><time datetime="2026-10-19">2026.10.19</time></div><h3>子编号与侧栏收起体验</h3><p class="update-summary">Tab 快速创建列表子编号，侧栏收起后正文恢复直角。</p></summary>
                 <ul class="update-details"><li>在有序列表下一空行按 Tab 生成子编号，Shift+Enter 继续同级编号。</li><li>支持将新生成的空编号转为上一项的子编号，以及更深层编号。</li><li>左侧栏收起时取消正文圆角，浅色、深色保持一致。</li></ul>
-              </article>
+              </details></article>
             </li>
             <li class="update-item">
-              <div class="update-marker" aria-hidden="true"></div>
-              <article>
-                <div class="update-meta"><strong>v0.1.35</strong><time datetime="2026-10-10">2026.10.10</time></div>
-                <h3>按需加载与画板性能优化</h3>
-                <p class="update-summary">思维导图资源按需加载，普通画板入口更轻，拖拽减少无效更新。</p>
+              <article><details>
+                <summary><div class="update-meta"><strong>v0.1.35</strong><time datetime="2026-10-10">2026.10.10</time></div><h3>按需加载与画板性能优化</h3><p class="update-summary">思维导图资源按需加载，普通画板入口更轻，拖拽减少无效更新。</p></summary>
                 <ul class="update-details"><li>独立加载导图渲染、连线、布局和样式，减少首屏资源请求。</li><li>普通画板入口体积减少约 36.5%，增加构建与资源加载回归检查。</li><li>去掉顶部栏下方与左侧栏右侧的两条分隔线。</li></ul>
-              </article>
+              </details></article>
             </li>
             <li class="update-item">
-              <div class="update-marker" aria-hidden="true"></div>
-              <article>
-                <div class="update-meta"><strong>v0.1.34</strong><time datetime="2026-10-10">2026.10.10</time></div>
-                <h3>导航边界与独立思维导图</h3>
-                <p class="update-summary">导航边界更自然，正文增加圆角，思维导图独立为需勾选启用的插件。</p>
+              <article><details>
+                <summary><div class="update-meta"><strong>v0.1.34</strong><time datetime="2026-10-10">2026.10.10</time></div><h3>导航边界与独立思维导图</h3><p class="update-summary">导航边界更自然，正文增加圆角，思维导图独立为需勾选启用的插件。</p></summary>
                 <ul class="update-details"><li>修复顶部栏与侧栏异常浅色线条，正文左上角增加 12px 圆角。</li><li>思维导图可独立勾选、新建和编辑，不再混合在普通画板中。</li><li>保留旧导图及混合文字、图片，关闭插件不会删除数据。</li></ul>
-              </article>
+              </details></article>
             </li>
             <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta"><strong>v0.1.33</strong><time datetime="2026-10-09">2026.10.09</time></div>
-               <h3>输入修复与聚焦背景优化</h3>
-               <p class="update-summary">已有文件输入与光标对齐，聚焦时导航背景更透明，欢迎词随机呈现。</p>
-               <ul class="update-details"><li>统一异常换行处理，修复已有文本的显示、输入及定位错位。</li><li>顶部栏与侧栏仅背景半透明，文字保持清晰，失焦恢复原样。</li><li>欢迎页新增“灵感涌现”和“记录此时”，完善一键发布与上线校验。</li></ul>
-             </article>
+             <article><details>
+                <summary><div class="update-meta"><strong>v0.1.33</strong><time datetime="2026-10-09">2026.10.09</time></div><h3>输入修复与聚焦背景优化</h3><p class="update-summary">已有文件输入与光标对齐，聚焦时导航背景更透明，欢迎词随机呈现。</p></summary>
+                <ul class="update-details"><li>统一异常换行处理，修复已有文本的显示、输入及定位错位。</li><li>顶部栏与侧栏仅背景半透明，文字保持清晰，失焦恢复原样。</li><li>欢迎页新增“灵感涌现”和“记录此时”，完善一键发布与上线校验。</li></ul>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta"><strong>v0.1.32</strong><time datetime="2026-10-09">2026.10.09</time></div>
-               <h3>侧栏拖拽与性能优化</h3>
-               <p class="update-summary">半透明浮动条目跟随鼠标，导航更直观，搜索与编辑更轻量。</p>
-               <ul class="update-details"><li>侧栏拖拽显示浮动预览，原位置淡化，支持 Esc 取消。</li><li>优化搜索、标题生成和编辑器覆盖层更新，减少无效计算。</li><li>拆分搜索与标题逻辑，并行加载应用代码和样式。</li></ul>
-             </article>
+             <article><details>
+                <summary><div class="update-meta"><strong>v0.1.32</strong><time datetime="2026-10-09">2026.10.09</time></div><h3>侧栏拖拽与性能优化</h3><p class="update-summary">半透明浮动条目跟随鼠标，导航更直观，搜索与编辑更轻量。</p></summary>
+                <ul class="update-details"><li>侧栏拖拽显示浮动预览，原位置淡化，支持 Esc 取消。</li><li>优化搜索、标题生成和编辑器覆盖层更新，减少无效计算。</li><li>拆分搜索与标题逻辑，并行加载应用代码和样式。</li></ul>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta"><strong>v0.1.31</strong><time datetime="2026-09-22">2026.09.22</time></div>
-               <h3>大文本与保存体验优化</h3>
-               <p class="update-summary">JSON 保存更规范，大文本打开更稳定，窗口聚焦层次更轻盈。</p>
-               <ul class="update-details"><li>保存 .json 时自动整理为统一缩进格式。</li><li>大文本仅以只读预览打开，避免卡死且不覆盖原文件。</li><li>双击已选标签编辑名称，Ctrl+B 控制左侧栏。</li></ul>
-             </article>
+             <article><details>
+                <summary><div class="update-meta"><strong>v0.1.31</strong><time datetime="2026-09-22">2026.09.22</time></div><h3>大文本与保存体验优化</h3><p class="update-summary">JSON 保存更规范，大文本打开更稳定，窗口聚焦层次更轻盈。</p></summary>
+                <ul class="update-details"><li>保存 .json 时自动整理为统一缩进格式。</li><li>大文本仅以只读预览打开，避免卡死且不覆盖原文件。</li><li>双击已选标签编辑名称，Ctrl+B 控制左侧栏。</li></ul>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta"><strong>v0.1.30</strong><time datetime="2026-09-14">2026.09.14</time></div>
-               <h3>锚点标识与导航细节统一</h3>
-               <p class="update-summary">重要位置直接显示数字锚点，导航边界与交互反馈更加统一。</p>
-               <ul class="update-details"><li>文本与 Markdown 源码锚点显示连续数字标识。</li><li>统一顶部菜单悬浮样式、聚焦透明度和左右标题栏高度。</li></ul>
-             </article>
+             <article><details>
+                <summary><div class="update-meta"><strong>v0.1.30</strong><time datetime="2026-09-14">2026.09.14</time></div><h3>锚点标识与导航细节统一</h3><p class="update-summary">重要位置直接显示数字锚点，导航边界与交互反馈更加统一。</p></summary>
+                <ul class="update-details"><li>文本与 Markdown 源码锚点显示连续数字标识。</li><li>统一顶部菜单悬浮样式、聚焦透明度和左右标题栏高度。</li></ul>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta"><strong>v0.1.29</strong><time datetime="2026-09-11">2026.09.11</time></div>
-               <h3>锚点导航与窗口层次优化</h3>
-               <p class="update-summary">选中文本后设置锚点，从标题栏快速回到重要位置。</p>
-               <ul class="update-details"><li>新增文本锚点，支持右键设置、标题栏列表跳转和移除。</li><li>窗口失焦时淡化非内容区域，并进一步降低滚动条存在感。</li></ul>
-             </article>
+             <article><details>
+                <summary><div class="update-meta"><strong>v0.1.29</strong><time datetime="2026-09-11">2026.09.11</time></div><h3>锚点导航与窗口层次优化</h3><p class="update-summary">选中文本后设置锚点，从标题栏快速回到重要位置。</p></summary>
+                <ul class="update-details"><li>新增文本锚点，支持右键设置、标题栏列表跳转和移除。</li><li>窗口失焦时淡化非内容区域，并进一步降低滚动条存在感。</li></ul>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-             <div class="update-meta"><strong>v0.1.28</strong><time datetime="2026-09-10">2026.09.10</time></div>
-               <h3>Markdown 编辑与弹窗体验</h3>
-               <p class="update-summary">实时编辑更容易对照，弹窗确认按钮更清晰，网站预览同步更新。</p>
-               <ul class="update-details"><li>Markdown 编辑区与实时预览区支持双向滚动同步。</li><li>统一弹窗黑色主按钮的尺寸、文字对比度和交互状态。</li><li>修复危险操作弹窗按钮文字不可见的问题。</li></ul>
-             </article>
+             <article><details>
+                <summary><div class="update-meta"><strong>v0.1.28</strong><time datetime="2026-09-10">2026.09.10</time></div><h3>Markdown 编辑与弹窗体验</h3><p class="update-summary">实时编辑更容易对照，弹窗确认按钮更清晰，网站预览同步更新。</p></summary>
+                <ul class="update-details"><li>Markdown 编辑区与实时预览区支持双向滚动同步。</li><li>统一弹窗黑色主按钮的尺寸、文字对比度和交互状态。</li><li>修复危险操作弹窗按钮文字不可见的问题。</li></ul>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta"><strong>v0.1.27</strong><time datetime="2026-09-07">2026.09.07</time></div>
-               <h3>欢迎页与文件保存修复</h3>
-               <p class="update-summary">欢迎页更易阅读，弹窗全屏衔接更自然，文件后缀按输入结果保存。</p>
-               <ul class="update-details"><li>放大欢迎页文案并修复作者页顶部灰色间隙。</li><li>Markdown 编辑改为右侧图标，补充编辑与文档操作提示。</li><li>Tab 菜单使用“移除”，保存时保留手动输入的后缀。</li></ul>
-             </article>
+             <article><details>
+                <summary><div class="update-meta"><strong>v0.1.27</strong><time datetime="2026-09-07">2026.09.07</time></div><h3>欢迎页与文件保存修复</h3><p class="update-summary">欢迎页更易阅读，弹窗全屏衔接更自然，文件后缀按输入结果保存。</p></summary>
+                <ul class="update-details"><li>放大欢迎页文案并修复作者页顶部灰色间隙。</li><li>Markdown 编辑改为右侧图标，补充编辑与文档操作提示。</li><li>Tab 菜单使用“移除”，保存时保留手动输入的后缀。</li></ul>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta"><strong>v0.1.26</strong><time datetime="2026-09-07">2026.09.07</time></div>
-               <h3>JSON 与 Markdown 编辑体验</h3>
-               <p class="update-summary">文件打开更聪明，Markdown 阅读和编辑各自保持专注。</p>
-               <ul class="update-details"><li>打开 .json 文件时自动格式化合法内容。</li><li>Markdown 默认预览，标题栏右侧进入实时编辑弹窗。</li><li>加宽默认保存目录输入区并更新官网视觉。</li></ul>
-             </article>
+             <article><details>
+                <summary><div class="update-meta"><strong>v0.1.26</strong><time datetime="2026-09-07">2026.09.07</time></div><h3>JSON 与 Markdown 编辑体验</h3><p class="update-summary">文件打开更聪明，Markdown 阅读和编辑各自保持专注。</p></summary>
+                <ul class="update-details"><li>打开 .json 文件时自动格式化合法内容。</li><li>Markdown 默认预览，标题栏右侧进入实时编辑弹窗。</li><li>加宽默认保存目录输入区并更新官网视觉。</li></ul>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta"><strong>v0.1.25</strong><time datetime="2026-09-04">2026.09.04</time></div>
-               <h3>双语界面与透明弹窗</h3>
-               <p class="update-summary">中英文自由切换，透明弹窗与灰黑控件让界面更整洁。</p>
-               <ul class="update-details"><li>设置支持简体中文 / English，切换前保存工作区。</li><li>文档采用圆点操作列表，优化置顶和重置缩放文案。</li><li>统一菜单与弹窗透明度，确认弹窗移除图标。</li></ul>
-             </article>
+             <article><details>
+                <summary><div class="update-meta"><strong>v0.1.25</strong><time datetime="2026-09-04">2026.09.04</time></div><h3>双语界面与透明弹窗</h3><p class="update-summary">中英文自由切换，透明弹窗与灰黑控件让界面更整洁。</p></summary>
+                <ul class="update-details"><li>设置支持简体中文 / English，切换前保存工作区。</li><li>文档采用圆点操作列表，优化置顶和重置缩放文案。</li><li>统一菜单与弹窗透明度，确认弹窗移除图标。</li></ul>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.23</strong>
                  <time datetime="2026-09-04">2026.09.04</time>
-               </div>
-               <h3>顶栏边界与多选撤销修复</h3>
-               <p class="update-summary">顶部衔接更干净，多行编辑撤销后焦点保持稳定。</p>
-               <ul class="update-details">
+               </div><h3>顶栏边界与多选撤销修复</h3><p class="update-summary">顶部衔接更干净，多行编辑撤销后焦点保持稳定。</p></summary>
+                <ul class="update-details">
                  <li>顶部横栏取消文件区域左上弧形和多余灰色间隙。</li>
                  <li>中键多行多选输入后，Ctrl+Z 同步恢复文本与多光标焦点。</li>
                </ul>
-             </article>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.22</strong>
                  <time datetime="2026-09-04">2026.09.04</time>
-               </div>
-               <h3>界面配色与中键编辑优化</h3>
-               <p class="update-summary">导航更统一，托盘菜单更紧凑，中键多选和撤销体验更自然。</p>
-               <ul class="update-details">
+               </div><h3>界面配色与中键编辑优化</h3><p class="update-summary">导航更统一，托盘菜单更紧凑，中键多选和撤销体验更自然。</p></summary>
+                <ul class="update-details">
                  <li>侧栏与顶栏统一为 #F3F3F3，文本编辑背景为 #FFFFFF。</li>
                  <li>托盘菜单缩小并避开托盘图标。</li>
                  <li>中键多选焦点改为原生色系，输入后支持 Ctrl+Z。</li>
                </ul>
-             </article>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.21</strong>
                  <time datetime="2026-09-03">2026.09.03</time>
-               </div>
-               <h3>默认欢迎页与托盘入口</h3>
-               <p class="update-summary">打开 Super Note 就能回到清爽的默认欢迎页，托盘和横栏布局也更直接。</p>
-               <ul class="update-details">
+               </div><h3>默认欢迎页与托盘入口</h3><p class="update-summary">打开 Super Note 就能回到清爽的默认欢迎页，托盘和横栏布局也更直接。</p></summary>
+                <ul class="update-details">
                  <li>托盘左键直接打开主窗口，右键保留托盘菜单。</li>
                  <li>横栏布局取消重复的文档标题栏，标签栏下直接进入文本模块。</li>
                  <li>首次启动、完全重启和点击左上角 Super Note 时显示“你想写些什么？”。</li>
                </ul>
-             </article>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.20</strong>
                  <time datetime="2026-09-03">2026.09.03</time>
-               </div>
-               <h3>文本标题栏与光标修复</h3>
-               <p class="update-summary">顶部圆角与清晰的文档标题，让文本编辑更舒适。</p>
-               <ul class="update-details">
+               </div><h3>文本标题栏与光标修复</h3><p class="update-summary">顶部圆角与清晰的文档标题，让文本编辑更舒适。</p></summary>
+                <ul class="update-details">
                  <li>新增圆角标题栏，支持重命名、置顶和打开所在文件夹。</li>
                  <li>修复连续输入时光标回退和插入位置异常。</li>
                  <li>多光标不闪烁、不挤动文字，保留多行输入与位置恢复。</li>
                </ul>
-             </article>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.19</strong>
                  <time datetime="2026-09-02">2026.09.02</time>
-               </div>
-               <h3>修复在线更新下载</h3>
-               <p class="update-summary">补齐客户端自动更新配置，让检测、下载与后续升级保持连贯。</p>
-               <ul class="update-details">
+               </div><h3>修复在线更新下载</h3><p class="update-summary">补齐客户端自动更新配置，让检测、下载与后续升级保持连贯。</p></summary>
+                <ul class="update-details">
                  <li>修复下载更新时 app-update.yml 缺失的错误。</li>
                  <li>安装包包含更新源与缓存目录，发布前强制校验配置。</li>
                  <li>增加更新器回归测试与真实在线下载验收。</li>
                </ul>
-             </article>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.18</strong>
                  <time datetime="2026-09-02">2026.09.02</time>
-               </div>
-               <h3>统一导航配色与置顶分组</h3>
-               <p class="update-summary">导航区域更协调、更紧凑，常用文件可置顶分组并随工作区保存。</p>
-               <ul class="update-details">
+               </div><h3>统一导航配色与置顶分组</h3><p class="update-summary">导航区域更协调、更紧凑，常用文件可置顶分组并随工作区保存。</p></summary>
+                <ul class="update-details">
                  <li>顶栏和顶部标签沿用侧栏配色，操作栏缩小为 32px。</li>
                  <li>左侧新增 Pinned 分组，可取消置顶，重启后保留状态。</li>
                  <li>纯文本保存为 .txt，侧栏支持 Ctrl+↑/↓，切回标签保留位置。</li>
                  <li>Ctrl+F 搜索当前页，再按一次搜索全部标签，优化搜索与缩放提示。</li>
                </ul>
-             </article>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.17</strong>
                  <time datetime="2026-08-28">2026.08.28</time>
-               </div>
-               <h3>保存命名与标签菜单优化</h3>
-               <p class="update-summary">让新建文本保存后的名称更符合当前上下文，同时收紧标签右键菜单。</p>
-               <ul class="update-details">
+               </div><h3>保存命名与标签菜单优化</h3><p class="update-summary">让新建文本保存后的名称更符合当前上下文，同时收紧标签右键菜单。</p></summary>
+                <ul class="update-details">
                  <li>首次保存使用当前标签标题，空标题回退为“未命名文本”。</li>
                  <li>新建文本统一保存为 .snote 文件。</li>
                  <li>顶部与侧栏标签右键菜单更小、更清晰。</li>
                </ul>
-             </article>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.16</strong>
                  <time datetime="2026-08-27">2026.08.27</time>
-               </div>
-               <h3>更直接的标签、搜索与保存</h3>
-               <p class="update-summary">常用操作更易发现，文件保存位置更可控，两种布局保持一致体验。</p>
-               <ul class="update-details">
+               </div><h3>更直接的标签、搜索与保存</h3><p class="update-summary">常用操作更易发现，文件保存位置更可控，两种布局保持一致体验。</p></summary>
+                <ul class="update-details">
                  <li>标签右键新增置顶、删除、编辑和资源管理器定位。</li>
                  <li>设置默认保存位置与布局模式，右上角新增搜索入口。</li>
                  <li>文本长按竖向生成多光标并同步输入，修复反向拖选。</li>
                  <li>缩放提示停留 3 秒并可恢复 100%，帮助新增打赏作者。</li>
                </ul>
-             </article>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.15</strong>
                  <time datetime="2026-08-25">2026.08.25</time>
-               </div>
-               <h3>可调侧栏、全屏与缩放反馈</h3>
-               <p class="update-summary">让侧栏更贴合不同工作空间，并让全屏和文本缩放状态清晰可控。</p>
-               <ul class="update-details">
+               </div><h3>可调侧栏、全屏与缩放反馈</h3><p class="update-summary">让侧栏更贴合不同工作空间，并让全屏和文本缩放状态清晰可控。</p></summary>
+                <ul class="update-details">
                  <li>拖拽侧栏边界实时调整宽度，隐藏标题文字与颜色标识。</li>
                  <li>侧栏模式聚焦单栏编辑，不再提供分割视图操作。</li>
                  <li>Ctrl + H 切换全屏，缩放显示倍率，Ctrl + 0 恢复 100%。</li>
                </ul>
-             </article>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.14</strong>
                  <time datetime="2026-08-20">2026.08.20</time>
-               </div>
-               <h3>标签导航与 Windows 文件集成</h3>
-               <p class="update-summary">让标签顺序更自由、布局更灵活，并让常用文本文件更自然地融入 Windows。</p>
-               <ul class="update-details">
+               </div><h3>标签导航与 Windows 文件集成</h3><p class="update-summary">让标签顺序更自由、布局更灵活，并让常用文本文件更自然地融入 Windows。</p></summary>
+                <ul class="update-details">
                  <li>标签支持鼠标左键拖拽排序，工作区会自动保存新的顺序。</li>
                  <li>按 Ctrl + B 在顶部标签栏与左侧紧凑标签菜单之间切换。</li>
                  <li>优化标签导航层级与拖拽性能，扩展默认打开和资源管理器预览支持。</li>
                </ul>
-             </article>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.13</strong>
                  <time datetime="2026-08-12">2026.08.12</time>
-               </div>
-               <h3>画板思维导图与内容关联</h3>
-               <p class="update-summary">让主题、文字和图片在同一张画板上自由组织，并让样式配置更快、更稳定。</p>
-               <ul class="update-details">
+               </div><h3>画板思维导图与内容关联</h3><p class="update-summary">让主题、文字和图片在同一张画板上自由组织，并让样式配置更快、更稳定。</p></summary>
+                <ul class="update-details">
                  <li>新增思维导图、主题跨层级拖动和画板 PNG 导出。</li>
                  <li>主题可关联文字或图片，拖动连线即可调整两端吸附边。</li>
                  <li>关联线实时跟随元素移动，样式面板支持夜间模式并优化启动速度。</li>
                </ul>
-             </article>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.12</strong>
                  <time datetime="2026-08-11">2026.08.11</time>
-               </div>
-               <h3>更新与文本操作优化</h3>
-               <p class="update-summary">修复更新提示、统一内容字体，并增强文本模块的选中、字号和 Markdown 预览体验。</p>
-               <ul class="update-details">
+               </div><h3>更新与文本操作优化</h3><p class="update-summary">修复更新提示、统一内容字体，并增强文本模块的选中、字号和 Markdown 预览体验。</p></summary>
+                <ul class="update-details">
                  <li>只在发现高于本地版本的更新时显示更新提醒。</li>
                  <li>中键拖动支持竖向选中文本，Ctrl + 滚轮调整文本模块字号。</li>
                  <li>内容区域采用 Codex 正文相同的系统无衬线字体，Markdown 默认进入预览模式。</li>
                </ul>
-             </article>
+              </details></article>
            </li>
            <li class="update-item">
-             <div class="update-marker" aria-hidden="true"></div>
-             <article>
-               <div class="update-meta">
+             <article><details>
+                <summary><div class="update-meta">
                  <strong>v0.1.11</strong>
                 <time datetime="2026-08-07">2026.08.07</time>
-              </div>
-              <h3>工作区安全与文件操作优化</h3>
-              <p class="update-summary">让工作区保存、文件变化处理和 Markdown 阅读更加稳定直接。</p>
-              <ul class="update-details">
+              </div><h3>工作区安全与文件操作优化</h3><p class="update-summary">让工作区保存、文件变化处理和 Markdown 阅读更加稳定直接。</p></summary>
+                <ul class="update-details">
                 <li>增加工作区原子保存、备份恢复和损坏工作区自动恢复。</li>
                 <li>增加外部文件修改与删除检测，支持最近文件和 Ctrl + P 快速打开。</li>
                 <li>全局搜索支持标签标题、文件名和文件路径。</li>
                 <li>Markdown 文档默认进入预览模式，编辑与预览可以随时切换。</li>
               </ul>
-            </article>
+              </details></article>
           </li>
           <li class="update-item">
-            <div class="update-marker" aria-hidden="true"></div>
-            <article>
-              <div class="update-meta">
+            <article><details>
+                <summary><div class="update-meta">
                 <strong>v0.1.10</strong>
                 <time datetime="2026-08-04">2026.08.04</time>
-              </div>
-              <h3>Tab 状态与全屏弹窗优化</h3>
-              <p class="update-summary">集中优化标签操作、全屏弹窗与 Windows 文件体验。</p>
-              <ul class="update-details">
+              </div><h3>Tab 状态与全屏弹窗优化</h3><p class="update-summary">集中优化标签操作、全屏弹窗与 Windows 文件体验。</p></summary>
+                <ul class="update-details">
                 <li>当前 Tab 的选中标识移动到尾部操作区域。</li>
                 <li>鼠标移入标识后切换为关闭图标，减少重复视觉元素。</li>
                 <li>修复作者与版本全屏弹窗右侧残留空白。</li>
                 <li>新增 .snote 文件的 Windows 资源管理器预览注册。</li>
               </ul>
-            </article>
+              </details></article>
           </li>
           <li class="update-item">
-            <div class="update-marker" aria-hidden="true"></div>
-            <article>
-              <div class="update-meta">
+            <article><details>
+                <summary><div class="update-meta">
                 <strong>v0.1.9</strong>
                 <time datetime="2026-07-20">2026.07.20</time>
-              </div>
-              <h3>标签、托盘与弹窗体验</h3>
-              <p class="update-summary">让高频切换、托盘访问与窄窗口操作更加直接。</p>
-              <ul class="update-details">
+              </div><h3>标签、托盘与弹窗体验</h3><p class="update-summary">让高频切换、托盘访问与窄窗口操作更加直接。</p></summary>
+                <ul class="update-details">
                 <li>分栏快捷键调整为 Ctrl + Shift + 左/右，Ctrl + 左/右用于切换相邻标签页。</li>
                 <li>未保存文本标签根据内容自动显示预览标题。</li>
                 <li>系统托盘改为最近标签菜单，支持 More、新建文本和直接打开标签。</li>
                 <li>优化文档与版本更新弹窗滚动、全屏版本页和窄窗口标签栏溢出。</li>
               </ul>
-            </article>
+              </details></article>
           </li>
           <li class="update-item">
-            <div class="update-marker" aria-hidden="true"></div>
-            <article>
-              <div class="update-meta">
+            <article><details>
+                <summary><div class="update-meta">
                 <strong>v0.1.8</strong>
                 <time datetime="2026-07-17">2026.07.17</time>
-              </div>
-              <h3>链接、搜索与编辑体验</h3>
-              <p class="update-summary">补齐编辑器中的链接操作、定位与右键菜单细节。</p>
-              <ul class="update-details">
+              </div><h3>链接、搜索与编辑体验</h3><p class="update-summary">补齐编辑器中的链接操作、定位与右键菜单细节。</p></summary>
+                <ul class="update-details">
                 <li>修复文本模块底部部分区域无法点击，以及搜索结果无法滚动到匹配位置。</li>
                 <li>文本模块与画板支持 Ctrl + 单击 HTTP/HTTPS 链接，并在外部浏览器中打开。</li>
                 <li>右键菜单新增剪切、粘贴、复制，并限制 JSON 工具仅处理选中文本。</li>
                 <li>帮助菜单新增官网入口，调整顶部菜单顺序，并按功能拆分核心代码。</li>
               </ul>
-            </article>
+              </details></article>
           </li>
           <li class="update-item">
-            <div class="update-marker" aria-hidden="true"></div>
-            <article>
-              <div class="update-meta">
+            <article><details>
+                <summary><div class="update-meta">
                 <strong>v0.1.7</strong>
                 <time datetime="2026-07-09">2026.07.09</time>
-              </div>
-              <h3>透明图标与作者全屏页</h3>
-              <p class="update-summary">统一应用视觉，并让全屏内容拥有完整的展示空间。</p>
-              <ul class="update-details">
+              </div><h3>透明图标与作者全屏页</h3><p class="update-summary">统一应用视觉，并让全屏内容拥有完整的展示空间。</p></summary>
+                <ul class="update-details">
                 <li>更换透明背景的新 logo，并同步安装图标与系统托盘图标。</li>
                 <li>作者弹窗改为全屏展示。</li>
                 <li>优化标签栏 Tab 边框，减少与工作区的视觉重叠。</li>
                 <li>暂时移除文本对比插件入口，待体验完善后重新启用。</li>
               </ul>
-            </article>
+              </details></article>
           </li>
           <li class="update-item">
-            <div class="update-marker" aria-hidden="true"></div>
-            <article>
-              <div class="update-meta">
+            <article><details>
+                <summary><div class="update-meta">
                 <strong>v0.1.6</strong>
                 <time datetime="2026-07-08">2026.07.08</time>
-              </div>
-              <h3>自动更新与全局快捷键</h3>
-              <p class="update-summary">建立应用内更新与快速唤起的完整链路。</p>
-              <ul class="update-details">
+              </div><h3>自动更新与全局快捷键</h3><p class="update-summary">建立应用内更新与快速唤起的完整链路。</p></summary>
+                <ul class="update-details">
                 <li>新增客户端自动更新入口。</li>
                 <li>自动识别 Windows 7 / 8 与 Windows 10 / 11 通道并下载对应安装包。</li>
                 <li>新增 Ctrl + Alt + 空格全局打开或隐藏。</li>
                 <li>清理文本模块顶部冗余工具条，并补齐一键发布脚本。</li>
               </ul>
-            </article>
+              </details></article>
           </li>
           <li class="update-item">
-            <div class="update-marker" aria-hidden="true"></div>
-            <article>
-              <div class="update-meta">
+            <article><details>
+                <summary><div class="update-meta">
                 <strong>v0.1.4</strong>
                 <time datetime="2026-06-30">2026.06.30</time>
-              </div>
-              <h3>文本模块字号与滚动空间</h3>
-              <p class="update-summary">改善长文本阅读与编辑时的空间感。</p>
-              <ul class="update-details">
+              </div><h3>文本模块字号与滚动空间</h3><p class="update-summary">改善长文本阅读与编辑时的空间感。</p></summary>
+                <ul class="update-details">
                 <li>新增文本模块字号放大与缩小快捷键设置。</li>
                 <li>文本编辑区底部空间扩展到约 22 行，末尾内容更容易定位和编辑。</li>
               </ul>
-            </article>
+              </details></article>
           </li>
           <li class="update-item">
-            <div class="update-marker" aria-hidden="true"></div>
-            <article>
-              <div class="update-meta">
+            <article><details>
+                <summary><div class="update-meta">
                 <strong>v0.1.3</strong>
                 <time datetime="2026-06-24">2026.06.24</time>
-              </div>
-              <h3>更多 Windows 版本支持</h3>
-              <p class="update-summary">按系统版本提供更清晰的安装选择。</p>
-              <ul class="update-details">
+              </div><h3>更多 Windows 版本支持</h3><p class="update-summary">按系统版本提供更清晰的安装选择。</p></summary>
+                <ul class="update-details">
                 <li>新增 Windows 7 / 8 专用安装包。</li>
                 <li>保留 Windows 10 / 11 独立下载入口，避免安装通道混淆。</li>
               </ul>
-            </article>
+              </details></article>
           </li>
           <li class="update-item">
-            <div class="update-marker" aria-hidden="true"></div>
-            <article>
-              <div class="update-meta">
+            <article><details>
+                <summary><div class="update-meta">
                 <strong>v0.1.2</strong>
                 <time datetime="2026-06-23">2026.06.23</time>
-              </div>
-              <h3>项目网站与直接下载</h3>
-              <p class="update-summary">让官网同时承担产品介绍与下载入口。</p>
-              <ul class="update-details">
+              </div><h3>项目网站与直接下载</h3><p class="update-summary">让官网同时承担产品介绍与下载入口。</p></summary>
+                <ul class="update-details">
                 <li>重构项目页面视觉与响应式布局。</li>
                 <li>安装包支持从网站直接下载。</li>
               </ul>
-            </article>
+              </details></article>
           </li>
           <li class="update-item">
-            <div class="update-marker" aria-hidden="true"></div>
-            <article>
-              <div class="update-meta">
+            <article><details>
+                <summary><div class="update-meta">
                 <strong>v0.1.1</strong>
                 <time datetime="2026-06-22">2026.06.22</time>
-              </div>
-              <h3>多栏工作区</h3>
-              <p class="update-summary">Super Note 的核心工作区在这一版成形。</p>
-              <ul class="update-details">
+              </div><h3>多栏工作区</h3><p class="update-summary">Super Note 的核心工作区在这一版成形。</p></summary>
+                <ul class="update-details">
                 <li>加入自由画板与动态分栏。</li>
                 <li>支持全局搜索与结果定位。</li>
                 <li>工作区状态保存在本地，重新打开后可以继续使用。</li>
               </ul>
-            </article>
+              </details></article>
           </li>
             </ol>
-          </div>
-          <div class="update-ring-status" aria-hidden="true">
-          <strong id="update-current-version">v0.1.36</strong>
-            <span class="update-progress-track"><i id="update-progress-fill"></i></span>
-             <span id="update-counter">01 / 32</span>
+            <button class="updates-more" id="updates-more" type="button" aria-expanded="false" aria-controls="release-list" hidden>查看全部更新 <span aria-hidden="true">↓</span></button>
           </div>
         </div>
       </section>
 
-      <section class="download-section" aria-labelledby="download-title">
+      <section id="download" class="download-section" aria-labelledby="download-title">
         <div class="download-card">
           <p class="eyebrow">准备开始</p>
           <h2 id="download-title">给想法一个更大的空间</h2>
@@ -620,7 +501,7 @@
       const applyTheme = (theme) => {
         const isDark = theme === "dark";
         root.dataset.theme = isDark ? "dark" : "light";
-        themeColor?.setAttribute("content", isDark ? "#111113" : "#f5f5f7");
+        themeColor?.setAttribute("content", isDark ? "#000000" : "#f2f2f7");
         themeToggle?.setAttribute("aria-label", isDark ? "切换到日间模式" : "切换到夜间模式");
         themeToggle?.setAttribute("aria-pressed", String(isDark));
       };
@@ -636,102 +517,19 @@
         applyTheme(nextTheme);
       });
 
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const updatesSection = document.querySelector(".updates");
-      const updateRing = document.querySelector(".update-timeline");
-      const updateRingScene = document.querySelector(".update-ring-scene");
-      const updateItems = Array.from(document.querySelectorAll(".update-item"));
-      const updateVersion = document.querySelector("#update-current-version");
-      const updateCounter = document.querySelector("#update-counter");
-
-      if (updatesSection && updateRing && updateItems.length > 0) {
-        const updateCount = updateItems.length;
-        const ringStep = 360 / updateCount;
-        let activeUpdateIndex = -1;
-        let updateFrame = 0;
-
-        updateItems.forEach((item, index) => {
-          item.style.setProperty("--slot-angle", `${index * ringStep}deg`);
+      const releaseList = document.querySelector("#release-list");
+      const updatesMore = document.querySelector("#updates-more");
+      const releaseItems = Array.from(document.querySelectorAll(".update-item"));
+      if (releaseList && updatesMore && releaseItems.length > 4) {
+        releaseList.classList.add("is-condensed");
+        updatesMore.hidden = false;
+        updatesMore.addEventListener("click", () => {
+          const expanded = updatesMore.getAttribute("aria-expanded") !== "true";
+          releaseList.classList.toggle("is-condensed", !expanded);
+          updatesMore.setAttribute("aria-expanded", String(expanded));
+          updatesMore.textContent = expanded ? "收起历史更新 ↑" : "查看全部更新 ↓";
+          if (!expanded) document.querySelector("#updates-title")?.scrollIntoView({ block: "start" });
         });
-
-        const setActiveUpdate = (index, rotation) => {
-          if (index !== activeUpdateIndex) {
-            activeUpdateIndex = index;
-            updateItems.forEach((item, itemIndex) => {
-              item.classList.toggle("is-active", itemIndex === index);
-              if (itemIndex === index) {
-                item.setAttribute("aria-current", "step");
-              } else {
-                item.removeAttribute("aria-current");
-              }
-            });
-
-            const activeVersion = updateItems[index]?.querySelector(".update-meta strong")?.textContent?.trim();
-            if (updateVersion && activeVersion) {
-              updateVersion.textContent = activeVersion;
-            }
-            if (updateCounter) {
-              updateCounter.textContent = `${String(index + 1).padStart(2, "0")} / ${String(updateCount).padStart(2, "0")}`;
-            }
-          }
-
-          updateItems.forEach((item, itemIndex) => {
-            const rawAngle = itemIndex * ringStep + rotation;
-            const faceAngle = ((rawAngle + 180) % 360 + 360) % 360 - 180;
-            item.classList.toggle("is-near", Math.abs(faceAngle) <= ringStep * 1.55);
-          });
-        };
-
-        if (reduceMotion) {
-          setActiveUpdate(0, 0);
-        } else {
-          root.classList.add("updates-ring-ready");
-
-          const renderUpdateRing = () => {
-            updateFrame = 0;
-            const bounds = updatesSection.getBoundingClientRect();
-            const scrollRange = Math.max(1, updatesSection.offsetHeight - window.innerHeight);
-            const progress = Math.min(1, Math.max(0, -bounds.top / scrollRange));
-            const entry = Math.min(1, Math.max(0, (window.innerHeight - bounds.top) / (window.innerHeight * 0.82)));
-            const trackPosition = progress * (updateCount - 1);
-            const rotation = -trackPosition * ringStep;
-            const activeIndex = Math.min(updateCount - 1, Math.max(0, Math.round(trackPosition)));
-            const parallaxShift = (progress - 0.5) * 96;
-
-            updatesSection.style.setProperty("--ring-rotation", `${rotation.toFixed(3)}deg`);
-            updatesSection.style.setProperty("--ring-progress", progress.toFixed(4));
-            updatesSection.style.setProperty("--update-entry", entry.toFixed(4));
-            updatesSection.style.setProperty("--entry-opacity", (0.62 + entry * 0.38).toFixed(4));
-            updatesSection.style.setProperty("--ring-scale", (0.94 + entry * 0.06).toFixed(4));
-            updatesSection.style.setProperty("--ring-shift", `${((1 - entry) * 54 - progress * 12).toFixed(2)}px`);
-            updatesSection.style.setProperty("--heading-shift", `${((1 - entry) * 22 - progress * 16).toFixed(2)}px`);
-            updatesSection.style.setProperty("--parallax-shift", `${parallaxShift.toFixed(2)}px`);
-            updatesSection.style.setProperty("--parallax-shift-reverse", `${(-parallaxShift).toFixed(2)}px`);
-            setActiveUpdate(activeIndex, rotation);
-          };
-
-          const requestUpdateRender = () => {
-            if (updateFrame) {
-              return;
-            }
-            updateFrame = window.requestAnimationFrame(renderUpdateRing);
-          };
-
-          updateRingScene?.addEventListener("wheel", (event) => {
-            const bounds = updatesSection.getBoundingClientRect();
-            const isPinned = bounds.top <= 1 && bounds.bottom >= window.innerHeight - 1;
-            if (!isPinned) {
-              return;
-            }
-            event.preventDefault();
-            const multiplier = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
-            window.scrollBy({ top: event.deltaY * multiplier, behavior: "auto" });
-          }, { passive: false });
-
-          window.addEventListener("scroll", requestUpdateRender, { passive: true });
-          window.addEventListener("resize", requestUpdateRender);
-          renderUpdateRing();
-        }
       }
     </script>
 
