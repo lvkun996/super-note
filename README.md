@@ -25,6 +25,18 @@ On this machine, the global Node on `PATH` may be too old. Use nvm's Node 22 bef
 
 Development uses an isolated user-data directory under `.tmp-home`, so it can run alongside an installed copy without reading or overwriting the installed app's workspace.
 
+## Application controllers
+
+`src/App.tsx` composes the application UI and connects feature controllers:
+
+- `features/workspace/useWorkspacePersistence.ts`: debounced workspace saves, language-switch saves, and quit flushing.
+- `features/files/useFileSave.ts`: text/Markdown/canvas file saves and save-result feedback.
+- `features/tabs/useTabActions.tsx` and `tabDocument.ts`: tab actions, document creation, serialization, and restoration.
+- `features/history/useEditorHistory.ts` and `historyModel.ts`: text and canvas undo/redo with bounded, independent snapshots.
+- `features/editor/useAppShortcuts.ts`: keyboard routing and listener lifetime.
+
+After building, run `node node_modules/electron/cli.js scripts/verify-app-controllers.cjs` to check these controllers together through the real renderer/preload with synthetic files and isolated app data.
+
 ## One-command release
 
 Use Node 22.12+ and the existing installed dependencies. Prepare the version in `package.json`, both root version fields in `package-lock.json`, and the version/download links in `site/index.html`. Put release notes in `docs/releases/v<version>.md`, then commit the authorized release changes on `master`.

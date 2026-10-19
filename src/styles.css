@@ -1157,6 +1157,10 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   place-items: center;
   padding: 56px 42px;
   overflow: hidden;
+}
+
+.author-inspiration-panel,
+.welcome-world {
   background:
     linear-gradient(90deg, rgba(22, 119, 255, 0.04) 1px, transparent 1px),
     linear-gradient(rgba(22, 119, 255, 0.04) 1px, transparent 1px),
@@ -1164,7 +1168,8 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   background-size: 28px 28px;
 }
 
-.author-inspiration-panel::before {
+.author-inspiration-panel::before,
+.welcome-world::before {
   content: "";
   position: absolute;
   inset: -42%;
@@ -1182,9 +1187,11 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   opacity: 0.58;
   transform-origin: center;
   animation: empty-world-diffusion 16s ease-in-out infinite;
+  pointer-events: none;
 }
 
-.author-inspiration-panel::after {
+.author-inspiration-panel::after,
+.welcome-world::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -1192,7 +1199,8 @@ body:has(.app-shell.dark-mode) .tab-context-menu .ant-dropdown-menu-item-divider
   pointer-events: none;
 }
 
-.author-inspiration-text {
+.author-inspiration-text,
+.welcome-world p {
   position: relative;
   z-index: 1;
   max-width: 760px;
@@ -1676,19 +1684,19 @@ body.ctrl-key-down .text-http-link:hover {
 }
 
 .welcome-world {
+  position: relative;
+  isolation: isolate;
   height: 100%;
   min-height: 180px;
   display: grid;
   place-items: center;
-  background: #fff;
-  color: #202124;
-  font-size: 44px;
-  font-weight: 400;
-  line-height: 1.35;
+  padding: 32px;
+  overflow: hidden;
 }
 
 .welcome-world p {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .welcome-world p span {
@@ -1696,8 +1704,22 @@ body.ctrl-key-down .text-http-link:hover {
 }
 
 .dark-mode .welcome-world {
-  background: #101722;
+  background-color: #101722;
+}
+
+.dark-mode .welcome-world::after {
+  background: radial-gradient(circle at center, rgba(16, 23, 34, 0.52), rgba(16, 23, 34, 0.08) 48%, rgba(16, 23, 34, 0.68));
+}
+
+.dark-mode .welcome-world p {
   color: #e8eef7;
+  text-shadow: 0 4px 0 #243448, 0 12px 24px rgba(22, 119, 255, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-world::before {
+    animation: none;
+  }
 }
 
 .app-brand[role="button"] {
@@ -2762,7 +2784,8 @@ body:has(.app-shell.dark-mode) .text-anchor-dropdown .text-anchor-menu-item-acti
     padding: 48px 22px;
   }
 
-  .author-inspiration-text {
+  .author-inspiration-text,
+  .welcome-world p {
     font-size: 34px;
   }
 

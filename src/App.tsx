@@ -1,4 +1,11 @@
-import { uiText, getUiLanguage, setUiLanguage } from "../electron/uiLanguage";
+import { useWorkspacePersistence, STORAGE_KEY } from "./features/workspace/useWorkspacePersistence";
+import { useFileSave } from "./features/files/useFileSave";
+import { useEditorHistory } from "./features/history/useEditorHistory";
+import { useTabActions } from "./features/tabs/useTabActions";
+import { useAppShortcuts } from "./features/editor/useAppShortcuts";
+import { cloneItems, cloneCanvasSnapshot, pushHistory } from "./features/history/historyModel";
+import { DEFAULT_FILE_FONT_SIZE, createCanvasTab, createTextTab, createMarkdownTab, restoreTab, createTabFromOpenedFile, deriveCanvasTitle, getFileName } from "./features/tabs/tabDocument";
+import { uiText, getUiLanguage } from "../electron/uiLanguage";
 import enUS from "antd/locale/en_US";
 import zhCN from "antd/locale/zh_CN";
 import {
@@ -7,12 +14,11 @@ import {
   Button,
   theme,
 } from "antd";
-import type { InputRef, MenuProps } from "antd";
+import type { MenuProps } from "antd";
 import {
   BookOutlined,
   ApartmentOutlined,
   CheckOutlined,
-  CloudDownloadOutlined,
   CloseOutlined,
   CodeOutlined,
   CopyOutlined,
@@ -23,18 +29,12 @@ import {
   InfoCircleOutlined,
   LinkOutlined,
   BorderOutlined,
-  MinusOutlined,
-  MoonOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  PlusOutlined,
-  PushpinFilled,
-  PushpinOutlined,
   RedoOutlined,
   SaveOutlined,
   SearchOutlined,
   SplitCellsOutlined,
-  SunOutlined,
   UndoOutlined,
   UserOutlined,
   HeartOutlined,
@@ -52,17 +52,10 @@ import type {
   CanvasTheme,
   CanvasViewState,
   DragState,
-  FileDocumentMode,
   FileTab,
   FileViewState,
-  ImageCanvasItem,
-  LegacyTabPlacement,
-  NoteFilePayload,
   NoteTab,
   PaneKey,
-  PersistedCanvasTab,
-  PersistedTab,
-  PersistedWorkspace,
   ProgrammerAction,
   QuickOpenItem,
   RecentFile,
@@ -70,7 +63,6 @@ import type {
   SelectedItem,
   TextCanvasItem,
   TextSearchTarget,
-  TabLayout,
 } from "./appTypes";
 import { EmptyWorld } from "./components/EmptyWorld";
 import { FeatureLoading } from "./components/FeatureLoading";
@@ -88,20 +80,15 @@ import {
 import {
   openExternalUrl,
   transformJsonText,
-  writeClipboardText,
 } from "./features/editor/editorUtils";
-import { DEFAULT_SETTINGS, normalizeSettings, shortcutMatches } from "./features/settings/settingsModel";
+import { DEFAULT_SETTINGS, normalizeSettings } from "./features/settings/settingsModel";
 import { getCanvasMode } from "./pluginSettings";
-import { rememberTabVisit, removeTabVisit, resolveTabAfterClose } from "./features/tabs/tabHistory";
+import { rememberTabVisit } from "./features/tabs/tabHistory";
 import { getTabDisplayTitle } from "./features/tabs/tabTitle";
 import { getQuickOpenResults, searchWorkspace } from "./features/search/searchModel";
-import { reorderTabsById, sortPinnedTabs, toggleTabPinned } from "./features/tabs/tabOrder";
-import type { TabDropPosition } from "./features/tabs/tabOrder";
-import { formatOpenedFileContent, getFileDocumentMode, isMarkdownFileName } from "./features/text/fileDocument";
-import { createTextAnchor, MAX_TEXT_ANCHORS, normalizeTextAnchors, normalizeTextAnchorsForEditor, updateTextAnchors } from "./features/text/textAnchors";
-import { normalizeTextLineEndings } from "./features/text/textLineEndings";
+import { sortPinnedTabs } from "./features/tabs/tabOrder";
+import { createTextAnchor, MAX_TEXT_ANCHORS, normalizeTextAnchors, updateTextAnchors } from "./features/text/textAnchors";
 import { hasExternalFileChange } from "./features/files/fileState";
-import { buildSaveFileName } from "./features/files/saveFileName";
 import {
   addMindMapChild,
   addMindMapSibling,
@@ -111,7 +98,6 @@ import {
   deleteMindMapCanvasLink,
   linkMindMapNodeToCanvasItem,
   moveMindMapNode,
-  normalizeMindMap,
   removeMindMapCanvasLinksForItem,
   toggleMindMapNode,
   updateMindMapCanvasLink,
@@ -121,17 +107,12 @@ import {
 import type { MindMapCanvasLink, MindMapDocument, MindMapStyle, SelectedMindMapNode } from "./features/mindmap/mindMapTypes";
 import type { ResolvedMindMapRelationAnchors } from "./features/mindmap/mindMapRelations";
 import {
-  CURRENT_WORKSPACE_VERSION,
   normalizeRecentFiles,
   rememberRecentFiles,
   selectWorkspaceCandidate,
 } from "./features/workspace/workspaceUtils";
 
-const HISTORY_LIMIT = 80;
 const LONG_PRESS_MS = 160;
-const STORAGE_KEY = "super-note-workspace";
-const DEFAULT_FILE_FONT_SIZE = 13;
-const WORKSPACE_SAVE_DEBOUNCE_MS = 600;
 const INITIAL_PANE_ID = "pane-main";
 const SITE_URL = "https://lvkun996.github.io/super-note/";
 
@@ -143,7 +124,6 @@ const LazyHelpDocumentation = lazy(() => import("./components/HelpDocumentation"
 const LazySettingsModal = lazy(() => import("./features/settings/SettingsModal").then(({ SettingsModal }) => ({ default: SettingsModal })));
 const LazyTabNavigation = lazy(() => import("./features/tabs/TabNavigation").then(({ TabNavigation }) => ({ default: TabNavigation })));
 const LazyGlobalSearchOverlays = lazy(() => import("./components/GlobalSearchOverlays").then(({ GlobalSearchOverlays }) => ({ default: GlobalSearchOverlays })));
-const LazyRenameTabInput = lazy(() => import("./components/RenameTabInput").then(({ RenameTabInput }) => ({ default: RenameTabInput })));
 const canvasThemes: CanvasTheme[] = [
   { accent: "#1677ff" },
   { accent: "#13c2c2" },
@@ -356,201 +336,6 @@ const releaseTimeline: Array<{ version: string; date: string; title: string; des
 
 const makeId = () => crypto.randomUUID();
 
-function cloneItems(items: CanvasItem[]) {
-  return items.map((item) => ({ ...item }));
-}
-
-function cloneCanvasSnapshot(items: CanvasItem[], mindMap?: MindMapDocument) {
-  return { items: cloneItems(items), mindMap: cloneMindMap(mindMap) };
-}
-
-function truncateTitle(value: string) {
-  const clean = value.trim().replace(/\s+/g, " ");
-  if (!clean) {
-    return uiText("未知");
-  }
-  return clean.length > 14 ? `${clean.slice(0, 14)}...` : clean;
-}
-
-function getFileName(filePath: string) {
-  return filePath.split(/[\\/]/).pop() || filePath;
-}
-
-function getFileSaveFilters(tab: FileTab) {
-  const textFilters = [
-    { name: uiText("文本文件"), extensions: ["txt", "md", "markdown", "json", "csv", "log", "ts", "tsx", "js", "jsx", "css", "html"] },
-    { name: uiText("所有文件"), extensions: ["*"] },
-  ];
-  if (getFileDocumentMode(tab) !== "markdown") {
-    return textFilters;
-  }
-  return [
-    { name: "Markdown", extensions: ["md", "markdown"] },
-    ...textFilters,
-  ];
-}
-
-function deriveCanvasTitle(tab: CanvasTab, items: CanvasItem[], mindMap = tab.mindMap) {
-  if (!tab.autoTitle) {
-    return tab.title;
-  }
-  const textItem = items.find((item): item is TextCanvasItem => item.type === "text" && item.text.trim().length > 0);
-  const rootText = mindMap?.nodes.find((node) => node.id === mindMap.rootId)?.text;
-  return textItem ? truncateTitle(textItem.text) : rootText ? truncateTitle(rootText) : uiText("未知");
-}
-
-function pushHistory(tab: CanvasTab, nextItems: CanvasItem[], nextMindMap = tab.mindMap) {
-  const nextHistory = tab.history.slice(0, tab.historyIndex + 1);
-  nextHistory.push(cloneCanvasSnapshot(nextItems, nextMindMap));
-  const limited = nextHistory.slice(-HISTORY_LIMIT);
-  return {
-    history: limited,
-    historyIndex: limited.length - 1,
-  };
-}
-
-function createCanvasTab(themeIndex: number, dirty = true): CanvasTab {
-  const items: CanvasItem[] = [];
-  return {
-    id: makeId(),
-    kind: "canvas",
-    title: uiText("未知"),
-    autoTitle: true,
-    themeIndex,
-    scale: 1,
-    panX: 0,
-    panY: 0,
-    items,
-    history: [cloneCanvasSnapshot(items)],
-    historyIndex: 0,
-    dirty,
-  };
-}
-
-function createFileTab(file: OpenedFile, themeIndex: number): FileTab {
-  return {
-    id: makeId(),
-    kind: "file",
-    title: file.name,
-    fileName: file.name,
-    filePath: file.path,
-    content: formatOpenedFileContent(file.content, file.name, file.path),
-    textAnchors: [],
-    documentMode: isMarkdownFileName(file.name) || isMarkdownFileName(file.path) ? "markdown" : "text",
-    fontSize: DEFAULT_FILE_FONT_SIZE,
-    themeIndex,
-    lastKnownMtimeMs: file.mtimeMs,
-    lastKnownSize: file.size,
-    isPreviewOnly: file.truncated,
-    previewBytes: file.previewBytes,
-    dirty: false,
-  };
-}
-
-function createTextTab(themeIndex: number): FileTab {
-  return {
-    id: makeId(),
-    kind: "file",
-    title: uiText("未命名文本"),
-    fileName: uiText("未命名文本.txt"),
-    content: "",
-    textAnchors: [],
-    documentMode: "text",
-    fontSize: DEFAULT_FILE_FONT_SIZE,
-    themeIndex,
-    dirty: true,
-  };
-}
-
-function createMarkdownTab(themeIndex: number): FileTab {
-  return {
-    id: makeId(),
-    kind: "file",
-    title: uiText("未命名 Markdown"),
-    fileName: "untitled.md",
-    content: uiText("# 未命名\n\n"),
-    textAnchors: [],
-    documentMode: "markdown",
-    fontSize: DEFAULT_FILE_FONT_SIZE,
-    themeIndex,
-    dirty: true,
-  };
-}
-
-function restoreTab(tab: PersistedTab): NoteTab {
-  if (tab.kind === "canvas") {
-    const items = cloneItems(tab.items ?? []);
-    const mindMap = normalizeMindMap(tab.mindMap);
-    return {
-      ...tab,
-      title: tab.title || uiText("未知"),
-      autoTitle: tab.autoTitle ?? true,
-      scale: tab.scale || 1,
-      panX: tab.panX ?? 0,
-      panY: tab.panY ?? 0,
-      items,
-      mindMap,
-      canvasMode: getCanvasMode({ ...tab, mindMap }),
-      history: [cloneCanvasSnapshot(items, mindMap)],
-      historyIndex: 0,
-      dirty: tab.dirty ?? false,
-    };
-  }
-  return {
-    ...tab,
-    content: normalizeTextLineEndings(tab.content),
-    textAnchors: normalizeTextAnchorsForEditor(tab.textAnchors, tab.content),
-    documentMode: tab.documentMode ?? (isMarkdownFileName(tab.fileName) || isMarkdownFileName(tab.filePath) ? "markdown" : "text"),
-    fontSize: tab.fontSize ?? DEFAULT_FILE_FONT_SIZE,
-    dirty: tab.dirty ?? false,
-  };
-}
-
-function stripTab(tab: NoteTab): PersistedTab {
-  if (tab.kind === "canvas") {
-    const { history: _history, historyIndex: _historyIndex, ...rest } = tab;
-    return rest;
-  }
-  return tab;
-}
-
-function createCanvasPayload(tab: CanvasTab): NoteFilePayload {
-  const persisted = stripTab({ ...tab, dirty: false }) as PersistedCanvasTab;
-  return {
-    type: "super-note-canvas",
-    version: 1,
-    tab: persisted,
-  };
-}
-
-function parseNoteFile(file: OpenedFile, themeIndex: number): NoteTab | null {
-  try {
-    const payload = JSON.parse(file.content) as Partial<NoteFilePayload>;
-    if (payload.type !== "super-note-canvas" || !payload.tab || payload.tab.kind !== "canvas") {
-      return null;
-    }
-    const restored = restoreTab({
-      ...payload.tab,
-      id: makeId(),
-      title: file.name,
-      autoTitle: false,
-      themeIndex,
-      filePath: file.path,
-      lastKnownMtimeMs: file.mtimeMs,
-      lastKnownSize: file.size,
-      dirty: false,
-    }) as CanvasTab;
-    return restored;
-  } catch {
-    return null;
-  }
-}
-
-function createTabFromOpenedFile(file: OpenedFile, themeIndex: number): NoteTab {
-  const noteTab = file.name.toLowerCase().endsWith(".snote") ? parseNoteFile(file, themeIndex) : null;
-  return noteTab ?? createFileTab(file, themeIndex);
-}
-
 function normalizeViewState(tab: CanvasTab, state?: Partial<CanvasViewState>): CanvasViewState {
   return {
     scale: state?.scale || tab.scale || 1,
@@ -562,13 +347,6 @@ function normalizeViewState(tab: CanvasTab, state?: Partial<CanvasViewState>): C
 
 function getFileFontSize(tab: FileTab) {
   return tab.fontSize ?? DEFAULT_FILE_FONT_SIZE;
-}
-
-function isTabEmpty(tab: NoteTab) {
-  if (tab.kind === "file") {
-    return tab.content.trim().length === 0;
-  }
-  return !tab.mindMap && tab.items.every((item) => item.type === "text" && item.text.trim().length === 0);
 }
 
 function readFileAsDataUrl(file: File) {
@@ -668,12 +446,8 @@ function AppShell() {
   const lastCanvasPoint = useRef<Record<string, { x: number; y: number }>>({});
   const draggingRef = useRef<DragState | null>(null);
   const holdTimerRef = useRef<number | null>(null);
-  const saveTimerRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
-  const fileUndoRef = useRef<Record<string, string[]>>({});
-  const fileRedoRef = useRef<Record<string, string[]>>({});
   const fileViewStatesRef = useRef<Record<string, FileViewState>>({});
-  const workspaceSaveErrorRef = useRef("");
   const workspaceLoadedRef = useRef(false);
   const pendingOpenedFilesRef = useRef<OpenedFile[]>([]);
   const tabsRef = useRef(tabs);
@@ -830,80 +604,10 @@ function AppShell() {
     });
   }, []);
 
-  const persistWorkspace = useCallback(async () => {
-    const workspace: PersistedWorkspace = {
-      version: CURRENT_WORKSPACE_VERSION,
-      savedAt: new Date().toISOString(),
-      activeTabId,
-      activePane,
-      splitView,
-      paneIds,
-      paneActiveTabIds,
-      tabPaneIds,
-      paneWidths,
-      canvasViewStates,
-      settings,
-      recentFiles,
-      tabs: tabs.map(stripTab),
-    };
-
-    if (window.superNote) {
-      try {
-        const result = await window.superNote.saveWorkspace(workspace);
-        if (!result.ok) {
-          throw new Error(result.error ?? uiText("工作区保存失败"));
-        }
-        workspaceSaveErrorRef.current = "";
-      } catch (error) {
-        const detail = String(error);
-        if (workspaceSaveErrorRef.current !== detail) {
-          workspaceSaveErrorRef.current = detail;
-          message.error(uiText("自动保存失败：{0}", [detail]));
-        }
-        return false;
-      }
-    } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
-    }
-    return true;
-  }, [activePane, activeTabId, canvasViewStates, message, paneActiveTabIds, paneIds, paneWidths, recentFiles, settings, splitView, tabPaneIds, tabs]);
-  const persistWorkspaceRef = useRef(persistWorkspace);
-  persistWorkspaceRef.current = persistWorkspace;
-
-  const languageReloadRef = useRef(false);
-  useEffect(() => {
-    if (!workspaceLoaded || languageReloadRef.current) return;
-    if (settings.language === getUiLanguage()) {
-      void window.superNote?.setLanguage(settings.language);
-      return;
-    }
-    languageReloadRef.current = true;
-    void persistWorkspaceRef.current().then(async (saved) => {
-      if (!saved) {
-        languageReloadRef.current = false;
-        setSettings((current) => ({ ...current, language: getUiLanguage() }));
-        return;
-      }
-      await window.superNote?.setLanguage(settings.language);
-      setUiLanguage(settings.language);
-      window.location.reload();
-    }).catch(() => {
-      languageReloadRef.current = false;
-      setSettings((current) => ({ ...current, language: getUiLanguage() }));
-      message.error(uiText("语言切换失败，请重试"));
-    });
-  }, [settings.language, workspaceLoaded, message]);
-
-  useEffect(() => {
-    const unsubscribe = window.superNote?.onPrepareQuit(() => {
-      if (!workspaceLoadedRef.current) {
-        void window.superNote?.notifyWorkspaceFlushed();
-        return;
-      }
-      void persistWorkspaceRef.current().finally(() => window.superNote?.notifyWorkspaceFlushed());
-    });
-    return unsubscribe;
-  }, []);
+  useWorkspacePersistence({
+    activePane, activeTabId, canvasViewStates, paneActiveTabIds, paneIds, paneWidths,
+    recentFiles, settings, splitView, tabPaneIds, tabs, message, workspaceLoaded, workspaceLoadedRef, setSettings,
+  });
 
   const toggleTabLayout = useCallback(() => {
     setSettings((current) => ({
@@ -919,20 +623,6 @@ function AppShell() {
       : current);
   }, []);
 
-  useEffect(() => {
-    if (!workspaceLoaded) {
-      return;
-    }
-    if (saveTimerRef.current !== null) {
-      window.clearTimeout(saveTimerRef.current);
-    }
-    saveTimerRef.current = window.setTimeout(() => void persistWorkspace(), WORKSPACE_SAVE_DEBOUNCE_MS);
-    return () => {
-      if (saveTimerRef.current !== null) {
-        window.clearTimeout(saveTimerRef.current);
-      }
-    };
-  }, [persistWorkspace, workspaceLoaded]);
 
   useEffect(() => {
     if (!searchValue.trim()) {
@@ -1014,20 +704,7 @@ function AppShell() {
     setTabs((current) => current.map((tab) => (tab.id === tabId && tab.kind === "canvas" && (getCanvasMode(tab) !== "mindmap" || mindMapPluginEnabled) ? updater(tab) : tab)));
   }, [mindMapPluginEnabled]);
 
-  const updateFileContent = useCallback((tabId: string, content: string) => {
-    content = normalizeTextLineEndings(content);
-    setTabs((current) => current.map((tab) => {
-      if (tab.id !== tabId || tab.kind !== "file" || tab.content === content) {
-        return tab;
-      }
-      const history = fileUndoRef.current[tabId] ?? [];
-      if (history.at(-1) !== tab.content) {
-        fileUndoRef.current[tabId] = [...history, tab.content].slice(-HISTORY_LIMIT);
-      }
-      fileRedoRef.current[tabId] = [];
-      return { ...tab, content, textAnchors: updateTextAnchors(tab.content, content, tab.textAnchors), dirty: true };
-    }));
-  }, []);
+  const { updateFileContent, undo, redo, canUndoFile, canRedoFile, clearFileHistory, recordFileHistory } = useEditorHistory({ activeTab, setTabs, updateCanvasTab });
 
   useEffect(() => {
     const handleFocus = () => setWindowFocused(true);
@@ -1259,12 +936,11 @@ function AppShell() {
           ? { textAnchors: updateTextAnchors(item.content, restored.content, item.textAnchors) }
           : {}),
       } : item)));
-      fileUndoRef.current[tab.id] = [];
-      fileRedoRef.current[tab.id] = [];
+      clearFileHistory(tab.id);
       setRecentFiles((current) => rememberRecentFiles(current, [{ path: tab.filePath!, name: result.file!.name }]));
       return true;
     },
-    [message],
+    [clearFileHistory, message],
   );
 
   useEffect(() => {
@@ -1500,375 +1176,13 @@ function AppShell() {
     paneTabHistoryRef.current = { [retainedPane]: paneTabHistoryRef.current[retainedPane] ?? [activeTabId] };
   }, [activePane, activeTabId, paneIds, settings.tabLayout, tabs]);
 
-  const reorderTab = useCallback(
-    (movingId: string, targetId: string, position: TabDropPosition, pane?: PaneKey) => {
-      setTabs((current) => {
-        const scopeIds = pane
-          ? new Set(
-              current
-                .filter((tab) => (tabPaneIds[tab.id] ?? [paneIds[0]]).filter((paneId) => paneIds.includes(paneId)).includes(pane))
-                .map((tab) => tab.id),
-            )
-          : undefined;
-        return reorderTabsById(current, movingId, targetId, position, scopeIds);
-      });
-    },
-    [paneIds, tabPaneIds],
-  );
+  const { reorderTab, pinTab, renameTab, openTabInExplorer, copyTabAbsolutePath, copyTabRelativePath, closeTab, closeCurrentTab } = useTabActions({
+    tabs, tabsRef, setTabs, paneIds, setPaneIds, activePane, setActivePane, activeTab,
+    tabPaneIds, setTabPaneIds, paneTabs, setPaneActiveTabIds, setPaneWidths, setCanvasViewStates,
+    selectedItem, setSelectedItem, paneTabHistoryRef, getTabPanes, clearFileHistory, settings, modal, message,
+  });
 
-  const pinTab = useCallback((tabId: string) => {
-    setTabs((current) => toggleTabPinned(current, tabId));
-  }, []);
-
-  const renameTab = useCallback((tabId: string) => {
-    const tab = tabsRef.current.find((item) => item.id === tabId);
-    if (!tab) return;
-    let nextTitle = getTabDisplayTitle(tab);
-    let inputRef: InputRef | null = null;
-    modal.confirm({
-      ...neutralConfirmDialog,
-      title: uiText("重命名标签"),
-      content: <div className="rename-dialog"><p>{uiText("保持简短且易于识别")}</p><Suspense fallback={<span />}><LazyRenameTabInput inputRef={(node) => { inputRef = node; }} defaultValue={nextTitle} onChange={(value) => { nextTitle = value; }} /></Suspense></div>,
-      afterOpenChange: (open) => {
-        if (open) window.requestAnimationFrame(() => inputRef?.focus({ cursor: "all" }));
-      },
-      okText: uiText("保存"),
-      cancelText: uiText("取消"),
-      onOk: () => {
-        const title = nextTitle.trim();
-        if (!title) return Promise.reject(new Error(uiText("栏目名称不能为空")));
-        setTabs((current) => current.map((item) => item.id === tabId ? { ...item, title, ...(item.kind === "canvas" ? { autoTitle: false } : {}) } : item));
-      },
-    });
-  }, [modal]);
-
-  const openTabInExplorer = useCallback((tabId: string) => {
-    const filePath = tabsRef.current.find((tab) => tab.id === tabId)?.filePath;
-    if (filePath) void window.superNote?.showItemInFolder(filePath);
-  }, []);
-
-  const copyTabAbsolutePath = useCallback(async (tabId: string) => {
-    const filePath = tabsRef.current.find((tab) => tab.id === tabId)?.filePath;
-    if (!filePath) return;
-    await writeClipboardText(filePath);
-    message.success(uiText("已复制文件绝对地址"));
-  }, [message]);
-
-  const copyTabRelativePath = useCallback(async (tabId: string) => {
-    const filePath = tabsRef.current.find((tab) => tab.id === tabId)?.filePath;
-    if (!filePath) return;
-    const result = await window.superNote?.getRelativeFilePath(filePath, settings.defaultSaveDirectory || undefined);
-    if (!result?.ok || !result.path) return;
-    await writeClipboardText(result.path);
-    message.success(uiText("已复制文件相对地址"));
-  }, [message, settings.defaultSaveDirectory]);
-
-  const closeTab = useCallback(
-    (targetId: string, pane?: PaneKey) => {
-      const target = tabs.find((tab) => tab.id === targetId);
-      if (!target) {
-        return;
-      }
-
-      const targetPanes = getTabPanes(targetId);
-      if (pane && targetPanes.length > 1) {
-        const orderedTabIds = (paneTabs[pane] ?? []).map((tab) => tab.id);
-        const fallback = resolveTabAfterClose(paneTabHistoryRef.current[pane] ?? [], targetId, orderedTabIds);
-        setTabPaneIds((current) => ({
-          ...current,
-          [targetId]: (current[targetId] ?? targetPanes).filter((paneId) => paneId !== pane),
-        }));
-        paneTabHistoryRef.current[pane] = removeTabVisit(paneTabHistoryRef.current[pane] ?? [], targetId);
-        setPaneActiveTabIds((current) => {
-          if (current[pane] !== targetId) {
-            return current;
-          }
-          const next = { ...current };
-          if (fallback) {
-            next[pane] = fallback;
-            paneTabHistoryRef.current[pane] = rememberTabVisit(paneTabHistoryRef.current[pane] ?? [], fallback);
-          } else {
-            delete next[pane];
-          }
-          return next;
-        });
-        if (selectedItem?.tabId === targetId && selectedItem.pane === pane) {
-          setSelectedItem(null);
-        }
-        return;
-      }
-
-      const doClose = () => {
-        delete fileUndoRef.current[targetId];
-        delete fileRedoRef.current[targetId];
-        setTabs((current) => {
-          if (current.length === 1) {
-            const emptyPane = pane && paneIds.includes(pane) ? pane : paneIds.includes(activePane) ? activePane : paneIds[0];
-            setPaneIds([emptyPane]);
-            setPaneWidths([100]);
-            setPaneActiveTabIds({});
-            setActivePane(emptyPane);
-            setTabPaneIds({});
-            setCanvasViewStates({});
-            setSelectedItem(null);
-            paneTabHistoryRef.current = {};
-            return [];
-          }
-
-          const next = current.filter((tab) => tab.id !== targetId);
-          setPaneActiveTabIds((activeIds) => {
-            const updated = { ...activeIds };
-            Object.entries(updated).forEach(([paneId, activeId]) => {
-              const paneHistory = paneTabHistoryRef.current[paneId] ?? [];
-              if (activeId === targetId) {
-                const orderedTabIds = current
-                  .filter((tab) => getTabPanes(tab.id).includes(paneId))
-                  .map((tab) => tab.id);
-                const fallback = resolveTabAfterClose(paneHistory, targetId, orderedTabIds);
-                if (fallback) {
-                  updated[paneId] = fallback;
-                  paneTabHistoryRef.current[paneId] = rememberTabVisit(removeTabVisit(paneHistory, targetId), fallback);
-                } else {
-                  delete updated[paneId];
-                  delete paneTabHistoryRef.current[paneId];
-                }
-              } else {
-                paneTabHistoryRef.current[paneId] = removeTabVisit(paneHistory, targetId);
-              }
-            });
-            return updated;
-          });
-          setTabPaneIds((placements) => {
-            const { [targetId]: _removed, ...rest } = placements;
-            return rest;
-          });
-          setCanvasViewStates((states) => {
-            const { [targetId]: _removed, ...rest } = states;
-            return rest;
-          });
-          if (selectedItem?.tabId === targetId) {
-            setSelectedItem(null);
-          }
-          return next;
-        });
-      };
-
-      if (!target.dirty || isTabEmpty(target)) {
-        doClose();
-        return;
-      }
-
-      modal.confirm({
-        ...neutralConfirmDialog,
-        title: uiText("当前标签还没有保存"),
-        content: uiText("是否关闭？未保存的修改会丢失。"),
-        okText: uiText("关闭"),
-        cancelText: uiText("取消"),
-        okButtonProps: { danger: true },
-        onOk: doClose,
-      });
-    },
-    [activePane, getTabPanes, modal, paneIds, paneTabs, selectedItem, tabs],
-  );
-
-  const closeCurrentTab = useCallback(() => {
-    if (activeTab) {
-      closeTab(activeTab.id, activePane);
-    }
-  }, [activePane, activeTab, closeTab]);
-
-  const saveCurrentTab = useCallback(async () => {
-    if (!activeTab) {
-      return;
-    }
-    if (document.activeElement instanceof HTMLTextAreaElement && document.activeElement.classList.contains("text-note-editor")) {
-      document.activeElement.blur();
-    }
-    setEditingText(null);
-
-    try {
-      if (activeTab.kind === "file") {
-        if (activeTab.isPreviewOnly) {
-          message.warning(uiText("大文本以只读预览打开，不能直接保存；原文件未被修改"));
-          return;
-        }
-        const isNewFile = !activeTab.filePath;
-        const documentMode = getFileDocumentMode(activeTab);
-        const requiredExtension = documentMode === "markdown" ? "md" : "txt";
-        const result = await window.superNote?.saveFile({
-          path: activeTab.filePath,
-          content: activeTab.content,
-          defaultName: isNewFile
-            ? buildSaveFileName(
-                getTabDisplayTitle(activeTab),
-                requiredExtension,
-                documentMode === "markdown" ? uiText("未命名 Markdown") : uiText("未命名文本"),
-              )
-            : activeTab.fileName,
-          defaultDirectory: settings.defaultSaveDirectory,
-          filters: getFileSaveFilters(activeTab),
-          requiredExtension: isNewFile ? requiredExtension : undefined,
-        });
-        if (!result || result.canceled) {
-          return;
-        }
-        if (!result.ok) {
-          throw new Error(result.error ?? uiText("保存失败"));
-        }
-        setTabs((current) =>
-          current.map((tab) =>
-            tab.id === activeTab.id && tab.kind === "file"
-              ? {
-                  ...tab,
-                  filePath: result.path,
-                  fileName: result.name ?? getFileName(result.path ?? tab.fileName),
-                  title: result.name ?? getFileName(result.path ?? tab.title),
-                  documentMode: tab.documentMode === "markdown" || isMarkdownFileName(result.name) || isMarkdownFileName(result.path) ? "markdown" : "text",
-                  lastKnownMtimeMs: result.mtimeMs,
-                  lastKnownSize: result.size,
-                  content: result.content ?? tab.content,
-                  textAnchors: updateTextAnchors(tab.content, result.content ?? tab.content, tab.textAnchors),
-                  dirty: false,
-                }
-              : tab,
-          ),
-        );
-        if (result.path) {
-          setRecentFiles((current) =>
-            rememberRecentFiles(current, [{ path: result.path!, name: result.name ?? getFileName(result.path!) }]),
-          );
-        }
-        message.success(uiText("已保存到本地文件"));
-        return;
-      }
-
-      const payload = JSON.stringify(createCanvasPayload(activeTab), null, 2);
-      const result = await window.superNote?.saveFile({
-        path: activeTab.filePath,
-        content: payload,
-        defaultName: `${activeTab.title === uiText("未知") ? "untitled" : activeTab.title}.snote`,
-        defaultDirectory: settings.defaultSaveDirectory,
-        filters: [
-          { name: "Super Note", extensions: ["snote"] },
-          { name: "All Files", extensions: ["*"] },
-        ],
-        requiredExtension: "snote",
-      });
-      if (!result || result.canceled) {
-        return;
-      }
-      if (!result.ok) {
-        throw new Error(result.error ?? uiText("保存失败"));
-      }
-      setTabs((current) =>
-        current.map((tab) =>
-          tab.id === activeTab.id && tab.kind === "canvas"
-            ? {
-                ...tab,
-                filePath: result.path,
-                title: result.name ?? getFileName(result.path ?? tab.title),
-                autoTitle: false,
-                lastKnownMtimeMs: result.mtimeMs,
-                lastKnownSize: result.size,
-                dirty: false,
-              }
-            : tab,
-          ),
-      );
-      if (result.path) {
-        setRecentFiles((current) =>
-          rememberRecentFiles(current, [{ path: result.path!, name: result.name ?? getFileName(result.path!) }]),
-        );
-      }
-      message.success(uiText("已保存为 Super Note 文件"));
-    } catch (error) {
-      message.error(uiText("保存失败：{0}", [String(error)]));
-    }
-  }, [activeTab, message, settings.defaultSaveDirectory]);
-
-  const undo = useCallback(() => {
-    if (activeTab?.kind === "file") {
-      const history = fileUndoRef.current[activeTab.id] ?? [];
-      if (history.length === 0) {
-        return;
-      }
-      const previousContent = history[history.length - 1];
-      fileUndoRef.current[activeTab.id] = history.slice(0, -1);
-      fileRedoRef.current[activeTab.id] = [...(fileRedoRef.current[activeTab.id] ?? []), activeTab.content].slice(-HISTORY_LIMIT);
-      setTabs((current) =>
-        current.map((tab) => (tab.id === activeTab.id && tab.kind === "file" ? {
-          ...tab,
-          content: previousContent,
-          textAnchors: updateTextAnchors(tab.content, previousContent, tab.textAnchors),
-          dirty: true,
-        } : tab)),
-      );
-      window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(`.file-view[data-tab-id="${activeTab.id}"] .file-editor`)?.focus(), 0);
-      return;
-    }
-    if (activeTab?.kind !== "canvas") {
-      return;
-    }
-    updateCanvasTab(activeTab.id, (tab) => {
-      if (tab.historyIndex <= 0) {
-        return tab;
-      }
-      const nextIndex = tab.historyIndex - 1;
-      const snapshot = tab.history[nextIndex];
-      const nextItems = cloneItems(snapshot.items);
-      const nextMindMap = cloneMindMap(snapshot.mindMap);
-      return {
-        ...tab,
-        title: deriveCanvasTitle(tab, nextItems, nextMindMap),
-        items: nextItems,
-        mindMap: nextMindMap,
-        dirty: true,
-        historyIndex: nextIndex,
-      };
-    });
-  }, [activeTab, updateCanvasTab]);
-
-  const redo = useCallback(() => {
-    if (activeTab?.kind === "file") {
-      const history = fileRedoRef.current[activeTab.id] ?? [];
-      if (history.length === 0) {
-        return;
-      }
-      const nextContent = history[history.length - 1];
-      fileRedoRef.current[activeTab.id] = history.slice(0, -1);
-      fileUndoRef.current[activeTab.id] = [...(fileUndoRef.current[activeTab.id] ?? []), activeTab.content].slice(-HISTORY_LIMIT);
-      setTabs((current) =>
-        current.map((tab) => (tab.id === activeTab.id && tab.kind === "file" ? {
-          ...tab,
-          content: nextContent,
-          textAnchors: updateTextAnchors(tab.content, nextContent, tab.textAnchors),
-          dirty: true,
-        } : tab)),
-      );
-      window.setTimeout(() => document.querySelector<HTMLTextAreaElement>(`.file-view[data-tab-id="${activeTab.id}"] .file-editor`)?.focus(), 0);
-      return;
-    }
-    if (activeTab?.kind !== "canvas") {
-      return;
-    }
-    updateCanvasTab(activeTab.id, (tab) => {
-      if (tab.historyIndex >= tab.history.length - 1) {
-        return tab;
-      }
-      const nextIndex = tab.historyIndex + 1;
-      const snapshot = tab.history[nextIndex];
-      const nextItems = cloneItems(snapshot.items);
-      const nextMindMap = cloneMindMap(snapshot.mindMap);
-      return {
-        ...tab,
-        title: deriveCanvasTitle(tab, nextItems, nextMindMap),
-        items: nextItems,
-        mindMap: nextMindMap,
-        dirty: true,
-        historyIndex: nextIndex,
-      };
-    });
-  }, [activeTab, updateCanvasTab]);
+  const saveCurrentTab = useFileSave({ activeTab, message, settings, setTabs, setRecentFiles, setEditingText });
 
   const addTextItem = useCallback(
     (tabId: string, pane: PaneKey, x: number, y: number, text = "") => {
@@ -2158,8 +1472,7 @@ function AppShell() {
         const sourceText = tab.content.slice(start, end);
         const transformedText = transformJsonText(sourceText, action);
         const nextContent = `${tab.content.slice(0, start)}${transformedText}${tab.content.slice(end)}`;
-        fileUndoRef.current[tabId] = [...(fileUndoRef.current[tabId] ?? []), tab.content].slice(-HISTORY_LIMIT);
-        fileRedoRef.current[tabId] = [];
+        recordFileHistory(tabId, tab.content);
         setTabs((current) =>
           current.map((item) => (item.id === tabId && item.kind === "file" ? {
             ...item,
@@ -2172,7 +1485,7 @@ function AppShell() {
         message.error(uiText("JSON 处理失败：{0}", [String(error)]));
       }
     },
-    [message, tabs],
+    [message, recordFileHistory, tabs],
   );
 
   const handleCanvasDoubleClick = useCallback(
@@ -2354,132 +1667,13 @@ function AppShell() {
     [activePane, activeTabId, addImageItem, addTextItem, tabs],
   );
 
-  const handleGlobalKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      if (event.key === "Escape" && quickOpenOpen) {
-        event.preventDefault();
-        closeQuickOpen();
-        return;
-      }
-      if (event.key === "Escape" && searchOpen) {
-        event.preventDefault();
-        closeSearch();
-        return;
-      }
-
-      const activeElement = document.activeElement;
-      const isTyping = activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLInputElement;
-      const canUndoFile = activeTab?.kind === "file" && (fileUndoRef.current[activeTab.id]?.length ?? 0) > 0;
-      const canRedoFile = activeTab?.kind === "file" && (fileRedoRef.current[activeTab.id]?.length ?? 0) > 0;
-
-      if (shortcutMatches(event, settings.shortcuts.quickOpen)) {
-        event.preventDefault();
-        closeSearch();
-        setQuickOpenOpen(true);
-        window.setTimeout(() => document.getElementById("quick-open-input")?.focus(), 0);
-      } else if (quickOpenOpen) {
-        return;
-      } else if (!searchOpen && !settingsOpen && settings.tabLayout === "left" && shortcutMatches(event, settings.shortcuts.toggleSidebar)) {
-        event.preventDefault();
-        toggleSidebar();
-      } else if (!searchOpen && !settingsOpen && shortcutMatches(event, settings.shortcuts.toggleTabLayout)) {
-        event.preventDefault();
-        toggleTabLayout();
-      } else if (!searchOpen && !settingsOpen && shortcutMatches(event, settings.shortcuts.toggleFullscreen)) {
-        event.preventDefault();
-        void window.superNote?.toggleFullscreenWindow();
-      } else if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontIncrease)) {
-        event.preventDefault();
-        updateFileFontSize(activeTab.id, (fontSize) => fontSize + 1);
-      } else if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontDecrease)) {
-        event.preventDefault();
-        updateFileFontSize(activeTab.id, (fontSize) => fontSize - 1);
-      } else if (!searchOpen && !settingsOpen && activeTab?.kind === "file" && shortcutMatches(event, settings.shortcuts.fileFontReset)) {
-        event.preventDefault();
-        updateFileFontSize(activeTab.id, () => DEFAULT_FILE_FONT_SIZE);
-      } else if (!searchOpen && canvasPluginEnabled && shortcutMatches(event, settings.shortcuts.newCanvas)) {
-        event.preventDefault();
-        addCanvasTab();
-      } else if (!searchOpen && shortcutMatches(event, settings.shortcuts.newText)) {
-        event.preventDefault();
-        addTextTab();
-      } else if (!searchOpen && shortcutMatches(event, settings.shortcuts.closeTab)) {
-        event.preventDefault();
-        closeCurrentTab();
-      } else if (shortcutMatches(event, settings.shortcuts.save)) {
-        event.preventDefault();
-        saveCurrentTab();
-      } else if (shortcutMatches(event, settings.shortcuts.search)) {
-        event.preventDefault();
-        openSearch(searchOpen && searchScope === "current" ? "all" : "current");
-      } else if (
-        !searchOpen &&
-        !settingsOpen &&
-        shortcutMatches(event, settings.tabLayout === "left" ? "Ctrl+Up" : settings.shortcuts.previousTab)
-      ) {
-        event.preventDefault();
-        focusSiblingTab(-1);
-      } else if (
-        !searchOpen &&
-        !settingsOpen &&
-        shortcutMatches(event, settings.tabLayout === "left" ? "Ctrl+Down" : settings.shortcuts.nextTab)
-      ) {
-        event.preventDefault();
-        focusSiblingTab(1);
-      } else if (!searchOpen && settings.tabLayout === "top" && shortcutMatches(event, settings.shortcuts.splitLeft)) {
-        event.preventDefault();
-        autoSplitTab("left");
-      } else if (!searchOpen && settings.tabLayout === "top" && shortcutMatches(event, settings.shortcuts.splitRight)) {
-        event.preventDefault();
-        autoSplitTab("right");
-      } else if (!isTyping && shortcutMatches(event, settings.shortcuts.paste)) {
-        event.preventDefault();
-        pasteFromClipboard();
-      } else if (!isTyping && shortcutMatches(event, settings.shortcuts.deleteSelected)) {
-        event.preventDefault();
-        if (selectedItem) {
-          deleteCanvasItem(selectedItem.tabId, selectedItem.itemId);
-        } else if (selectedMindMapNode) {
-          deleteCanvasMindMapBranch(selectedMindMapNode.tabId, selectedMindMapNode.pane, selectedMindMapNode.nodeId);
-        }
-      } else if ((!isTyping || canUndoFile) && shortcutMatches(event, settings.shortcuts.undo)) {
-        event.preventDefault();
-        undo();
-      } else if ((!isTyping || canRedoFile) && (shortcutMatches(event, settings.shortcuts.redo) || shortcutMatches(event, settings.shortcuts.redoAlt))) {
-        event.preventDefault();
-        redo();
-      }
-    },
-    [
-      activeTab,
-      addCanvasTab,
-      addTextTab,
-      autoSplitTab,
-      canvasPluginEnabled,
-      closeCurrentTab,
-      closeQuickOpen,
-      closeSearch,
-      deleteCanvasItem,
-      deleteCanvasMindMapBranch,
-      focusSiblingTab,
-      pasteFromClipboard,
-      openSearch,
-      quickOpenOpen,
-      redo,
-      saveCurrentTab,
-      searchOpen,
-      searchScope,
-      selectedItem,
-      selectedMindMapNode,
-      settings.shortcuts,
-      settings.tabLayout,
-      settingsOpen,
-      toggleSidebar,
-      toggleTabLayout,
-      undo,
-      updateFileFontSize,
-    ],
-  );
+  useAppShortcuts({
+    activeTab, settings, quickOpenOpen, searchOpen, settingsOpen, searchScope, canvasPluginEnabled,
+    selectedItem, selectedMindMapNode, canUndoFile, canRedoFile, closeQuickOpen, closeSearch,
+    setQuickOpenOpen, toggleSidebar, toggleTabLayout, updateFileFontSize, addCanvasTab, addTextTab,
+    closeCurrentTab, saveCurrentTab, openSearch, focusSiblingTab, autoSplitTab, pasteFromClipboard,
+    deleteCanvasItem, deleteCanvasMindMapBranch, undo, redo,
+  });
 
   const startItemDrag = useCallback(
     (tab: CanvasTab, pane: PaneKey, viewState: CanvasViewState, item: CanvasItem, event: React.MouseEvent<HTMLElement>) => {
@@ -2867,13 +2061,11 @@ function AppShell() {
   }, [activePane, addTextTab, focusTabInPane, getTabPanes, tabs]);
 
   useEffect(() => {
-    window.addEventListener("keydown", handleGlobalKeyDown);
     window.addEventListener("paste", handlePaste);
     return () => {
-      window.removeEventListener("keydown", handleGlobalKeyDown);
       window.removeEventListener("paste", handlePaste);
     };
-  }, [handleGlobalKeyDown, handlePaste]);
+  }, [handlePaste]);
 
   useEffect(() => {
     const setControlKeyState = (pressed: boolean) => document.body.classList.toggle("ctrl-key-down", pressed);
