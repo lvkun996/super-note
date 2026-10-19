@@ -297,7 +297,8 @@ export function transformJsonText(text: string, action: ProgrammerAction) {
 
 export function continueOrderedList(
   event: React.KeyboardEvent<HTMLTextAreaElement>,
-  onChange: (content: string) => void,
+  onChange: (content: string, caret?: number) => void,
+  caretHandled = false,
 ) {
   if (
     !((event.key === "Enter" && event.shiftKey) || (event.key === "Tab" && !event.shiftKey)) ||
@@ -316,8 +317,8 @@ export function continueOrderedList(
   if (!edit) return;
 
   event.preventDefault();
-  onChange(edit.content);
-  window.requestAnimationFrame(() => {
+  onChange(edit.content, edit.caret);
+  if (!caretHandled) window.requestAnimationFrame(() => {
     editor.focus();
     editor.setSelectionRange(edit.caret, edit.caret);
   });

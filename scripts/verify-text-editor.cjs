@@ -17,6 +17,10 @@ const selection = () => evaluate(`(() => { const e = document.querySelector('tex
 const reset = async (content, markdown = false) => {
   await evaluate(`window.editorTest.reset(${JSON.stringify(content)}, ${markdown})`);
   await settle();
+  if (markdown) {
+    await evaluate("document.querySelector('.file-title-edit').click()");
+    await settle();
+  }
 };
 const focusAt = async (start, end = start) => {
   await evaluate(`(() => { const e = document.querySelector('textarea'); e.focus(); e.setSelectionRange(${start}, ${end}); e.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', bubbles: true })); })()`);
@@ -28,7 +32,8 @@ async function verify() {
   const baselineFiles = ["src/features/text/FileView.tsx", "src/styles.css"];
   server = await createServer({
     root: path.resolve(__dirname, ".."),
-    server: { port: 0, host: "127.0.0.1" },
+    cacheDir: mkdtempSync(path.join(os.tmpdir(), "super-note-editor-vite-")),
+    server: { port: 18753, strictPort: true, host: "127.0.0.1", hmr: false },
     plugins: process.argv.includes("--baseline") ? [{
       name: "editor-regression-baseline", enforce: "pre",
       load(id) {
@@ -50,8 +55,8 @@ async function verify() {
     return { height: header.getBoundingClientRect().height, radius: getComputedStyle(document.querySelector('.file-view')).borderTopLeftRadius,
       title: header.querySelector('h1').textContent, menu: !!header.querySelector('button[aria-label="文档操作"]') };
   })()`);
-  assert.deepEqual(titleLayout, { height: 46, radius: "16px", title: "优化 super-note 保存与右键菜单", menu: true });
-  console.log("PASS document title bar: current title, menu, 46px height and 16px top corners");
+  assert.deepEqual(titleLayout, { height: 46, radius: "0px", title: "优化 super-note 保存与右键菜单", menu: true });
+  console.log("PASS document title bar: current title, menu, 46px height and flat document corners");
 
   for (const markdown of [false, true]) {
     await reset("", markdown);

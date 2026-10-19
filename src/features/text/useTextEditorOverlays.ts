@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import type { FileDocumentMode, TextAnchor } from "../../appTypes";
+import type { FileDocumentMode, TextAnchor, TextSelection } from "../../appTypes";
+import { getTextSelectionRectangles, type SelectionRectangle } from "./textSelectionLayout";
 import { getTextCaretPositions, type TextCaretPosition } from "./textCaretLayout";
 
 type AnchorPosition = TextCaretPosition & { id: string; index: number };
@@ -8,6 +9,7 @@ type OverlayOptions = {
   mirrorRef: RefObject<HTMLElement | null>;
   editorRef: RefObject<HTMLTextAreaElement | null>;
   carets: number[];
+  selection: TextSelection;
   anchors: TextAnchor[];
   content: string;
   fontSize: number;
@@ -20,13 +22,19 @@ function samePosition(left: TextCaretPosition, right: TextCaretPosition) {
   return left.offset === right.offset && left.left === right.left && left.top === right.top && left.height === right.height;
 }
 
-export function useTextEditorOverlays({ mirrorRef, editorRef, carets, anchors, content, fontSize, searchValue, documentMode, editorOpen }: OverlayOptions) {
+export function useTextEditorOverlays({ mirrorRef, editorRef, carets, selection, anchors, content, fontSize, searchValue, documentMode, editorOpen }: OverlayOptions) {
   const [caretPositions, setCaretPositions] = useState<TextCaretPosition[]>([]);
   const [anchorPositions, setAnchorPositions] = useState<AnchorPosition[]>([]);
+  const [selectionRectangles, setSelectionRectangles] = useState<SelectionRectangle[]>([]);
+  const hasSelection = selection.start < selection.end;
   const frameRef = useRef<number | null>(null);
 
   const measure = useCallback(() => {
-    if (carets.length === 0 && anchors.length === 0) {
+    const nextSelection = getTextSelectionRectangles(mirrorRef.current, editorRef.current, content, selection);
+    setSelectionRectangles(current => current.length === nextSelection.length && current.every((r, i) =>
+      r.left === nextSelection[i].left && r.top === nextSelection[i].top && r.width === nextSelection[i].width && r.height === nextSelection[i].height)
+      ? current : nextSelection);
+    if (carets.length === 0 && anchors.length === 0 && !hasSelection) {
       setCaretPositions((current) => current.length === 0 ? current : []);
       setAnchorPositions((current) => current.length === 0 ? current : []);
       return;
@@ -55,20 +63,20 @@ export function useTextEditorOverlays({ mirrorRef, editorRef, carets, anchors, c
       ));
       return unchanged ? current : nextAnchors;
     });
-  }, [anchors, carets, content.length, editorRef, mirrorRef]);
+  }, [anchors, carets, content, selection, editorRef, mirrorRef]);
 
   const scheduleOverlayMeasurement = useCallback(() => {
-    if (frameRef.current !== null || (carets.length === 0 && anchors.length === 0)) return;
+    if (frameRef.current !== null || (carets.length === 0 && anchors.length === 0 && !hasSelection)) return;
     frameRef.current = window.requestAnimationFrame(() => {
       frameRef.current = null;
       measure();
     });
-  }, [anchors.length, carets.length, measure]);
+  }, [anchors.length, carets.length, hasSelection, measure]);
 
   useLayoutEffect(() => {
     measure();
     const mirror = mirrorRef.current;
-    const observer = mirror && (carets.length > 0 || anchors.length > 0)
+    const observer = mirror && (carets.length > 0 || anchors.length > 0 || hasSelection)
       ? new ResizeObserver(scheduleOverlayMeasurement)
       : null;
     if (observer && mirror) observer.observe(mirror);
@@ -79,7 +87,7 @@ export function useTextEditorOverlays({ mirrorRef, editorRef, carets, anchors, c
         frameRef.current = null;
       }
     };
-  }, [measure, scheduleOverlayMeasurement, mirrorRef, anchors.length, carets.length, content, fontSize, searchValue, documentMode, editorOpen]);
+  }, [measure, scheduleOverlayMeasurement, mirrorRef, anchors.length, carets.length, hasSelection, content, fontSize, searchValue, documentMode, editorOpen]);
 
-  return { caretPositions, anchorPositions, scheduleOverlayMeasurement };
+  return { caretPositions, anchorPositions, selectionRectangles, scheduleOverlayMeasurement };
 }

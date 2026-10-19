@@ -704,7 +704,7 @@ function AppShell() {
     setTabs((current) => current.map((tab) => (tab.id === tabId && tab.kind === "canvas" && (getCanvasMode(tab) !== "mindmap" || mindMapPluginEnabled) ? updater(tab) : tab)));
   }, [mindMapPluginEnabled]);
 
-  const { updateFileContent, undo, redo, canUndoFile, canRedoFile, clearFileHistory, recordFileHistory } = useEditorHistory({ activeTab, setTabs, updateCanvasTab });
+  const { updateFileContent, undo, redo, clearFileHistory, historyRestore, onHistoryRestoreHandled } = useEditorHistory({ activeTab, tabsRef, setTabs, updateCanvasTab });
 
   useEffect(() => {
     const handleFocus = () => setWindowFocused(true);
@@ -1472,20 +1472,12 @@ function AppShell() {
         const sourceText = tab.content.slice(start, end);
         const transformedText = transformJsonText(sourceText, action);
         const nextContent = `${tab.content.slice(0, start)}${transformedText}${tab.content.slice(end)}`;
-        recordFileHistory(tabId, tab.content);
-        setTabs((current) =>
-          current.map((item) => (item.id === tabId && item.kind === "file" ? {
-            ...item,
-            content: nextContent,
-            textAnchors: updateTextAnchors(item.content, nextContent, item.textAnchors),
-            dirty: true,
-          } : item)),
-        );
+        updateFileContent(tabId, nextContent);
       } catch (error) {
         message.error(uiText("JSON 处理失败：{0}", [String(error)]));
       }
     },
-    [message, recordFileHistory, tabs],
+    [message, updateFileContent, tabs],
   );
 
   const handleCanvasDoubleClick = useCallback(
@@ -1669,7 +1661,7 @@ function AppShell() {
 
   useAppShortcuts({
     activeTab, settings, quickOpenOpen, searchOpen, settingsOpen, searchScope, canvasPluginEnabled,
-    selectedItem, selectedMindMapNode, canUndoFile, canRedoFile, closeQuickOpen, closeSearch,
+    selectedItem, selectedMindMapNode, closeQuickOpen, closeSearch,
     setQuickOpenOpen, toggleSidebar, toggleTabLayout, updateFileFontSize, addCanvasTab, addTextTab,
     closeCurrentTab, saveCurrentTab, openSearch, focusSiblingTab, autoSplitTab, pasteFromClipboard,
     deleteCanvasItem, deleteCanvasMindMapBranch, undo, redo,
@@ -2776,7 +2768,9 @@ function AppShell() {
           };
           fileViewStatesRef.current[key] = { ...currentViewState, ...patch };
         }}
-        onContentChange={(content) => updateFileContent(tab.id, content)}
+        historyRestore={activePane === pane ? historyRestore : null}
+        onHistoryRestoreHandled={onHistoryRestoreHandled}
+        onContentChange={(content, metadata) => updateFileContent(tab.id, content, metadata)}
         onAddTextAnchor={(selectionStart, selectionEnd) => addFileTextAnchor(tab.id, selectionStart, selectionEnd)}
         onRemoveTextAnchor={(anchorId) => removeFileTextAnchor(tab.id, anchorId)}
         onFontSizeChange={(delta) => updateFileFontSize(tab.id, (fontSize) => fontSize + delta)}

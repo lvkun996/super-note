@@ -14,8 +14,6 @@ type AppShortcutsOptions = {
   canvasPluginEnabled: boolean;
   selectedItem: SelectedItem;
   selectedMindMapNode: SelectedMindMapNode;
-  canUndoFile: () => boolean;
-  canRedoFile: () => boolean;
   closeQuickOpen: () => void;
   closeSearch: () => void;
   setQuickOpenOpen: (open: boolean) => void;
@@ -46,8 +44,6 @@ export function useAppShortcuts({
   canvasPluginEnabled,
   selectedItem,
   selectedMindMapNode,
-  canUndoFile,
-  canRedoFile,
   closeQuickOpen,
   closeSearch,
   setQuickOpenOpen,
@@ -69,6 +65,7 @@ export function useAppShortcuts({
 }: AppShortcutsOptions) {
   const handleGlobalKeyDown = useCallback(
     (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
       if (event.key === "Escape" && quickOpenOpen) {
         event.preventDefault();
         closeQuickOpen();
@@ -82,8 +79,7 @@ export function useAppShortcuts({
 
       const activeElement = document.activeElement;
       const isTyping = activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLInputElement;
-      const undoFileAvailable = canUndoFile();
-      const redoFileAvailable = canRedoFile();
+      const editingFile = activeElement instanceof HTMLTextAreaElement && activeElement.classList.contains("file-editor");
 
       if (shortcutMatches(event, settings.shortcuts.quickOpen)) {
         event.preventDefault();
@@ -155,10 +151,10 @@ export function useAppShortcuts({
         } else if (selectedMindMapNode) {
           deleteCanvasMindMapBranch(selectedMindMapNode.tabId, selectedMindMapNode.pane, selectedMindMapNode.nodeId);
         }
-      } else if ((!isTyping || undoFileAvailable) && shortcutMatches(event, settings.shortcuts.undo)) {
+      } else if ((!isTyping || editingFile) && shortcutMatches(event, settings.shortcuts.undo)) {
         event.preventDefault();
         undo();
-      } else if ((!isTyping || redoFileAvailable) && (shortcutMatches(event, settings.shortcuts.redo) || shortcutMatches(event, settings.shortcuts.redoAlt))) {
+      } else if ((!isTyping || editingFile) && (shortcutMatches(event, settings.shortcuts.redo) || shortcutMatches(event, settings.shortcuts.redoAlt))) {
         event.preventDefault();
         redo();
       }
@@ -169,8 +165,6 @@ export function useAppShortcuts({
       addTextTab,
       autoSplitTab,
       canvasPluginEnabled,
-      canUndoFile,
-      canRedoFile,
       closeCurrentTab,
       closeQuickOpen,
       closeSearch,

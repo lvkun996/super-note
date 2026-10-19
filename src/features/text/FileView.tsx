@@ -1,8 +1,9 @@
+import { captureEditorSelection, clampEditorSelection, createTextHistoryEntry, type EditorSelectionState, type TextEditMetadata, type TextHistoryRestore } from "../history/textHistory";
 import { uiText } from "../../../electron/uiLanguage";
 import { AimOutlined, CloseOutlined, CodeOutlined, CopyOutlined, EditOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Tooltip } from "antd";
 import type { MenuProps } from "antd";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode, WheelEvent as ReactWheelEvent } from "react";
 import type { FileTab, FileViewState, ProgrammerAction, TextAnchor, TextSearchTarget, TextSelection } from "../../appTypes";
 import {
@@ -38,7 +39,9 @@ type FileViewProps = {
   programmerMode: boolean;
   viewState?: FileViewState;
   onViewStateChange: (patch: Partial<FileViewState>) => void;
-  onContentChange: (content: string) => void;
+  onContentChange: (content: string, metadata?: TextEditMetadata) => void;
+  historyRestore?: TextHistoryRestore | null;
+  onHistoryRestoreHandled?: (requestId: number) => void;
   onAddTextAnchor: (selectionStart: number, selectionEnd: number) => void;
   onRemoveTextAnchor: (anchorId: string) => void;
   onFontSizeChange: (delta: number) => void;
@@ -56,7 +59,9 @@ export function FileView({
   programmerMode,
   viewState,
   onViewStateChange,
-  onContentChange,
+  onContentChange: onDocumentChange,
+  historyRestore,
+  onHistoryRestoreHandled,
   onAddTextAnchor,
   onRemoveTextAnchor,
   onFontSizeChange,
@@ -161,8 +166,36 @@ export function FileView({
     </header>
   );
 
+  const lastSelectionRef = useRef<EditorSelectionState | null>(null);
+  const pendingBeforeInputRef = useRef<EditorSelectionState | null>(null);
+  const pendingProgrammaticSelectionRef = useRef<{ content: string; selection: EditorSelectionState } | null>(null);
+  const compositionRef = useRef<{ before: EditorSelectionState; group: string } | null>(null);
+  const multiCaretsRef = useRef<number[]>([]);
+  const restoredHistoryRef = useRef<number | null>(null);
+
+  const onContentChange = (content: string, metadata?: TextEditMetadata) => {
+    const editor = editorRef.current;
+    let inferred: ReturnType<typeof createTextHistoryEntry> | undefined;
+    const infer = () => inferred ??= createTextHistoryEntry(tab.content, content);
+    const before = metadata?.before ?? compositionRef.current?.before ?? pendingBeforeInputRef.current ?? infer().before.selection;
+    const after = metadata?.after ?? (editor && editor.value === content
+      ? captureEditorSelection(editor) : { ...before, ...infer().after.selection, scrollTop: before.scrollTop, scrollLeft: before.scrollLeft });
+    pendingBeforeInputRef.current = null;
+    onDocumentChange(content, { before, after, group: metadata?.group ?? compositionRef.current?.group });
+  };
+
+  const commitProgrammaticEdit = (content: string, caret: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const before = captureEditorSelection(editor);
+    const after: EditorSelectionState = { ...before, selectionStart: caret, selectionEnd: caret, selectionDirection: "none" };
+    pendingProgrammaticSelectionRef.current = { content, selection: after };
+    onContentChange(content, { before, after });
+  };
+
   const {
     multiCarets,
+    restoreMultiCarets,
     clearMultiCarets,
     handleSelectionMouseDown,
     handleMultiCaretKeyDown,
@@ -175,10 +208,45 @@ export function FileView({
     onSelectionChange: setSelection,
   });
 
-  const { caretPositions, anchorPositions, scheduleOverlayMeasurement } = useTextEditorOverlays({
+  multiCaretsRef.current = multiCarets;
+
+  const beforeInputListenerRef = useRef<{ editor: HTMLTextAreaElement; listener: () => void } | null>(null);
+  const attachEditorRef = useCallback((editor: HTMLTextAreaElement | null) => {
+    const previousListener = beforeInputListenerRef.current;
+    previousListener?.editor.removeEventListener("beforeinput", previousListener.listener);
+    beforeInputListenerRef.current = null;
+    editorRef.current = editor;
+    if (!editor) return;
+    const captureBeforeInput = () => {
+      const current = captureEditorSelection(editor, multiCaretsRef.current);
+      const candidates = [pendingBeforeInputRef.current, lastSelectionRef.current];
+      const previous = candidates.find(state => state?.selectionStart === current.selectionStart && state.selectionEnd === current.selectionEnd);
+      // Preserve the user's direction if Chromium normalized it before input.
+      if (previous) current.selectionDirection = previous.selectionDirection;
+      pendingBeforeInputRef.current = current;
+    };
+    editor.addEventListener("beforeinput", captureBeforeInput);
+    beforeInputListenerRef.current = { editor, listener: captureBeforeInput };
+  }, []);
+
+  useLayoutEffect(() => {
+    const editor = editorRef.current;
+    const saved = lastSelectionRef.current;
+    // React restores selection endpoints during commits, but omits direction.
+    // Repair that single attribute only while the endpoints still match; never
+    // control the caret during normal typing or navigation.
+    if (editor && saved && saved.selectionStart !== saved.selectionEnd &&
+        editor.selectionStart === saved.selectionStart && editor.selectionEnd === saved.selectionEnd &&
+        editor.selectionDirection !== saved.selectionDirection) {
+      editor.setSelectionRange(saved.selectionStart, saved.selectionEnd, saved.selectionDirection);
+    }
+  });
+
+  const { caretPositions, anchorPositions, selectionRectangles, scheduleOverlayMeasurement } = useTextEditorOverlays({
     mirrorRef: highlightRef,
     editorRef,
     carets: multiCarets,
+    selection,
     anchors: textAnchors,
     content: tab.content,
     fontSize,
@@ -201,6 +269,10 @@ export function FileView({
     const viewKey = JSON.stringify([tab.id, documentMode, markdownEditorOpen]);
     if (restoredViewRef.current === viewKey) return;
     restoredViewRef.current = viewKey;
+    pendingBeforeInputRef.current = null;
+    pendingProgrammaticSelectionRef.current = null;
+    compositionRef.current = null;
+    lastSelectionRef.current = null;
     const editor = editorRef.current;
     if (editor && viewState) {
       editor.scrollTop = viewState.editorScrollTop;
@@ -208,6 +280,7 @@ export function FileView({
       const start = Math.max(0, Math.min(viewState.selectionStart, editor.value.length));
       const end = Math.max(start, Math.min(viewState.selectionEnd, editor.value.length));
       editor.setSelectionRange(start, end, viewState.selectionDirection);
+      lastSelectionRef.current = captureEditorSelection(editor);
       setSelection({ start, end });
       if (highlightRef.current) {
         highlightRef.current.scrollTop = viewState.editorScrollTop;
@@ -221,6 +294,33 @@ export function FileView({
       markdownLivePreviewRef.current.scrollTop = viewState.livePreviewScrollTop;
     }
   }, [documentMode, markdownEditorOpen, tab.id, viewState]);
+
+  useLayoutEffect(() => {
+    const request = historyRestore?.tabId === tab.id ? historyRestore : null;
+    const pending = pendingProgrammaticSelectionRef.current;
+    const restoreHistory = request && request.requestId !== restoredHistoryRef.current && request.content === tab.content;
+    if (!restoreHistory && (!pending || pending.content !== tab.content)) return;
+    if (documentMode === "markdown" && !markdownEditorOpen) { setMarkdownEditorOpen(true); return; }
+    const editor = editorRef.current;
+    if (!editor) return;
+    const state = clampEditorSelection(restoreHistory ? request.selection : pending!.selection, editor.value.length);
+    if (restoreHistory) {
+      restoredHistoryRef.current = request.requestId;
+      markdownScrollSnapshotRef.current = null;
+      pendingBeforeInputRef.current = null;
+      restoreMultiCarets(state.carets ?? []);
+    }
+    pendingProgrammaticSelectionRef.current = null;
+    editor.focus({ preventScroll: true });
+    editor.setSelectionRange(state.selectionStart, state.selectionEnd, state.selectionDirection);
+    editor.scrollTop = state.scrollTop;
+    editor.scrollLeft = state.scrollLeft;
+    if (highlightRef.current) { highlightRef.current.scrollTop = editor.scrollTop; highlightRef.current.scrollLeft = editor.scrollLeft; }
+    setSelection({ start: state.selectionStart, end: state.selectionEnd });
+    lastSelectionRef.current = captureEditorSelection(editor, state.carets);
+    onViewStateChange({ selectionStart: state.selectionStart, selectionEnd: state.selectionEnd, selectionDirection: state.selectionDirection, editorScrollTop: editor.scrollTop, editorScrollLeft: editor.scrollLeft });
+    if (restoreHistory) onHistoryRestoreHandled?.(request.requestId);
+  }, [historyRestore, tab.id, tab.content, documentMode, markdownEditorOpen, restoreMultiCarets]);
 
   useEffect(() => {
     if (documentMode !== "markdown" || tab.isPreviewOnly) {
@@ -317,13 +417,17 @@ export function FileView({
     onSearchTargetHandled(activeSearchTarget.requestId);
   }, [activeSearchTarget?.requestId, documentMode, fontSize, markdownEditorOpen]);
 
-  const syncSelection = (editor: HTMLTextAreaElement) => {
+  const syncSelection = (editor: HTMLTextAreaElement, rememberDirection = true) => {
+    const captured = captureEditorSelection(editor, multiCaretsRef.current);
+    const previous = lastSelectionRef.current;
+    if (!rememberDirection && previous?.selectionStart === captured.selectionStart && previous.selectionEnd === captured.selectionEnd) captured.selectionDirection = previous.selectionDirection;
+    lastSelectionRef.current = captured;
     const nextSelection = getTextSelection(editor);
     setSelection(nextSelection);
     onViewStateChange({
       selectionStart: editor.selectionStart,
       selectionEnd: editor.selectionEnd,
-      selectionDirection: editor.selectionDirection,
+      selectionDirection: captured.selectionDirection,
     });
   };
 
@@ -381,12 +485,7 @@ export function FileView({
     const end = removeSelection ? current.end : current.end;
     const nextContent = `${editor.value.slice(0, start)}${insertion}${editor.value.slice(end)}`;
     const nextCaret = start + insertion.length;
-    onContentChange(nextContent);
-    setSelection({ start: nextCaret, end: nextCaret });
-    window.requestAnimationFrame(() => {
-      editor.focus({ preventScroll: true });
-      editor.setSelectionRange(nextCaret, nextCaret);
-    });
+    commitProgrammaticEdit(nextContent, nextCaret);
   };
 
   const copySelection = async () => {
@@ -533,18 +632,28 @@ export function FileView({
   const editorEvents = {
     onMouseDown: handleTextAreaMouseDown,
     onMouseUp: handleTextAreaMouseUp,
-    onSelect: (event: React.SyntheticEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
+    onSelect: (event: React.SyntheticEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget, false),
     onDoubleClick: (event: React.MouseEvent<HTMLTextAreaElement>) => trimTextSelectionWhitespace(event.currentTarget),
     onKeyUp: (event: React.KeyboardEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
     onContextMenu: (event: ReactMouseEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
+    onCompositionStart: (event: React.CompositionEvent<HTMLTextAreaElement>) => {
+      compositionRef.current = { before: captureEditorSelection(event.currentTarget), group: crypto.randomUUID() };
+    },
+    onCompositionEnd: (event: React.CompositionEvent<HTMLTextAreaElement>) => {
+      onContentChange(event.currentTarget.value);
+      compositionRef.current = null;
+      syncSelection(event.currentTarget);
+    },
     onAuxClick: (event: ReactMouseEvent<HTMLTextAreaElement>) => {
       if (event.button === 1) event.preventDefault();
     },
   };
 
   const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    pendingBeforeInputRef.current = captureEditorSelection(event.currentTarget, multiCarets);
     if (!handleMultiCaretKeyDown(event)) {
-      continueOrderedList(event, onContentChange);
+      continueOrderedList(event, (content, caret) => commitProgrammaticEdit(content, caret ?? content.length), true);
     }
   };
 
@@ -599,6 +708,12 @@ export function FileView({
     );
   }, [documentMode, tab.isPreviewOnly, tab.content, searchValue, activeSearchTarget?.selectionStart, activeSearchTarget?.selectionEnd]);
 
+  const renderSelection = () => (
+    <div className="file-selection-layer" aria-hidden>
+      {selectionRectangles.map((rect, index) => <span key={index} className="file-text-selection" style={rect} />)}
+    </div>
+  );
+
   const renderAnchorMarkers = () => (
     <div className="file-anchor-layer" aria-hidden>
       {anchorPositions.map((position) => (
@@ -649,7 +764,7 @@ export function FileView({
   if (documentMode === "markdown") {
     const markdownEditor = (
       <textarea
-        ref={editorRef}
+        ref={attachEditorRef}
         className="file-editor markdown-source-editor"
         value={tab.content}
         spellCheck={false}
@@ -665,6 +780,7 @@ export function FileView({
           };
           clearMultiCarets();
           onContentChange(event.target.value);
+          syncSelection(event.currentTarget);
         }}
         {...editorEvents}
       />
@@ -696,6 +812,7 @@ export function FileView({
                 <pre ref={highlightRef} className="file-highlight markdown-source-highlight" aria-hidden>
                   {tab.content || " "}<span className="file-highlight-end-marker">{"\u200b"}</span>
                 </pre>
+                {renderSelection()}
                 {markdownEditor}
                 {renderAnchorMarkers()}
               </div>
@@ -720,6 +837,7 @@ export function FileView({
       <pre ref={highlightRef} className="file-highlight" aria-hidden>
         {plainHighlight}<span className="file-highlight-end-marker">{"\u200b"}</span>
       </pre>
+      {renderSelection()}
       <div className="file-caret-layer" aria-hidden>
         {caretPositions.map(caret => (
           <span key={caret.offset} className="file-multi-caret" style={{ left: caret.left, top: caret.top, height: caret.height }} />
@@ -727,7 +845,7 @@ export function FileView({
       </div>
       {renderAnchorMarkers()}
       <textarea
-        ref={editorRef}
+        ref={attachEditorRef}
         className="file-editor"
         value={tab.content}
         spellCheck={false}
@@ -740,6 +858,7 @@ export function FileView({
         onChange={(event) => {
           clearMultiCarets();
           onContentChange(event.target.value);
+          syncSelection(event.currentTarget);
         }}
         {...editorEvents}
       />

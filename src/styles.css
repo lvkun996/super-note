@@ -2001,7 +2001,24 @@ body:has(.app-shell.dark-mode) .text-anchor-dropdown .text-anchor-menu-item-acti
 }
 
 .file-editor::selection {
+  background: transparent;
+}
+
+.file-selection-layer {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.file-text-selection {
+  position: absolute;
   background: rgba(22, 119, 255, 0.22);
+}
+
+.dark-mode .file-text-selection {
+  background: rgba(114, 173, 255, 0.26);
 }
 
 .file-view.markdown-file {

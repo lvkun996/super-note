@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type {
   ClipboardEvent as ReactClipboardEvent,
   KeyboardEvent as ReactKeyboardEvent,
@@ -7,6 +7,7 @@ import type {
 } from "react";
 import type { TextSelection } from "../../appTypes";
 import { getTextOffsetAtPoint } from "../editor/editorUtils";
+import { captureEditorSelection, type TextEditMetadata } from "../history/textHistory";
 import { deleteAtCarets, insertAtCarets } from "./multiCaret";
 
 const LONG_PRESS_DELAY_MS = 360;
@@ -14,13 +15,13 @@ const LONG_PRESS_MOVE_TOLERANCE_PX = 4;
 
 type Point = { x: number; y: number };
 type VerticalSelection = { anchor: Point };
-type MultiCaretHistoryEntry = { content: string; carets: number[] };
+
 
 type UseTextEditorSelectionOptions = {
   editorRef: RefObject<HTMLTextAreaElement | null>;
   mirrorRef: RefObject<HTMLElement | null>;
   content: string;
-  onContentChange: (content: string) => void;
+  onContentChange: (content: string, metadata?: TextEditMetadata) => void;
   onSelectionChange: (selection: TextSelection) => void;
 };
 
@@ -53,8 +54,7 @@ export function useTextEditorSelection({
   const longPressTimerRef = useRef<number | null>(null);
   const pendingLongPressRef = useRef<Point | null>(null);
   const verticalSelectionRef = useRef<VerticalSelection | null>(null);
-  const multiCaretUndoRef = useRef<MultiCaretHistoryEntry[]>([]);
-  const multiCaretRedoRef = useRef<MultiCaretHistoryEntry[]>([]);
+  const pendingCaretRef = useRef<{ content: string; caret: number } | null>(null);
 
   const cancelPendingLongPress = useCallback(() => {
     if (longPressTimerRef.current !== null) {
@@ -66,10 +66,18 @@ export function useTextEditorSelection({
 
   const clearMultiCarets = useCallback(() => setMultiCarets((current) => current.length === 0 ? current : []), []);
 
-  const clearMultiCaretHistory = useCallback(() => {
-    multiCaretUndoRef.current = [];
-    multiCaretRedoRef.current = [];
+  const restoreMultiCarets = useCallback((carets: number[]) => {
+    pendingCaretRef.current = null;
+    setMultiCarets(carets);
   }, []);
+  useLayoutEffect(() => {
+    const pending = pendingCaretRef.current;
+    const editor = editorRef.current;
+    if (!pending || pending.content !== content || !editor) return;
+    pendingCaretRef.current = null;
+    editor.focus({ preventScroll: true });
+    editor.setSelectionRange(pending.caret, pending.caret);
+  }, [content, editorRef]);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -118,7 +126,6 @@ export function useTextEditorSelection({
     if (event.button === 1) {
       event.preventDefault();
       event.stopPropagation();
-      clearMultiCaretHistory();
       clearMultiCarets();
       const anchor = { x: event.clientX, y: event.clientY };
       const offset = getTextOffsetAtPoint(editor, mirrorRef.current, event.clientX, event.clientY);
@@ -131,7 +138,6 @@ export function useTextEditorSelection({
     }
 
     if (event.button !== 0) return false;
-    clearMultiCaretHistory();
     clearMultiCarets();
     const mirror = mirrorRef.current;
     if (!mirror) return false;
@@ -153,20 +159,14 @@ export function useTextEditorSelection({
   };
 
   const commitMultiCaretEdit = (nextContent: string, nextCarets: number[]) => {
-    multiCaretUndoRef.current = [
-      ...multiCaretUndoRef.current,
-      { content, carets: [...multiCarets] },
-    ].slice(-100);
-    multiCaretRedoRef.current = [];
-    onContentChange(nextContent);
-    setMultiCarets(nextCarets);
+    const editor = editorRef.current;
+    if (!editor) return;
+    const before = captureEditorSelection(editor, multiCarets);
     const primaryCaret = nextCarets.at(-1) ?? 0;
+    pendingCaretRef.current = { content: nextContent, caret: primaryCaret };
+    onContentChange(nextContent, { before, after: { ...before, selectionStart: primaryCaret, selectionEnd: primaryCaret, selectionDirection: "none", carets: nextCarets } });
+    setMultiCarets(nextCarets);
     onSelectionChange({ start: primaryCaret, end: primaryCaret });
-    window.requestAnimationFrame(() => {
-      const editor = editorRef.current;
-      editor?.focus({ preventScroll: true });
-      editor?.setSelectionRange(primaryCaret, primaryCaret);
-    });
   };
 
   const handleMultiCaretKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
@@ -176,27 +176,7 @@ export function useTextEditorSelection({
       clearMultiCarets();
       return true;
     }
-    if (event.ctrlKey || event.metaKey) {
-      if (event.key.toLowerCase() !== "z" || event.altKey || event.shiftKey || event.nativeEvent.isComposing) return false;
-      const previous = multiCaretUndoRef.current.pop();
-      if (!previous) return false;
-      event.preventDefault();
-      event.stopPropagation();
-      multiCaretRedoRef.current = [
-        ...multiCaretRedoRef.current,
-        { content, carets: [...multiCarets] },
-      ].slice(-100);
-      onContentChange(previous.content);
-      setMultiCarets(previous.carets);
-      const primaryCaret = previous.carets.at(-1) ?? 0;
-      onSelectionChange({ start: primaryCaret, end: primaryCaret });
-      window.requestAnimationFrame(() => {
-        const editor = editorRef.current;
-        editor?.focus({ preventScroll: true });
-        editor?.setSelectionRange(primaryCaret, primaryCaret);
-      });
-      return true;
-    }
+    if (event.ctrlKey || event.metaKey) return false;
     if (event.altKey || event.nativeEvent.isComposing) return false;
 
     if (event.key === "Backspace" || event.key === "Delete") {
@@ -224,6 +204,7 @@ export function useTextEditorSelection({
 
   return {
     multiCarets,
+    restoreMultiCarets,
     clearMultiCarets,
     handleSelectionMouseDown,
     handleMultiCaretKeyDown,
