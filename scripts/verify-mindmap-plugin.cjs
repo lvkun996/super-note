@@ -28,6 +28,16 @@ async function plugin(text) {
   await waitFor("!document.querySelector('.ant-dropdown:not(.ant-dropdown-hidden)')");
 }
 async function load(value) {
+  // Use a fresh renderer for each independent workspace scenario.
+  const previousWindow = win;
+  win = new BrowserWindow({ show: true, width: 1000, height: 700, webPreferences: { preload: path.resolve(__dirname, '../dist-electron/preload.js'), contextIsolation: true, sandbox: false, backgroundThrottling: false } });
+  win.webContents.on('console-message', event => { if (event.level === 'error') errors.push(event.message); });
+  win.webContents.session.webRequest.onBeforeRequest((details, callback) => {
+    requestedResources.add(details.url);
+    callback({});
+  });
+
+  previousWindow?.destroy();
   requestedResources.clear();
   workspace = value;
   saved = null;
@@ -40,12 +50,6 @@ async function verify() {
   ipcMain.handle('app:getInfo', () => ({ version: 'fixture' }));
   ipcMain.handle('update:getStatus', () => ({ state: 'idle', currentVersion: 'fixture' }));
   for (const name of ['app:rendererReady', 'app:setLanguage', 'tray:syncTabs', 'mindmap-style:sync']) ipcMain.handle(name, () => ({ ok: true }));
-  win = new BrowserWindow({ show: true, width: 1000, height: 700, webPreferences: { preload: path.resolve(__dirname, '../dist-electron/preload.js'), contextIsolation: true, sandbox: false, backgroundThrottling: false } });
-  win.webContents.on('console-message', event => { if (event.level === 'error') errors.push(event.message); });
-  win.webContents.session.webRequest.onBeforeRequest((details, callback) => {
-    requestedResources.add(details.url);
-    callback({});
-  });
   const initial = { version: 5, savedAt: new Date().toISOString(), tabs: [], paneIds: ['pane-main'], paneWidths: [100], activePane: 'pane-main', splitView: false, settings: { tabLayout: 'left', plugins: { canvas: false, mindMap: false } } };
   await load(initial);
   assert.equal(await evaluate("Boolean(document.querySelector('[aria-label=\"新建思维导图\"]'))"), false);
