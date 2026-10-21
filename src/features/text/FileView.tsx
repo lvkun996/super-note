@@ -68,6 +68,7 @@ export function FileView({
   onProgrammerAction,
   onSearchTargetHandled,
 }: FileViewProps) {
+  const selectionLayerRef = useRef<HTMLDivElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const markdownPreviewRef = useRef<HTMLDivElement>(null);
@@ -242,11 +243,11 @@ export function FileView({
     }
   });
 
-  const { caretPositions, anchorPositions, selectionRectangles, scheduleOverlayMeasurement } = useTextEditorOverlays({
+  const { caretPositions, anchorPositions, scheduleOverlayMeasurement } = useTextEditorOverlays({
     mirrorRef: highlightRef,
     editorRef,
     carets: multiCarets,
-    selection,
+    selectionLayerRef,
     anchors: textAnchors,
     content: tab.content,
     fontSize,
@@ -709,9 +710,7 @@ export function FileView({
   }, [documentMode, tab.isPreviewOnly, tab.content, searchValue, activeSearchTarget?.selectionStart, activeSearchTarget?.selectionEnd]);
 
   const renderSelection = () => (
-    <div className="file-selection-layer" aria-hidden>
-      {selectionRectangles.map((rect, index) => <span key={index} className="file-text-selection" style={rect} />)}
-    </div>
+    <div ref={selectionLayerRef} className="file-selection-layer" aria-hidden />
   );
 
   const renderAnchorMarkers = () => (

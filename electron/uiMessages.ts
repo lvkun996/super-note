@@ -173,7 +173,7 @@ export const englishMessages: Record<string, string> = {
   "打开链接": "Open links", "在文本模块或画板文字中按住 Ctrl 并单击 HTTP/HTTPS 链接，会使用外部浏览器打开。": "Hold Ctrl and click an HTTP/HTTPS link in a document or canvas text to open it in your browser.",
   "保存内容": "Save content", "当前标签有文件路径时直接保存；新内容会打开保存窗口，并优先使用设置中的默认文件保存位置。": "Existing files save directly. New documents open the save dialog in your default save folder.",
   "搜索内容": "Find content", "点击右上角搜索按钮，在当前页或全部标签中查找内容。": "Click Search at the top right to find content in the current tab or all tabs.",
-  "竖向选择": "Column selection", "在文本模块中按住鼠标左键片刻后竖向拖动，可连续选择多行内容；也支持中键直接拖动选择。": "Hold the left mouse button briefly, then drag vertically to select multiple lines, or drag with the middle mouse button.",
+  "竖向选择": "Column selection", "左键拖动使用普通文本选择；按住鼠标中键竖向拖动可创建多光标并同时编辑多行。": "Drag with the left button for normal text selection. Drag vertically with the middle button to create carets and edit multiple lines.",
   "关闭标签": "Close tab", "关闭最后一个标签后会进入空工作区。": "Closing the last tab opens the empty workspace.",
   "切换标签栏位置": "Switch tab layout", "设置中可选择顶栏模式或侧边模式；标签支持拖拽排序，右键可置顶、移除、编辑名称或在资源管理器打开。": "Choose top or sidebar tabs in Settings. Drag to reorder, or right-click to pin, remove, rename, or reveal a file in Explorer.",
   "Ctrl+B 显示或隐藏左侧栏，Ctrl+Shift+B 切换顶栏与侧边模式；双击已选中的标签可编辑名称。": "Ctrl+B shows or hides the sidebar, Ctrl+Shift+B switches tab layouts, and double-clicking the selected tab renames it.",

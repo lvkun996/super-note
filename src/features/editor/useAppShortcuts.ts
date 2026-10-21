@@ -81,6 +81,10 @@ export function useAppShortcuts({
       const isTyping = activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLInputElement;
       const editingFile = activeElement instanceof HTMLTextAreaElement && activeElement.classList.contains("file-editor");
 
+      // Leave Ctrl+arrow navigation to the focused native text control.
+      if (isTyping && event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey &&
+          ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+
       if (shortcutMatches(event, settings.shortcuts.quickOpen)) {
         event.preventDefault();
         closeSearch();

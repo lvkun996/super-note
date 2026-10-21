@@ -10,12 +10,8 @@ import { getTextOffsetAtPoint } from "../editor/editorUtils";
 import { captureEditorSelection, type TextEditMetadata } from "../history/textHistory";
 import { deleteAtCarets, insertAtCarets } from "./multiCaret";
 
-const LONG_PRESS_DELAY_MS = 360;
-const LONG_PRESS_MOVE_TOLERANCE_PX = 4;
-
 type Point = { x: number; y: number };
 type VerticalSelection = { anchor: Point };
-
 
 type UseTextEditorSelectionOptions = {
   editorRef: RefObject<HTMLTextAreaElement | null>;
@@ -51,18 +47,8 @@ export function useTextEditorSelection({
   onSelectionChange,
 }: UseTextEditorSelectionOptions) {
   const [multiCarets, setMultiCarets] = useState<number[]>([]);
-  const longPressTimerRef = useRef<number | null>(null);
-  const pendingLongPressRef = useRef<Point | null>(null);
   const verticalSelectionRef = useRef<VerticalSelection | null>(null);
   const pendingCaretRef = useRef<{ content: string; caret: number } | null>(null);
-
-  const cancelPendingLongPress = useCallback(() => {
-    if (longPressTimerRef.current !== null) {
-      window.clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-    pendingLongPressRef.current = null;
-  }, []);
 
   const clearMultiCarets = useCallback(() => setMultiCarets((current) => current.length === 0 ? current : []), []);
 
@@ -81,14 +67,6 @@ export function useTextEditorSelection({
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
-      const pendingLongPress = pendingLongPressRef.current;
-      if (
-        pendingLongPress &&
-        Math.hypot(event.clientX - pendingLongPress.x, event.clientY - pendingLongPress.y) > LONG_PRESS_MOVE_TOLERANCE_PX
-      ) {
-        cancelPendingLongPress();
-      }
-
       const editor = editorRef.current;
       const verticalSelection = verticalSelectionRef.current;
       if (!editor || !verticalSelection) return;
@@ -107,19 +85,17 @@ export function useTextEditorSelection({
 
     const handleMouseUp = (event: MouseEvent) => {
       if (event.button !== 0 && event.button !== 1) return;
-      cancelPendingLongPress();
       verticalSelectionRef.current = null;
     };
 
     window.addEventListener("mousemove", handleMouseMove, { passive: false });
     window.addEventListener("mouseup", handleMouseUp);
     return () => {
-      cancelPendingLongPress();
       verticalSelectionRef.current = null;
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [cancelPendingLongPress, editorRef, mirrorRef, onSelectionChange]);
+  }, [editorRef, mirrorRef, onSelectionChange]);
 
   const handleSelectionMouseDown = (event: ReactMouseEvent<HTMLTextAreaElement>) => {
     const editor = event.currentTarget;
@@ -137,24 +113,9 @@ export function useTextEditorSelection({
       return true;
     }
 
-    if (event.button !== 0) return false;
-    clearMultiCarets();
-    const mirror = mirrorRef.current;
-    if (!mirror) return false;
-
-    const anchor = { x: event.clientX, y: event.clientY };
-    const anchorOffset = getTextOffsetAtPoint(editor, mirror, anchor.x, anchor.y);
-    cancelPendingLongPress();
-    pendingLongPressRef.current = anchor;
-    longPressTimerRef.current = window.setTimeout(() => {
-      longPressTimerRef.current = null;
-      pendingLongPressRef.current = null;
-      verticalSelectionRef.current = { anchor };
-      editor.focus({ preventScroll: true });
-      editor.setSelectionRange(anchorOffset, anchorOffset);
-      setMultiCarets([anchorOffset]);
-      onSelectionChange({ start: anchorOffset, end: anchorOffset });
-    }, LONG_PRESS_DELAY_MS);
+    if (event.button === 0) clearMultiCarets();
+    // Left-button press, drag, Shift-click and word selection belong to the
+    // native textarea. Only the middle button opts into column editing.
     return false;
   };
 

@@ -45,7 +45,7 @@ export function HelpDocumentation({ canvasPluginEnabled }: HelpDocumentationProp
     [uiText("打开链接"), uiText("在文本模块或画板文字中按住 Ctrl 并单击 HTTP/HTTPS 链接，会使用外部浏览器打开。")],
     [uiText("保存内容"), uiText("当前标签有文件路径时直接保存；新内容会打开保存窗口，并优先使用设置中的默认文件保存位置。")],
     [uiText("搜索内容"), uiText("点击右上角搜索按钮，在当前页或全部标签中查找内容。")],
-    [uiText("竖向选择"), uiText("在文本模块中按住鼠标左键片刻后竖向拖动，可连续选择多行内容；也支持中键直接拖动选择。")],
+    [uiText("竖向选择"), uiText("左键拖动使用普通文本选择；按住鼠标中键竖向拖动可创建多光标并同时编辑多行。")],
     [uiText("关闭标签"), uiText("关闭最后一个标签后会进入空工作区。")],
     [uiText("切换标签栏位置"), uiText("Ctrl+B 显示或隐藏左侧栏，Ctrl+Shift+B 切换顶栏与侧边模式；双击已选中的标签可编辑名称。")],
   ];

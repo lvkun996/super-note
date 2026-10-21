@@ -27,6 +27,70 @@ const focusAt = async (start, end = start) => {
   await settle();
 };
 
+async function verifyLiveSelection() {
+  const content = "alpha beta\n\n    \ngamma delta\nomega";
+  const state = () => evaluate(`(() => {
+    const e=document.querySelector('textarea');
+    return { start:e.selectionStart, end:e.selectionEnd, direction:e.selectionDirection,
+      rectangles:[...document.querySelectorAll('.file-text-selection')].map(n=>[n.style.left,n.style.top,n.style.width]),
+      multi:document.querySelectorAll('.file-multi-caret').length, writes:window.selectionWrites, value:e.value };
+  })()`);
+  const point = offset => evaluate(`(() => {
+    const mirror=document.querySelector('.file-highlight');
+    const walker=document.createTreeWalker(mirror,NodeFilter.SHOW_TEXT);
+    let remaining=${offset};
+    while(walker.nextNode()){
+      const node=walker.currentNode;
+      if(node.parentElement.closest('.file-highlight-end-marker,.file-search-position-marker'))continue;
+      if(remaining<node.length){ const range=document.createRange();range.setStart(node,remaining);range.setEnd(node,remaining+1);const r=range.getBoundingClientRect();return {x:Math.round(r.left+.1),y:Math.round(r.top+r.height/2)}; }
+      remaining-=node.length;
+    }
+    throw new Error('No text point');
+  })()`);
+  const move = async p => {
+    win.webContents.sendInputEvent({type:"mouseMove",button:"left",modifiers:["leftButtonDown"],...p});
+    await settle();
+  };
+  for (const markdown of [false,true]) {
+    await reset(content,markdown);
+    await evaluate(`(() => {window.selectionWrites=0;const e=document.querySelector('textarea');const original=e.setSelectionRange.bind(e);e.setSelectionRange=(...args)=>{window.selectionWrites++;return original(...args)};})()`);
+    const first=await point(1), near=await point(8), last=await point(content.indexOf("omega")+3);
+    win.webContents.sendInputEvent({type:"mouseDown",button:"left",clickCount:1,...first});
+    await new Promise(resolve=>setTimeout(resolve,430));
+    await settle();
+    assert.equal((await state()).multi,0,"Holding the left button must not enter column mode");
+    await move(near);
+    const partial=await state();
+    assert(partial.end>partial.start && partial.rectangles.length>0,"Selection must be painted before mouseup");
+    await move(last);
+    const expanded=await state();
+    assert(expanded.end>partial.end,"Native selection must grow during the drag");
+    assert.notDeepEqual(expanded.rectangles,partial.rectangles,"Painting must update while the button stays pressed");
+    assert.equal(expanded.writes,0,"Dragging must not rewrite native selectionRange");
+    assert.equal(expanded.value,content);
+    win.webContents.sendInputEvent({type:"mouseUp",button:"left",clickCount:1,...last});
+    await settle();
+    assert.equal((await state()).end,expanded.end,"Mouse release must not change the selected range");
+    await focusAt(content.length);
+    win.webContents.sendInputEvent({type:"mouseDown",button:"left",clickCount:1,...last});
+    await settle();
+    await evaluate("window.selectionWrites=0");
+    await move(near);
+    const backwards=await state();
+    assert(backwards.end>backwards.start && backwards.rectangles.length>0);
+    assert.equal(backwards.direction,"backward");
+    await move(first);
+    const reversed=await state();
+    assert(reversed.start<backwards.start);
+    assert.notDeepEqual(reversed.rectangles,backwards.rectangles);
+    assert.equal(reversed.writes,0,"Reverse drag must also stay native");
+    win.webContents.sendInputEvent({type:"mouseUp",button:"left",clickCount:1,...first});
+    await settle();
+    assert.equal((await state()).direction,"backward");
+    console.log(`PASS ${markdown?"Markdown":"plain text"}: live forward/reverse selection before release, native left-button hold, no selectionRange writes while dragging`);
+  }
+}
+
 async function verify() {
   const { createServer } = await import("vite");
   const baselineFiles = ["src/features/text/FileView.tsx", "src/styles.css"];
@@ -50,6 +114,7 @@ async function verify() {
   await win.loadURL(`${server.resolvedUrls.local[0]}scripts/fixtures/text-editor.html`);
   console.log("Regression page loaded");
   await evaluate("new Promise(resolve => { const timer = setInterval(() => { if(window.editorTest && document.querySelector('textarea')) { clearInterval(timer); resolve(); } }, 20); })");
+  if (process.argv.includes("--selection-only")) { await verifyLiveSelection(); return; }
   const titleLayout = await evaluate(`(() => {
     const header = document.querySelector('.file-title-bar');
     return { height: header.getBoundingClientRect().height, radius: getComputedStyle(document.querySelector('.file-view')).borderTopLeftRadius,
