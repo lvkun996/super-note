@@ -6,7 +6,8 @@ import path from "node:path";
 import os from "node:os";
 import { getWindowMaterial } from "./windowMaterial";
 import { formatContentForSave, LARGE_TEXT_PREVIEW_BYTES, readTextFilePreview } from "./fileContent";
-import { atomicWriteText, getFileMetadata, isWorkspaceJson, readJsonFileCandidate } from "./fileStorage";
+import { atomicWriteText, getFileMetadata } from "./fileStorage";
+import { createWorkspaceStore } from "./workspaceStore";
 import { appendExtensionIfMissing } from "./filePathUtils";
 import { isNewerVersion } from "./versionUtils";
 
@@ -179,8 +180,9 @@ function getWorkspacePath() {
   return path.join(app.getPath("userData"), workspaceFileName);
 }
 
-function getWorkspaceBackupPath() {
-  return `${getWorkspacePath()}.bak`;
+let workspaceStore: ReturnType<typeof createWorkspaceStore> | undefined;
+function getWorkspaceStore() {
+  return workspaceStore ??= createWorkspaceStore(getWorkspacePath());
 }
 
 function getIconPath() {
@@ -755,44 +757,18 @@ if (!gotSingleInstanceLock) {
 }
 
 ipcMain.handle("workspace:load", async () => {
-  const filePath = getWorkspacePath();
-  const backupPath = getWorkspaceBackupPath();
-  const [primary, backup] = await Promise.all([
-    readJsonFileCandidate(filePath),
-    readJsonFileCandidate(backupPath),
-  ]);
-  return {
-    ok: !primary.error || Boolean(backup.value),
-    workspace: primary.value ?? null,
-    backupWorkspace: backup.value ?? null,
-    path: filePath,
-    backupPath,
-    error: primary.error,
-  };
+  return getWorkspaceStore().load();
 });
 
-ipcMain.handle("workspace:save", async (_event, workspace) => {
-  const filePath = getWorkspacePath();
-  const backupPath = getWorkspaceBackupPath();
-  if (!isWorkspaceJson(workspace)) {
-    return { ok: false, path: filePath, backupPath, error: "Invalid workspace payload" };
-  }
+async function saveWorkspace(workspace: unknown, delta = false) {
   try {
-    await atomicWriteText(filePath, JSON.stringify(workspace, null, 2), {
-      backupPath,
-      validateExisting: (content) => {
-        try {
-          return isWorkspaceJson(JSON.parse(content));
-        } catch {
-          return false;
-        }
-      },
-    });
-    return { ok: true, path: filePath, backupPath };
+    return await getWorkspaceStore().save(workspace, delta);
   } catch (error) {
-    return { ok: false, error: String(error), path: filePath, backupPath };
+    return { ok: false, error: String(error), path: getWorkspacePath(), backupPath: `${getWorkspacePath()}.bak` };
   }
-});
+}
+ipcMain.handle("workspace:save", (_event, workspace) => saveWorkspace(workspace));
+ipcMain.handle("workspace:saveDelta", (_event, payload) => saveWorkspace(payload, true));
 
 ipcMain.handle("app:rendererReady", (event) => {
   if (event.sender !== mainWindow?.webContents) {

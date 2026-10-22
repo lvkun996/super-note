@@ -112,6 +112,7 @@ interface Window {
     windowBackdropEnabled?: boolean;
     loadWorkspace: () => Promise<WorkspaceResult>;
     saveWorkspace: (workspace: unknown) => Promise<SaveWorkspaceResult>;
+    saveWorkspaceDelta?: (payload: unknown) => Promise<SaveWorkspaceResult>;
     openFile: () => Promise<OpenFileResult>;
     notifyRendererReady: () => Promise<{ ok: boolean }>;
     notifyWorkspaceFlushed: () => Promise<{ ok: boolean }>;

@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld("superNote", {
   windowBackdropEnabled: process.argv.includes("--super-note-window-backdrop"),
   loadWorkspace: () => ipcRenderer.invoke("workspace:load"),
   saveWorkspace: (workspace: unknown) => ipcRenderer.invoke("workspace:save", workspace),
+  saveWorkspaceDelta: (payload: unknown) => ipcRenderer.invoke("workspace:saveDelta", payload),
   openFile: () => ipcRenderer.invoke("dialog:openFile"),
   notifyRendererReady: () => ipcRenderer.invoke("app:rendererReady"),
   notifyWorkspaceFlushed: () => ipcRenderer.invoke("app:workspaceFlushed"),

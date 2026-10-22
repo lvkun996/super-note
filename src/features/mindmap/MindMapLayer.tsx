@@ -2,7 +2,6 @@ import { uiText } from "../../../electron/uiLanguage";
 import { MinusOutlined, PlusOutlined } from "@ant-design/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent as ReactDragEvent, KeyboardEvent, MouseEvent } from "react";
-import { getMindMapChildren } from "./mindMapModel";
 import { getMindMapBranchPath, layoutMindMap } from "./mindMapLayout";
 import type { MindMapDocument } from "./mindMapTypes";
 
@@ -38,6 +37,11 @@ export function MindMapLayer({
   onLinkNodeSelect,
 }: MindMapLayerProps) {
   const layout = useMemo(() => layoutMindMap(document), [document]);
+  const childCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const node of document.nodes) if (node.parentId) counts.set(node.parentId, (counts.get(node.parentId) ?? 0) + 1);
+    return counts;
+  }, [document.nodes]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
@@ -154,7 +158,7 @@ export function MindMapLayer({
 
       {layout.nodes.map((layoutNode) => {
         const { node } = layoutNode;
-        const children = getMindMapChildren(document, node.id);
+        const childCount = childCounts.get(node.id) ?? 0;
         const selected = selectedNodeId === node.id;
         const nodeStyle = {
           left: layoutNode.x,
@@ -256,12 +260,12 @@ export function MindMapLayer({
               </button>
             )}
 
-            {children.length > 0 ? (
+            {childCount > 0 ? (
               <button
                 type="button"
                 className="mind-map-collapse-button"
                 aria-label={node.collapsed ? uiText("展开分支") : uiText("折叠分支")}
-                title={node.collapsed ? uiText("展开 {0} 个主题", [children.length]) : uiText("折叠分支")}
+                title={node.collapsed ? uiText("展开 {0} 个主题", [childCount]) : uiText("折叠分支")}
                 onMouseDown={stopSurfaceEvent}
                 onClick={(event) => {
                   event.stopPropagation();

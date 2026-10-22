@@ -1,13 +1,14 @@
 import { useCallback, useRef, useState } from "react";
 import type { CanvasTab, NoteTab } from "../../appTypes";
 import type { RefObject } from "react";
-import { createTextHistoryEntry, type TextEditMetadata, type TextHistoryEntry, type TextHistoryRestore } from "./textHistory";
+import { clampEditorSelection, type TextEditMetadata, type TextHistoryRestore } from "./textHistory";
+import { appendTextHistory, applyBufferedTextEdit, bufferTextEdit, limitTextHistory, type BufferedTextEdit } from "./textHistoryBuffer";
 import type { StateSetter } from "../workspace/controllerTypes";
 import { cloneMindMap } from "../mindmap/mindMapModel";
 import { deriveCanvasTitle } from "../tabs/tabDocument";
 import { updateTextAnchors } from "../text/textAnchors";
 import { normalizeTextLineEndings } from "../text/textLineEndings";
-import { cloneItems, HISTORY_LIMIT } from "./historyModel";
+import { cloneItems } from "./historyModel";
 
 type EditorHistoryOptions = {
   activeTab: NoteTab | null | undefined;
@@ -22,8 +23,8 @@ export function useEditorHistory({
   setTabs,
   updateCanvasTab,
 }: EditorHistoryOptions) {
-  const fileUndoRef = useRef<Record<string, TextHistoryEntry[]>>({});
-  const fileRedoRef = useRef<Record<string, TextHistoryEntry[]>>({});
+  const fileUndoRef = useRef<Record<string, BufferedTextEdit[]>>({});
+  const fileRedoRef = useRef<Record<string, BufferedTextEdit[]>>({});
   const [historyRestore, setHistoryRestore] = useState<TextHistoryRestore | null>(null);
   const requestIdRef = useRef(0);
   const updateFileContent = useCallback((tabId: string, content: string, metadata?: TextEditMetadata) => {
@@ -34,21 +35,16 @@ export function useEditorHistory({
       const history = fileUndoRef.current[tabId];
       const last = history?.at(-1);
       if (metadata?.group && last?.group === metadata.group) {
-        const entry = createTextHistoryEntry(previous.content, content, metadata);
-        fileUndoRef.current[tabId] = [...history.slice(0, -1), { ...last, after: entry.after }];
+        fileUndoRef.current[tabId] = [...history.slice(0, -1), { ...last, after: clampEditorSelection(metadata.after, content.length) }];
       }
       return;
     }
-    const entry = createTextHistoryEntry(previous.content, content, metadata);
+    const entry = bufferTextEdit(previous.content, content, metadata);
     const history = fileUndoRef.current[tabId] ?? [];
-    const last = history.at(-1);
-    // Composition updates form one transaction, including their final input.
-    fileUndoRef.current[tabId] = metadata?.group && last?.group === metadata.group
-      ? [...history.slice(0, -1), { ...entry, before: last.before }]
-      : [...history, entry].slice(-HISTORY_LIMIT);
+    fileUndoRef.current[tabId] = appendTextHistory(history, entry, previous.content);
     fileRedoRef.current[tabId] = [];
     const next = tabsRef.current.map(tab => tab.id === tabId && tab.kind === "file"
-      ? { ...tab, content, textAnchors: updateTextAnchors(tab.content, content, tab.textAnchors), dirty: true } : tab);
+      ? { ...tab, content, textAnchors: updateTextAnchors(tab.content, content, tab.textAnchors, { start: entry.start, previousEnd: entry.start + entry.removed.length, nextEnd: entry.start + entry.inserted.length }), dirty: true } : tab);
     tabsRef.current = next;
     setTabs(next);
   }, [setTabs, tabsRef]);
@@ -60,13 +56,18 @@ export function useEditorHistory({
     const history = source.current[activeTab.id] ?? [];
     const entry = history.at(-1);
     if (!entry) return;
+    const tab = tabsRef.current.find(tab => tab.id === activeTab.id);
+    if (!tab || tab.kind !== "file") return;
+    const content = applyBufferedTextEdit(tab.content, entry, direction === "undo");
     source.current[activeTab.id] = history.slice(0, -1);
-    destination.current[activeTab.id] = [...(destination.current[activeTab.id] ?? []), entry].slice(-HISTORY_LIMIT);
-    const snapshot = direction === "undo" ? entry.before : entry.after;
-    setTabs(current => current.map(tab => tab.id === activeTab.id && tab.kind === "file"
-      ? { ...tab, content: snapshot.content, textAnchors: updateTextAnchors(tab.content, snapshot.content, tab.textAnchors), dirty: true } : tab));
-    setHistoryRestore({ tabId: activeTab.id, requestId: ++requestIdRef.current, ...snapshot });
-  }, [activeTab, setTabs]);
+    destination.current[activeTab.id] = limitTextHistory([...(destination.current[activeTab.id] ?? []), entry]);
+    const selection = direction === "undo" ? entry.before : entry.after;
+    const next = tabsRef.current.map(tab => tab.id === activeTab.id && tab.kind === "file"
+      ? { ...tab, content, textAnchors: updateTextAnchors(tab.content, content, tab.textAnchors), dirty: true } : tab);
+    tabsRef.current = next;
+    setTabs(next);
+    setHistoryRestore({ tabId: activeTab.id, requestId: ++requestIdRef.current, content, selection });
+  }, [activeTab, setTabs, tabsRef]);
 
   const undo = useCallback(() => {
     if (activeTab?.kind === "file") {

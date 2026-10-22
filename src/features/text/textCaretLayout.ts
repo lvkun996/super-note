@@ -1,16 +1,12 @@
+import { getTextMirrorIndex } from "./textMirrorIndex";
 export type TextCaretPosition = { offset: number; left: number; top: number; height: number };
 
 // Measure the unmodified highlight text. Carets live in a separate overlay so
 // adding them cannot change glyph shaping, line wrapping, or hit-test offsets.
-export function getTextCaretPositions(mirror: HTMLElement | null, carets: number[], contentLength: number): TextCaretPosition[] {
+export function getTextCaretPositions(mirror: HTMLElement | null, carets: number[], content: string): TextCaretPosition[] {
   if (!mirror || carets.length === 0) return [];
   const bounds = mirror.getBoundingClientRect();
-  const walker = document.createTreeWalker(mirror, NodeFilter.SHOW_TEXT);
-  const nodes: Text[] = [];
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Text;
-    if (!node.parentElement?.closest(".file-highlight-end-marker, .file-search-position-marker")) nodes.push(node);
-  }
+  const nodes = getTextMirrorIndex(mirror, content).map(part => part.node);
   const endMarker = mirror.querySelector<HTMLElement>(".file-highlight-end-marker");
   const orderedOffsets = carets
     .map((offset, index) => ({ offset, index }))
@@ -27,7 +23,7 @@ export function getTextCaretPositions(mirror: HTMLElement | null, carets: number
     }
 
     let rect: DOMRect | undefined;
-    if (offset === contentLength && endMarker) {
+    if (offset === content.length && endMarker) {
       rect = endMarker.getBoundingClientRect();
     } else {
       while (nodeIndex < nodes.length && offset - nodeStart > nodes[nodeIndex].length) {

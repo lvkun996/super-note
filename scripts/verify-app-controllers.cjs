@@ -183,6 +183,12 @@ async function verify() {
   ipcMain.handle("clipboard:writeText", (_, text) => {clipboardWritten=text; return {ok:true}});
   ipcMain.handle("workspace:load", async () => { await delay(150); return { ok: true, workspace: source }; });
   ipcMain.handle("workspace:save", (_, workspace) => { saved = workspace; return { ok: true }; });
+  ipcMain.handle("workspace:saveDelta", (_, payload) => {
+    const current = new Map((saved?.tabs ?? source.tabs).map(tab => [tab.id, tab]));
+    for (const tab of payload.changedTabs) current.set(tab.id, tab);
+    saved = { ...payload.metadata, tabs: payload.tabIds.map(id => current.get(id)) };
+    return { ok: true };
+  });
   ipcMain.handle("file:save", (_, payload) => {
     filePayload = payload;
     if (failSave) return { ok: false, error: "Synthetic failure" };
@@ -194,7 +200,7 @@ async function verify() {
   for (const name of ["app:rendererReady", "app:setLanguage", "tray:syncTabs"]) ipcMain.handle(name, () => ({ ok: true }));
   ipcMain.handle("app:workspaceFlushed", () => { flushed = true; return { ok: true }; });
   win = new BrowserWindow({ show: false, width: 1000, height: 700, webPreferences: {
-    preload: path.resolve(__dirname, "../dist-electron/preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false,
+    preload: path.resolve(__dirname, "../dist-electron/preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false, offscreen: true,
   } });
   win.webContents.on("console-message", event => { if (event.level === "error") errors.push(event.message); });
   await win.loadFile(path.resolve(__dirname, "../dist/index.html"));
@@ -202,6 +208,33 @@ async function verify() {
   await evaluate("document.querySelector('.tabs-sidebar-item').click()");
   await waitFor("Boolean(document.querySelector('.file-editor'))");
   assert.equal(await value(), "original");
+  if (process.argv.includes("--performance-only") || process.argv.includes("--markdown-preview-only")) {
+    if (!process.argv.includes("--markdown-preview-only")) await require("./verify-long-selection.cjs")({
+      reset: content => editorFixture(content), evaluate,
+      settle: () => evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))"),
+    });
+    await editorFixture("# Title\n\ninitial", true);
+    await waitFor("document.querySelector('.markdown-live-preview')?.textContent.includes('initial')");
+    await evaluate("window.originalHeading=document.querySelector('.markdown-live-preview h1')");
+    await selectText((await value()).length);
+    await win.webContents.insertText(" first");
+    await waitFor("document.querySelector('.file-editor').value.endsWith(' first')");
+    assert(!await evaluate("document.querySelector('.markdown-live-preview').textContent.includes(' first')"), "Keep the stable preview while batching input");
+    await win.webContents.insertText(" second");
+    await waitFor("document.querySelector('.markdown-live-preview')?.textContent.includes('first second')");
+    assert(await evaluate("window.originalHeading===document.querySelector('.markdown-live-preview h1')"), "Unchanged preview blocks must keep their DOM nodes");
+    assert.equal(await evaluate("document.querySelectorAll('.markdown-loading').length"), 0);
+    await evaluate("window.originalTail=document.querySelector('.markdown-live-preview').lastElementChild");
+    await selectText("# Title\n\n".length);
+    await win.webContents.insertText("middle\n\n");
+    await waitFor("document.querySelector('.markdown-live-preview')?.children.length===3");
+    assert(await evaluate("window.originalTail===document.querySelector('.markdown-live-preview').lastElementChild"), "Inserting a block must retain its unchanged suffix");
+    await nativeKey("Z", ["control"]);
+    await waitFor("document.querySelector('.markdown-live-preview')?.children.length===2");
+    assert(await evaluate("window.originalTail===document.querySelector('.markdown-live-preview').lastElementChild"), "Undo must remove only the inserted block");
+    console.log("PASS Markdown: input remains immediate, preview batches changes and retains previous content without a loading flash");
+    return;
+  }
   await delay(700);
   assert.equal(saved.tabs.length, 2, "Hydration must not be overwritten by the initial blank tab");
 

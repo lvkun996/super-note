@@ -3,7 +3,7 @@ import { uiText } from "../../../electron/uiLanguage";
 import { AimOutlined, CloseOutlined, CodeOutlined, CopyOutlined, EditOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Tooltip } from "antd";
 import type { MenuProps } from "antd";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode, WheelEvent as ReactWheelEvent } from "react";
 import type { FileTab, FileViewState, ProgrammerAction, TextAnchor, TextSearchTarget, TextSelection } from "../../appTypes";
 import {
@@ -25,6 +25,7 @@ import { getTextCaretPositions } from "./textCaretLayout";
 import { getTextAnchorLine } from "./textAnchors";
 import { normalizeTextLineEndings } from "./textLineEndings";
 import { MarkdownEditorModal } from "./MarkdownEditorModal";
+import { MarkdownContent } from "./MarkdownContent";
 
 const EMPTY_SELECTION: TextSelection = { start: 0, end: 0 };
 const EMPTY_ANCHORS: TextAnchor[] = [];
@@ -49,7 +50,41 @@ type FileViewProps = {
   onSearchTargetHandled: (requestId: number) => void;
 };
 
-export function FileView({
+const CALLBACK_KEYS = ["onViewStateChange", "onContentChange", "onHistoryRestoreHandled", "onAddTextAnchor", "onRemoveTextAnchor", "onFontSizeChange", "onProgrammerAction", "onSearchTargetHandled"] as const;
+type MenuItem = NonNullable<MenuProps["items"]>[number];
+function sameMenu(left: MenuProps["items"], right: MenuProps["items"]) {
+  return left?.length === right?.length && (left ?? []).every((item, index) => {
+    const other = right?.[index];
+    if (!item || !other) return item === other;
+    const keys = new Set([...Object.keys(item), ...Object.keys(other)]);
+    return [...keys].every(key => key === "onClick" || (item as unknown as Record<string, unknown>)[key] === (other as unknown as Record<string, unknown>)[key]);
+  });
+}
+
+// Parent callbacks may be recreated on every keystroke. Forward events to the
+// latest props while allowing untouched panes to skip rendering entirely.
+export function FileView(props: FileViewProps) {
+  const latest = useRef(props);
+  latest.current = props;
+  const events = useMemo(() => Object.fromEntries(CALLBACK_KEYS.map(key => [key, (...args: unknown[]) => {
+    const handler = latest.current[key] as ((...args: unknown[]) => unknown) | undefined;
+    return handler?.(...args);
+  }])) as Pick<FileViewProps, typeof CALLBACK_KEYS[number]>, []);
+  const menus = useRef<{ source: MenuProps["items"]; items: MenuProps["items"] } | null>(null);
+  if (!menus.current || !sameMenu(menus.current.source, props.titleMenuItems)) {
+    menus.current = { source: props.titleMenuItems, items: props.titleMenuItems?.map((item, index): MenuItem => {
+      if (!item || !("onClick" in item) || !item.onClick) return item;
+      return { ...item, onClick: info => {
+        const current = latest.current.titleMenuItems?.[index];
+        if (current && "onClick" in current) current.onClick?.(info);
+      } };
+    }) };
+  }
+  return <MemoFileEditor {...props} {...events} titleMenuItems={menus.current.items} />;
+}
+const MemoFileEditor = memo(FileEditor);
+
+function FileEditor({
   tab,
   showTitleBar = true,
   title,
@@ -68,6 +103,7 @@ export function FileView({
   onProgrammerAction,
   onSearchTargetHandled,
 }: FileViewProps) {
+  const markdownClientKey = useId();
   const selectionLayerRef = useRef<HTMLDivElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
@@ -84,7 +120,7 @@ export function FileView({
     tabId: string;
     content: string;
     filePath?: string;
-    html: string;
+    blocks: string[];
   } | null>(null);
   const fontSize = tab.fontSize ?? 13;
   const documentMode = getFileDocumentMode(tab);
@@ -243,7 +279,7 @@ export function FileView({
     }
   });
 
-  const { caretPositions, anchorPositions, scheduleOverlayMeasurement } = useTextEditorOverlays({
+  const { caretPositions, anchorPositions, scheduleOverlayMeasurement, revealMirror } = useTextEditorOverlays({
     mirrorRef: highlightRef,
     editorRef,
     carets: multiCarets,
@@ -252,8 +288,10 @@ export function FileView({
     content: tab.content,
     fontSize,
     searchValue,
+    searchRequestId: activeSearchTarget?.requestId,
     documentMode,
     editorOpen: markdownEditorOpen,
+    requiresMirror: documentMode === "text" && (Boolean(searchValue.trim()) || Boolean(activeSearchTarget) || /https?:\/\//i.test(tab.content)),
   });
 
   useEffect(() => {
@@ -329,20 +367,29 @@ export function FileView({
       return;
     }
     let active = true;
-    void import("./markdownRenderer").then(({ renderMarkdownContent }) => {
-      if (active) {
-        setMarkdownRender({
-          tabId: tab.id,
-          content: tab.content,
-          filePath: tab.filePath,
-          html: renderMarkdownContent(tab.content, tab.filePath),
-        });
-      }
-    });
+    let cancel: (() => void) | undefined;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const client = await import("./markdownWorkerClient");
+        if (!active) return;
+        cancel = () => client.cancelMarkdownRender(markdownClientKey);
+        let blocks: string[] | null;
+        try { blocks = await client.renderMarkdownInWorker(markdownClientKey, tab.content, tab.filePath); }
+        catch {
+          if (!active) return;
+          // Preserve editing in environments without worker support.
+          const { renderMarkdownBlocks } = await import("./markdownRenderer");
+          blocks = renderMarkdownBlocks(tab.content, tab.filePath);
+        }
+        if (active && blocks !== null) setMarkdownRender({ tabId: tab.id, content: tab.content, filePath: tab.filePath, blocks });
+      })();
+    }, markdownRender?.tabId === tab.id ? 120 : 0);
     return () => {
       active = false;
+      window.clearTimeout(timer);
+      cancel?.();
     };
-  }, [documentMode, tab.content, tab.filePath, tab.id]);
+  }, [documentMode, tab.content, tab.filePath, tab.id, markdownClientKey]);
 
   useLayoutEffect(() => {
     if (documentMode !== "markdown" || !markdownEditorOpen || markdownRender?.content !== tab.content) {
@@ -596,6 +643,7 @@ export function FileView({
   ];
 
   const handleTextAreaMouseDown = (event: ReactMouseEvent<HTMLTextAreaElement>) => {
+    revealMirror();
     if (handleSelectionMouseDown(event)) return;
 
     const endMarker = highlightRef.current?.querySelector<HTMLElement>(".file-highlight-end-marker");
@@ -622,6 +670,7 @@ export function FileView({
     if (!event.ctrlKey) {
       return;
     }
+    revealMirror();
     const offset = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY) ?? editor.selectionStart;
     const url = findHttpUrlAtOffset(editor.value, offset);
     if (url) {
@@ -677,7 +726,7 @@ export function FileView({
     const editor = editorRef.current;
     if (!editor) return;
     const offset = Math.max(0, Math.min(anchor.start, editor.value.length));
-    const measured = getTextCaretPositions(highlightRef.current, [offset], editor.value.length)[0];
+    const measured = getTextCaretPositions(highlightRef.current, [offset], editor.value)[0];
     const lineHeight = Number.parseFloat(window.getComputedStyle(editor).lineHeight) || fontSize * 1.65;
     const line = getTextAnchorLine(tab.content, offset) - 1;
     const targetTop = measured
@@ -729,19 +778,18 @@ export function FileView({
 
   const renderedMarkdown =
     markdownRender?.tabId === tab.id &&
-    markdownRender.content === tab.content &&
     markdownRender.filePath === tab.filePath
-      ? markdownRender.html
+      ? markdownRender.blocks
       : null;
 
   const renderMarkdownPreview = (className = "") =>
     tab.content.trim() && renderedMarkdown === null ? (
       <article className={`markdown-body markdown-loading ${className}`}>{uiText("正在加载 Markdown...")}</article>
     ) : tab.content.trim() ? (
-      <article
+      <MarkdownContent
         className={`markdown-body ${className}`}
         onClick={handleMarkdownLinkClick}
-        dangerouslySetInnerHTML={{ __html: renderedMarkdown ?? "" }}
+        blocks={renderedMarkdown ?? []}
       />
     ) : (
       <article className={`markdown-body markdown-empty ${className}`}>{uiText("开始写 Markdown...")}</article>

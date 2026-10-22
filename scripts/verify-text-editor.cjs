@@ -37,12 +37,15 @@ async function verifyLiveSelection() {
   })()`);
   const point = offset => evaluate(`(() => {
     const mirror=document.querySelector('.file-highlight');
+    const native=mirror.parentElement.classList.contains('native-text-surface');
+    mirror.parentElement.classList.remove('native-text-surface');
+    mirror.scrollTop=document.querySelector('textarea').scrollTop;
     const walker=document.createTreeWalker(mirror,NodeFilter.SHOW_TEXT);
     let remaining=${offset};
     while(walker.nextNode()){
       const node=walker.currentNode;
       if(node.parentElement.closest('.file-highlight-end-marker,.file-search-position-marker'))continue;
-      if(remaining<node.length){ const range=document.createRange();range.setStart(node,remaining);range.setEnd(node,remaining+1);const r=range.getBoundingClientRect();return {x:Math.round(r.left+.1),y:Math.round(r.top+r.height/2)}; }
+      if(remaining<node.length){ const range=document.createRange();range.setStart(node,remaining);range.setEnd(node,remaining+1);const r=range.getBoundingClientRect();const point={x:Math.round(r.left+.1),y:Math.round(r.top+r.height/2)};if(native)mirror.parentElement.classList.add('native-text-surface');return point; }
       remaining-=node.length;
     }
     throw new Error('No text point');
@@ -91,6 +94,8 @@ async function verifyLiveSelection() {
   }
 }
 
+const verifyLongSelection = require("./verify-long-selection.cjs");
+
 async function verify() {
   const { createServer } = await import("vite");
   const baselineFiles = ["src/features/text/FileView.tsx", "src/styles.css"];
@@ -114,7 +119,7 @@ async function verify() {
   await win.loadURL(`${server.resolvedUrls.local[0]}scripts/fixtures/text-editor.html`);
   console.log("Regression page loaded");
   await evaluate("new Promise(resolve => { const timer = setInterval(() => { if(window.editorTest && document.querySelector('textarea')) { clearInterval(timer); resolve(); } }, 20); })");
-  if (process.argv.includes("--selection-only")) { await verifyLiveSelection(); return; }
+  if (process.argv.includes("--selection-only")) { await verifyLiveSelection(); await verifyLongSelection({reset,evaluate,settle}); return; }
   const titleLayout = await evaluate(`(() => {
     const header = document.querySelector('.file-title-bar');
     return { height: header.getBoundingClientRect().height, radius: getComputedStyle(document.querySelector('.file-view')).borderTopLeftRadius,
@@ -162,6 +167,9 @@ async function verify() {
   await reset("abcdefghij\nabcdefghij\nabcdefghij\n" + "中文 abcdef ".repeat(18));
   await evaluate(`window.glyphRects = () => {
     const mirror = document.querySelector('.file-highlight');
+    const native = mirror.parentElement.classList.contains('native-text-surface');
+    mirror.parentElement.classList.remove('native-text-surface');
+    mirror.scrollTop = document.querySelector('textarea').scrollTop;
     const walker = document.createTreeWalker(mirror, NodeFilter.SHOW_TEXT);
     const result = [];
     while (walker.nextNode()) {
@@ -172,6 +180,7 @@ async function verify() {
         const rect = range.getBoundingClientRect(); result.push([rect.x, rect.y, rect.width, rect.height]);
       }
     }
+    if (native) mirror.parentElement.classList.add('native-text-surface');
     return result;
   }; undefined`);
   const before = await evaluate("window.glyphRects()");

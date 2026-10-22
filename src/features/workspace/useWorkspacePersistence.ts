@@ -5,6 +5,7 @@ import type { AppSettings, NoteTab, PersistedWorkspace } from "../../appTypes";
 import type { AppFeedback, StateSetter } from "./controllerTypes";
 import { stripTab } from "../tabs/tabDocument";
 import { CURRENT_WORKSPACE_VERSION } from "./workspaceUtils";
+import { createCoalescingQueue } from "./coalescingQueue";
 
 export const STORAGE_KEY = "super-note-workspace";
 const WORKSPACE_SAVE_DEBOUNCE_MS = 600;
@@ -35,42 +36,55 @@ export function useWorkspacePersistence({
 }: WorkspacePersistenceOptions) {
   const saveTimerRef = useRef<number | null>(null);
   const workspaceSaveErrorRef = useRef("");
+  const savedTabsRef = useRef(new Map<string, NoteTab>());
+  const saveQueueRef = useRef<ReturnType<typeof createCoalescingQueue<boolean>> | null>(null);
+  if (!saveQueueRef.current) saveQueueRef.current = createCoalescingQueue<boolean>();
   const persistWorkspace = useCallback(async () => {
-    const workspace: PersistedWorkspace = {
-      version: CURRENT_WORKSPACE_VERSION,
-      savedAt: new Date().toISOString(),
-      activeTabId,
-      activePane,
-      splitView,
-      paneIds,
-      paneActiveTabIds,
-      tabPaneIds,
-      paneWidths,
-      canvasViewStates,
-      settings,
-      recentFiles,
-      tabs: tabs.map(stripTab),
-    };
+    const save = async () => {
+      const workspace: PersistedWorkspace = {
+        version: CURRENT_WORKSPACE_VERSION,
+        savedAt: new Date().toISOString(),
+        activeTabId,
+        activePane,
+        splitView,
+        paneIds,
+        paneActiveTabIds,
+        tabPaneIds,
+        paneWidths,
+        canvasViewStates,
+        settings,
+        recentFiles,
+        tabs: window.superNote?.saveWorkspaceDelta ? [] : tabs.map(stripTab),
+      };
 
-    if (window.superNote) {
-      try {
-        const result = await window.superNote.saveWorkspace(workspace);
-        if (!result.ok) {
-          throw new Error(result.error ?? uiText("工作区保存失败"));
+      if (window.superNote) {
+        try {
+          const { tabs: _tabs, ...metadata } = workspace;
+          const result = window.superNote.saveWorkspaceDelta
+            ? await window.superNote.saveWorkspaceDelta({
+              metadata, tabIds: tabs.map(tab => tab.id),
+              changedTabs: tabs.filter(tab => savedTabsRef.current.get(tab.id) !== tab).map(stripTab),
+            })
+            : await window.superNote.saveWorkspace(workspace);
+          if (!result.ok) {
+            throw new Error(result.error ?? uiText("工作区保存失败"));
+          }
+          workspaceSaveErrorRef.current = "";
+          savedTabsRef.current = new Map(tabs.map(tab => [tab.id, tab]));
+        } catch (error) {
+          const detail = String(error);
+          if (workspaceSaveErrorRef.current !== detail) {
+            workspaceSaveErrorRef.current = detail;
+            message.error(uiText("自动保存失败：{0}", [detail]));
+          }
+          return false;
         }
-        workspaceSaveErrorRef.current = "";
-      } catch (error) {
-        const detail = String(error);
-        if (workspaceSaveErrorRef.current !== detail) {
-          workspaceSaveErrorRef.current = detail;
-          message.error(uiText("自动保存失败：{0}", [detail]));
-        }
-        return false;
+      } else {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
       }
-    } else {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
-    }
-    return true;
+      return true;
+    };
+    return saveQueueRef.current!(save);
   }, [activePane, activeTabId, canvasViewStates, message, paneActiveTabIds, paneIds, paneWidths, recentFiles, settings, splitView, tabPaneIds, tabs]);
   const persistWorkspaceRef = useRef(persistWorkspace);
   persistWorkspaceRef.current = persistWorkspace;

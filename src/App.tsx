@@ -85,6 +85,7 @@ import { DEFAULT_SETTINGS, normalizeSettings } from "./features/settings/setting
 import { getCanvasMode } from "./pluginSettings";
 import { rememberTabVisit } from "./features/tabs/tabHistory";
 import { getTabDisplayTitle } from "./features/tabs/tabTitle";
+import { createTabPresentationCache } from "./features/tabs/tabPresentation";
 import { getQuickOpenResults, searchWorkspace } from "./features/search/searchModel";
 import { sortPinnedTabs } from "./features/tabs/tabOrder";
 import { createTextAnchor, MAX_TEXT_ANCHORS, normalizeTextAnchors, updateTextAnchors } from "./features/text/textAnchors";
@@ -487,6 +488,7 @@ function AppShell() {
     [paneIds, tabPaneIds],
   );
 
+  const paneTabIdsRef = useRef<Record<PaneKey, string[]>>({});
   const { paneTabs, paneTabIds } = useMemo(() => {
     const nextTabs: Record<PaneKey, NoteTab[]> = Object.fromEntries(paneIds.map((paneId) => [paneId, []]));
     const nextIds: Record<PaneKey, string[]> = Object.fromEntries(paneIds.map((paneId) => [paneId, []]));
@@ -498,7 +500,15 @@ function AppShell() {
         nextIds[paneId]?.push(tab.id);
       });
     });
-    return { paneTabs: nextTabs, paneTabIds: nextIds };
+    const previous = paneTabIdsRef.current;
+    let changed = Object.keys(previous).length !== paneIds.length;
+    for (const pane of paneIds) {
+      const ids = previous[pane];
+      if (ids?.length === nextIds[pane].length && ids.every((id, i) => id === nextIds[pane][i])) nextIds[pane] = ids;
+      else changed = true;
+    }
+    paneTabIdsRef.current = changed ? nextIds : previous;
+    return { paneTabs: nextTabs, paneTabIds: paneTabIdsRef.current };
   }, [paneIds, tabPaneIds, tabs]);
 
   const activeTabsByPane = useMemo<Record<PaneKey, NoteTab | null>>(() => {
@@ -511,6 +521,8 @@ function AppShell() {
   }, [paneActiveTabIds, paneIds, paneTabs]);
 
   const splitView = paneIds.length > 1;
+  const [getTabPresentation] = useState(createTabPresentationCache);
+  const tabPresentation = useMemo(() => getTabPresentation(tabs), [getTabPresentation, tabs]);
   const activeTab = welcomeVisible ? undefined : activeTabsByPane[activePane] ?? activeTabsByPane[paneIds[0]] ?? tabs[0];
   const activeTabId = welcomeVisible ? "" : activeTab?.id ?? tabs[0]?.id ?? "";
   const activeFileFontSize = activeTab?.kind === "file" ? getFileFontSize(activeTab) : null;
@@ -2012,11 +2024,21 @@ function AppShell() {
       }
     };
 
-    void checkExternalChanges();
-    const timer = window.setInterval(() => void checkExternalChanges(), 2500);
+    let checking = false;
+    const refresh = () => {
+      if (disposed || checking || document.hidden) return;
+      checking = true;
+      void checkExternalChanges().finally(() => { checking = false; });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 2500);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       disposed = true;
       window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [message, modal, reloadTabFromDisk, workspaceLoaded]);
 
@@ -2029,9 +2051,9 @@ function AppShell() {
   useEffect(() => {
     window.superNote?.syncTrayTabs?.({
       activeTabId,
-      tabs: tabs.map((tab) => ({ id: tab.id, title: getTabDisplayTitle(tab), kind: tab.kind })),
+      tabs: tabPresentation.map((tab) => ({ id: tab.id, title: tab.title, kind: tab.kind })),
     });
-  }, [activeTabId, tabs]);
+  }, [activeTabId, tabPresentation]);
 
   useEffect(() => {
     const unsubscribe = window.superNote?.onTrayAction?.((action) => {
@@ -2039,7 +2061,7 @@ function AppShell() {
         addTextTab();
         return;
       }
-      const tab = tabs.find((item) => item.id === action.tabId);
+      const tab = tabsRef.current.find((item) => item.id === action.tabId);
       if (!tab) {
         return;
       }
@@ -2050,7 +2072,7 @@ function AppShell() {
       }
     });
     return () => unsubscribe?.();
-  }, [activePane, addTextTab, focusTabInPane, getTabPanes, tabs]);
+  }, [activePane, addTextTab, focusTabInPane, getTabPanes]);
 
   useEffect(() => {
     window.addEventListener("paste", handlePaste);
@@ -2641,10 +2663,7 @@ function AppShell() {
     }
   }, [message, updateStatus.latestVersion, updateStatus.state]);
 
-  const tabNavigationItems = useMemo(
-    () => tabs.map((tab) => ({ id: tab.id, title: getTabDisplayTitle(tab), themeIndex: tab.themeIndex, dirty: tab.dirty, filePath: tab.filePath, pinned: tab.pinned })),
-    [tabs],
-  );
+  const tabNavigationItems = tabPresentation;
 
   const renderPaneContent = (tab: NoteTab, pane: PaneKey) => {
     if (tab.kind === "canvas") {
@@ -2793,7 +2812,7 @@ function AppShell() {
     </section>
   );
 
-  const renderedPaneIds = settings.tabLayout === "left" ? [activePane] : paneIds;
+  const renderedPaneIds = useMemo(() => settings.tabLayout === "left" ? [activePane] : paneIds, [settings.tabLayout, activePane, paneIds]);
   const renderedSplitView = settings.tabLayout === "top" && splitView;
 
   return (

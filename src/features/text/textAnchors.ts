@@ -9,11 +9,15 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function makeLabel(content: string, start: number, end: number) {
-  return content
-    .slice(start, end)
-    .replace(/\s+/gu, " ")
-    .trim()
-    .slice(0, MAX_ANCHOR_LABEL_LENGTH);
+  if (end <= start) return "";
+  const pattern = /\S/gu;
+  pattern.lastIndex = start;
+  let label = "", previousEnd = start, match: RegExpExecArray | null;
+  while (label.length < MAX_ANCHOR_LABEL_LENGTH && (match = pattern.exec(content)) && match.index < end) {
+    if (label && match.index > previousEnd) label += " ";
+    label += match[0]; previousEnd = match.index + match[0].length;
+  }
+  return label.slice(0, MAX_ANCHOR_LABEL_LENGTH);
 }
 
 export function createTextAnchor(content: string, selectionStart: number, selectionEnd: number, id: string): TextAnchor | null {
@@ -87,13 +91,14 @@ function findChangedRange(previousContent: string, nextContent: string) {
   };
 }
 
-export function updateTextAnchors(previousContent: string, nextContent: string, value: unknown): TextAnchor[] {
+export type TextChange = { start: number; previousEnd: number; nextEnd: number };
+export function updateTextAnchors(previousContent: string, nextContent: string, value: unknown, knownChange?: TextChange): TextAnchor[] {
   const anchors = normalizeTextAnchors(value, previousContent);
   if (previousContent === nextContent || anchors.length === 0) {
     return anchors;
   }
 
-  const change = findChangedRange(previousContent, nextContent);
+  const change = knownChange ?? findChangedRange(previousContent, nextContent);
   const delta = change.nextEnd - change.previousEnd;
   const insertionOnly = change.previousEnd === change.start;
 

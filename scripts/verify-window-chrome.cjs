@@ -101,7 +101,7 @@ async function verify() {
   ipcMain.handle("workspace:load", () => ({ ok: true, workspace }));
   ipcMain.handle("app:getInfo", () => ({ version: "test", author: "test", desc: "Synthetic fixture" }));
   ipcMain.handle("update:getStatus", () => ({ state: "idle", channel: "latest", currentVersion: "test" }));
-  for (const name of ["workspace:save", "app:rendererReady", "app:setLanguage", "tray:syncTabs"]) ipcMain.handle(name, () => ({ ok: true }));
+  for (const name of ["workspace:save", "workspace:saveDelta", "app:rendererReady", "app:setLanguage", "tray:syncTabs"]) ipcMain.handle(name, () => ({ ok: true }));
   win = new BrowserWindow({ show: false, width: 1000, height: 700, frame: false, backgroundColor: "#00000000", backgroundMaterial: material,
     webPreferences: { preload: path.resolve(__dirname, "../dist-electron/preload.js"), additionalArguments: ["--super-note-window-backdrop"], contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false } });
   // A small separate fixture provides real OS blur/focus events, not synthetic events.

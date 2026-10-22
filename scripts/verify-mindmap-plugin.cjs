@@ -47,6 +47,12 @@ async function load(value) {
 async function verify() {
   ipcMain.handle('workspace:load', () => ({ ok: true, workspace }));
   ipcMain.handle('workspace:save', (_, value) => { saved = value; return { ok: true }; });
+  ipcMain.handle('workspace:saveDelta', (_, payload) => {
+    const tabs = new Map((saved?.tabs ?? workspace?.tabs ?? []).map(tab => [tab.id, tab]));
+    for (const tab of payload.changedTabs) tabs.set(tab.id, tab);
+    saved = { ...payload.metadata, tabs: payload.tabIds.map(id => tabs.get(id)) };
+    return { ok: true };
+  });
   ipcMain.handle('app:getInfo', () => ({ version: 'fixture' }));
   ipcMain.handle('update:getStatus', () => ({ state: 'idle', currentVersion: 'fixture' }));
   for (const name of ['app:rendererReady', 'app:setLanguage', 'tray:syncTabs', 'mindmap-style:sync']) ipcMain.handle(name, () => ({ ok: true }));

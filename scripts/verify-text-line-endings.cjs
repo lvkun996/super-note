@@ -59,10 +59,14 @@ async function glyphPositions() {
       }`,
     });
     const mirror = await evaluate(`(() => {
-      const walker = document.createTreeWalker(document.querySelector('.file-highlight'), NodeFilter.SHOW_TEXT);
+      const mirror=document.querySelector('.file-highlight'),editor=document.querySelector('.file-editor');
+      const native=mirror.parentElement.classList.contains('native-text-surface');
+      mirror.parentElement.classList.remove('native-text-surface');mirror.scrollTop=editor.scrollTop;mirror.scrollLeft=editor.scrollLeft;
+      const walker = document.createTreeWalker(mirror, NodeFilter.SHOW_TEXT);
       let last; while (walker.nextNode()) if (!walker.currentNode.parentElement.closest('.file-highlight-end-marker,.file-search-position-marker')) last = walker.currentNode;
       const range = document.createRange(); range.setStart(last, last.length - 1); range.setEnd(last, last.length);
-      const r = range.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height };
+      const r = range.getBoundingClientRect();const result={ x:r.x,y:r.y,width:r.width,height:r.height };
+      if(native)mirror.parentElement.classList.add('native-text-surface');return result;
     })()`);
     return { native: native.result.value, mirror };
   } finally { win.webContents.debugger.detach(); }
@@ -150,6 +154,7 @@ async function verify() {
   // Exercise middle-button column selection and its paste handler.
   await fixture("aa\nbb");
   const column = await evaluate(`(() => {
+    document.querySelector('.file-highlight').parentElement.classList.remove('native-text-surface');
     const node=document.querySelector('.file-highlight').firstChild;
     const range=document.createRange(); range.setStart(node,1); range.setEnd(node,1);
     const r=range.getBoundingClientRect();

@@ -530,4 +530,13 @@ function TabNavigationComponent({
   );
 }
 
-export const TabNavigation = memo(TabNavigationComponent);
+const MemoTabNavigation = memo(TabNavigationComponent);
+const EVENT_KEYS = ["getTabPanes", "onFocusTab", "onCloseTab", "onClosePane", "onSplitTab", "onMoveTabToPane", "onReorderTab", "onPinTab", "onRenameTab", "onOpenTabInExplorer", "onCopyTabAbsolutePath", "onCopyTabRelativePath", "onAddCanvas", "onAddText", "onAddMindMap", "onStartSplitResize", "onStartSidebarResize"] as const;
+export function TabNavigation(props: TabNavigationProps) {
+  const latest = useRef(props);
+  latest.current = props;
+  const handlers = useMemo(() => Object.fromEntries(EVENT_KEYS.map(key => [key, (...args: unknown[]) =>
+    (latest.current[key] as (...args: unknown[]) => unknown)(...args),
+  ])) as Pick<TabNavigationProps, typeof EVENT_KEYS[number]>, []);
+  return <MemoTabNavigation {...props} {...handlers} />;
+}

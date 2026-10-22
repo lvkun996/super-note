@@ -16,7 +16,7 @@ import {
 } from "@ant-design/icons";
 import { Button, Dropdown, Tooltip } from "antd";
 import type { MenuProps } from "antd";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import type {
   CanvasItem,
@@ -44,6 +44,10 @@ import {
 } from "../editor/editorUtils";
 import { getItemLayout, getPointOnCanvas } from "./canvasUtils";
 import { CANVAS_ITEM_DRAG_END_EVENT, CANVAS_ITEM_DRAG_EVENT, type LiveCanvasItemDrag } from "./canvasLiveDrag";
+
+const CanvasTextBody = memo(function CanvasTextBody({ text, query }: { text: string; query: string }) {
+  return <>{text.trim() ? renderTextWithLinks(text, query) : <span className="text-placeholder">{uiText("双击编辑")}</span>}</>;
+});
 
 type CanvasTextEditorProps = {
   item: TextCanvasItem;
@@ -665,7 +669,7 @@ export function CanvasView({
                     }}
                     onDoubleClick={(event) => onTextDoubleClick(item, event)}
                   >
-                    {item.text.trim() ? renderTextWithLinks(item.text, searchValue) : <span className="text-placeholder">{uiText("双击编辑")}</span>}
+                    <CanvasTextBody text={item.text} query={searchValue} />
                   </div>
                 </Dropdown>
               );
@@ -692,7 +696,7 @@ export function CanvasView({
                     onPreviewImage(item);
                   }}
                 >
-                  <img src={item.src} alt={item.name} draggable={false} />
+                  <img src={item.src} alt={item.name} draggable={false} loading="lazy" decoding="async" />
                 </div>
               </Dropdown>
             );

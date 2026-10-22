@@ -67,3 +67,18 @@ markdownRenderer.renderer.rules.image = (tokens, index, options, env, self) => {
 export function renderMarkdownContent(content: string, filePath?: string) {
   return markdownRenderer.render(content || "", { filePath });
 }
+
+export function renderMarkdownBlocks(content: string, filePath?: string) {
+  const env = { filePath };
+  const tokens = markdownRenderer.parse(content || "", env);
+  const blocks: string[] = [];
+  let start = 0;
+  for (let index = 0; index < tokens.length; index++) {
+    if (tokens[index].level === 0 && tokens[index].nesting !== 1) {
+      blocks.push(markdownRenderer.renderer.render(tokens.slice(start, index + 1), markdownRenderer.options, env));
+      start = index + 1;
+    }
+  }
+  if (start < tokens.length) blocks.push(markdownRenderer.renderer.render(tokens.slice(start), markdownRenderer.options, env));
+  return blocks;
+}

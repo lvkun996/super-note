@@ -1,4 +1,5 @@
 import type { TextSelection } from "../../appTypes";
+import { getTextMirrorIndex, textNodeAtOffset } from "./textMirrorIndex";
 
 export type SelectionRectangle = { left: number; top: number; width: number; height: number };
 
@@ -19,19 +20,31 @@ export function selectedTextRuns(content: string, selection: TextSelection) {
 
 export function getTextSelectionRectangles(mirror: HTMLElement | null, editor: HTMLTextAreaElement | null, content: string, selection: TextSelection): SelectionRectangle[] {
   if (!mirror || !editor || selection.start >= selection.end) return [];
-  const nodes: Array<{ node: Text; start: number; end: number }> = [];
-  const walker = document.createTreeWalker(mirror, NodeFilter.SHOW_TEXT);
-  let offset = 0;
-  while (walker.nextNode()) {
-    const node = walker.currentNode as Text;
-    if (node.parentElement?.closest(".file-highlight-end-marker, .file-search-position-marker")) continue;
-    nodes.push({ node, start: offset, end: offset + node.length });
-    offset += node.length;
-  }
+  const nodes = getTextMirrorIndex(mirror, content);
   const bounds = mirror.getBoundingClientRect();
+  // Find the visible substring before measuring individual lines. Text flows
+  // vertically in document order; binary search avoids visiting offscreen rows.
+  const offsetAtY = (y: number) => {
+    let low = Math.max(0, selection.start), high = Math.min(content.length, selection.end);
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      const part = nodes[textNodeAtOffset(nodes, middle)];
+      if (!part) break;
+      const range = document.createRange();
+      range.setStart(part.node, middle - part.start);
+      range.setEnd(part.node, Math.min(part.node.length, middle - part.start + 1));
+      if (range.getBoundingClientRect().bottom <= y) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  };
+  const visibleSelection = selection.end - selection.start <= 2048 ? selection : {
+    start: offsetAtY(bounds.top),
+    end: Math.min(selection.end, offsetAtY(bounds.top + editor.clientHeight) + 1),
+  };
   const rectangles: SelectionRectangle[] = [];
-  let nodeIndex = 0;
-  for (const run of selectedTextRuns(content, selection)) {
+  let nodeIndex = textNodeAtOffset(nodes, visibleSelection.start);
+  for (const run of selectedTextRuns(content, visibleSelection)) {
     while (nodeIndex < nodes.length && nodes[nodeIndex].end <= run.start) nodeIndex++;
     const first = nodes[nodeIndex];
     if (!first) break;
