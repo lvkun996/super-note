@@ -1,5 +1,17 @@
 // Exact source keys keep user-authored tab titles and document content out of translation.
 export const englishMessages: Record<string, string> = {
+  "无法读取全局快捷键": "Unable to read the global shortcut",
+  "快捷键已被占用，请选择其他组合": "This shortcut is already in use. Choose another combination.",
+  "快捷键保存失败，请使用 Ctrl、Alt 或 Win 加一个按键": "Could not save the shortcut. Use Ctrl, Alt or Win with another key.",
+  "点击输入框按下组合键，保存后立即生效。": "Click the input and press a key combination. Saving applies it immediately.",
+  "恢复默认": "Restore default",
+  "关联笔记": "Linked notes",
+  "打开关联笔记 {0}": "Open linked note {0}",
+  "关联笔记已关闭或移除": "The linked note has been closed or removed",
+  "没有匹配的其他笔记": "No other matching notes",
+  "画板": "Canvas",
+  "无法打开文件，请确认路径存在且已设置默认应用": "Unable to open the file. Check that the path exists and a default app is configured.",
+  "按住 Ctrl 并单击打开": "Hold Ctrl and click to open",
   "导航边界与独立思维导图": "Navigation boundaries and standalone mind maps",
   "修复导航白线并增加正文左上圆角；思维导图独立为需勾选启用的插件，保留已有导图与混合内容。": "Removed navigation seams and rounded the upper-left content corner. Mind maps are now a separate opt-in plugin; existing maps and mixed content are preserved.",
   "思维导图插件": "Mind map plugin",

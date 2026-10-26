@@ -2,6 +2,8 @@ import { uiText } from "../../../electron/uiLanguage";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import type { ProgrammerAction, TextSelection } from "../../appTypes";
 import { orderedListEdit } from "./orderedList";
+import { getLocalFileLinks } from "../text/localFileLinks";
+import { getNoteReferences } from "../text/noteReferences";
 
 const HTTP_URL_PATTERN = /https?:\/\/[^\s<>"']+/gi;
 const TRAILING_URL_PUNCTUATION = /[),.;!?\]}，。！？；：、》】」』）]$/u;
@@ -43,33 +45,29 @@ export function renderHighlightedText(text: string, query: string): ReactNode {
 export function renderTextWithLinks(text: string, query: string): ReactNode {
   const nodes: ReactNode[] = [];
   let cursor = 0;
-  let match: RegExpExecArray | null;
-  HTTP_URL_PATTERN.lastIndex = 0;
+  const links = [
+    ...Array.from(text.matchAll(new RegExp(HTTP_URL_PATTERN.source, "gi"))).map(match => ({ start: match.index!, end: match.index! + trimUrlPunctuation(match[0]).length, kind: "http", url: trimUrlPunctuation(match[0]) })),
+    ...getLocalFileLinks(text).map(link => ({ ...link, kind: "file", url: link.path })),
+    ...getNoteReferences(text).map(link => ({ ...link, kind: "note", url: link.id })),
+  ].sort((left, right) => left.start - right.start || right.end - left.end);
 
-  while ((match = HTTP_URL_PATTERN.exec(text))) {
-    const rawUrl = match[0];
-    const url = trimUrlPunctuation(rawUrl);
-    const start = match.index;
+  for (const link of links) {
+    const { start, end } = link;
+    if (start < cursor) continue;
     if (start > cursor) {
       nodes.push(renderHighlightedSegment(text.slice(cursor, start), query, `plain-${cursor}`));
     }
-    if (url) {
       nodes.push(
         <span
           key={`link-${start}`}
           className="text-http-link"
-          data-http-url={url}
-          title={uiText("按住 Ctrl 并单击，在外部浏览器中打开")}
+          data-http-url={link.kind === "http" ? link.url : undefined}
+          title={link.kind === "http" ? uiText("按住 Ctrl 并单击，在外部浏览器中打开") : uiText("按住 Ctrl 并单击打开")}
         >
-          {renderHighlightedSegment(url, query, `link-${start}`)}
+          {renderHighlightedSegment(text.slice(start, end), query, `link-${start}`)}
         </span>,
       );
-    }
-    const punctuation = rawUrl.slice(url.length);
-    if (punctuation) {
-      nodes.push(renderHighlightedSegment(punctuation, query, `punctuation-${start}`));
-    }
-    cursor = start + rawUrl.length;
+    cursor = end;
   }
 
   if (cursor < text.length) {

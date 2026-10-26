@@ -1,7 +1,7 @@
 import { captureEditorSelection, clampEditorSelection, createTextHistoryEntry, type EditorSelectionState, type TextEditMetadata, type TextHistoryRestore } from "../history/textHistory";
 import { uiText } from "../../../electron/uiLanguage";
 import { AimOutlined, CloseOutlined, CodeOutlined, CopyOutlined, EditOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
-import { Button, Dropdown, Tooltip } from "antd";
+import { Button, Dropdown, Tooltip, message } from "antd";
 import type { MenuProps } from "antd";
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode, WheelEvent as ReactWheelEvent } from "react";
@@ -26,12 +26,19 @@ import { getTextAnchorLine } from "./textAnchors";
 import { normalizeTextLineEndings } from "./textLineEndings";
 import { MarkdownEditorModal } from "./MarkdownEditorModal";
 import { MarkdownContent } from "./MarkdownContent";
+import { findLocalFileAtOffset, getLocalFileLinks } from "./localFileLinks";
+import { getNoteReferences, noteIdFromUrl, type NoteReferenceTarget } from "./noteReferences";
+import { useNoteReferencePicker } from "./useNoteReferencePicker";
+import { NoteReferenceCards } from "./NoteReferenceCards";
 
 const EMPTY_SELECTION: TextSelection = { start: 0, end: 0 };
 const EMPTY_ANCHORS: TextAnchor[] = [];
+const EMPTY_NOTE_TARGETS: NoteReferenceTarget[] = [];
 
 type FileViewProps = {
   tab: FileTab;
+  noteTargets?: readonly NoteReferenceTarget[];
+  onOpenNote?: (id: string) => void;
   showTitleBar?: boolean;
   title?: string;
   titleMenuItems?: MenuProps["items"];
@@ -50,7 +57,7 @@ type FileViewProps = {
   onSearchTargetHandled: (requestId: number) => void;
 };
 
-const CALLBACK_KEYS = ["onViewStateChange", "onContentChange", "onHistoryRestoreHandled", "onAddTextAnchor", "onRemoveTextAnchor", "onFontSizeChange", "onProgrammerAction", "onSearchTargetHandled"] as const;
+const CALLBACK_KEYS = ["onOpenNote", "onViewStateChange", "onContentChange", "onHistoryRestoreHandled", "onAddTextAnchor", "onRemoveTextAnchor", "onFontSizeChange", "onProgrammerAction", "onSearchTargetHandled"] as const;
 type MenuItem = NonNullable<MenuProps["items"]>[number];
 function sameMenu(left: MenuProps["items"], right: MenuProps["items"]) {
   return left?.length === right?.length && (left ?? []).every((item, index) => {
@@ -86,6 +93,8 @@ const MemoFileEditor = memo(FileEditor);
 
 function FileEditor({
   tab,
+  noteTargets = EMPTY_NOTE_TARGETS,
+  onOpenNote,
   showTitleBar = true,
   title,
   titleMenuItems,
@@ -116,6 +125,8 @@ function FileEditor({
   const [anchorMenuOpen, setAnchorMenuOpen] = useState(false);
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
+  const pointerDown = useRef<{ x: number; y: number } | null>(null);
+  const [messageApi, messageContext] = message.useMessage();
   const [markdownRender, setMarkdownRender] = useState<{
     tabId: string;
     content: string;
@@ -291,8 +302,18 @@ function FileEditor({
     searchRequestId: activeSearchTarget?.requestId,
     documentMode,
     editorOpen: markdownEditorOpen,
-    requiresMirror: documentMode === "text" && (Boolean(searchValue.trim()) || Boolean(activeSearchTarget) || /https?:\/\//i.test(tab.content)),
+    requiresMirror: documentMode === "text" && (Boolean(searchValue.trim()) || Boolean(activeSearchTarget) || /https?:\/\/|super-note:\/\/|[a-z]:[\\/]|\\\\/i.test(tab.content)),
   });
+
+  const references = useNoteReferencePicker({ tabId: tab.id, targets: noteTargets, editorRef, mirrorRef: highlightRef, revealMirror,
+    insert: (content, caret) => { clearMultiCarets(); commitProgrammaticEdit(content, caret); } });
+  const referenceCards = <NoteReferenceCards content={tab.content} targets={noteTargets} onOpen={onOpenNote} />;
+  const openLocalPath = async (filePath: string) => {
+    try {
+      const result = await window.superNote?.openPath(filePath);
+      if (!result?.ok) messageApi.error(uiText("无法打开文件，请确认路径存在且已设置默认应用"));
+    } catch { messageApi.error(uiText("无法打开文件，请确认路径存在且已设置默认应用")); }
+  };
 
   useEffect(() => {
     setMarkdownEditorOpen(false);
@@ -643,6 +664,7 @@ function FileEditor({
   ];
 
   const handleTextAreaMouseDown = (event: ReactMouseEvent<HTMLTextAreaElement>) => {
+    pointerDown.current = event.button === 0 ? { x: event.clientX, y: event.clientY } : null;
     revealMirror();
     if (handleSelectionMouseDown(event)) return;
 
@@ -667,11 +689,17 @@ function FileEditor({
     }
     const editor = event.currentTarget;
     syncSelection(editor);
-    if (!event.ctrlKey) {
+    const down = pointerDown.current;
+    pointerDown.current = null;
+    if (event.button !== 0 || !event.ctrlKey || !down || Math.hypot(event.clientX - down.x, event.clientY - down.y) > 4) {
       return;
     }
     revealMirror();
     const offset = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY) ?? editor.selectionStart;
+    const reference = getNoteReferences(editor.value).find(link => offset >= link.start && offset < link.end);
+    if (reference) { event.preventDefault(); onOpenNote?.(reference.id); return; }
+    const filePath = findLocalFileAtOffset(editor.value, offset);
+    if (filePath) { event.preventDefault(); void openLocalPath(filePath); return; }
     const url = findHttpUrlAtOffset(editor.value, offset);
     if (url) {
       event.preventDefault();
@@ -684,15 +712,21 @@ function FileEditor({
     onMouseUp: handleTextAreaMouseUp,
     onSelect: (event: React.SyntheticEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget, false),
     onDoubleClick: (event: React.MouseEvent<HTMLTextAreaElement>) => trimTextSelectionWhitespace(event.currentTarget),
-    onKeyUp: (event: React.KeyboardEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
+    onKeyUp: (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      syncSelection(event.currentTarget);
+      if (!compositionRef.current && multiCarets.length === 0) references.refresh(event.currentTarget);
+    },
+    onBlur: () => references.close(),
     onContextMenu: (event: ReactMouseEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
     onCompositionStart: (event: React.CompositionEvent<HTMLTextAreaElement>) => {
+      references.close();
       compositionRef.current = { before: captureEditorSelection(event.currentTarget), group: crypto.randomUUID() };
     },
     onCompositionEnd: (event: React.CompositionEvent<HTMLTextAreaElement>) => {
       onContentChange(event.currentTarget.value);
       compositionRef.current = null;
       syncSelection(event.currentTarget);
+      references.refresh(event.currentTarget);
     },
     onAuxClick: (event: ReactMouseEvent<HTMLTextAreaElement>) => {
       if (event.button === 1) event.preventDefault();
@@ -701,6 +735,7 @@ function FileEditor({
 
   const handleEditorKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    if (references.onKeyDown(event)) return;
     pendingBeforeInputRef.current = captureEditorSelection(event.currentTarget, multiCarets);
     if (!handleMultiCaretKeyDown(event)) {
       continueOrderedList(event, (content, caret) => commitProgrammaticEdit(content, caret ?? content.length), true);
@@ -712,13 +747,28 @@ function FileEditor({
   };
 
   const handleMarkdownLinkClick = (event: ReactMouseEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
     const anchor = (event.target as HTMLElement).closest<HTMLAnchorElement>("a[href]");
     if (!anchor || !event.currentTarget.contains(anchor)) {
+      if (event.ctrlKey) {
+        const element = (event.target as HTMLElement).closest<HTMLElement>("code, p, li, td, pre");
+        const range = document.caretRangeFromPoint?.(event.clientX, event.clientY);
+        if (element && range && element.contains(range.startContainer)) {
+          const before = document.createRange(); before.selectNodeContents(element); before.setEnd(range.startContainer, range.startOffset);
+          const filePath = findLocalFileAtOffset(element.textContent ?? "", before.toString().length);
+          if (filePath) { event.preventDefault(); void openLocalPath(filePath); }
+        }
+      }
       return;
     }
     event.preventDefault();
+    const noteId = noteIdFromUrl(anchor.getAttribute("href") ?? "");
+    if (noteId) { onOpenNote?.(noteId); return; }
     if (event.ctrlKey) {
-      void openExternalUrl(anchor.href);
+      const href = anchor.getAttribute("href") ?? "";
+      const local = getLocalFileLinks(href)[0];
+      if (local) void openLocalPath(local.path);
+      else void openExternalUrl(anchor.href);
     }
   };
 
@@ -828,6 +878,7 @@ function FileEditor({
           clearMultiCarets();
           onContentChange(event.target.value);
           syncSelection(event.currentTarget);
+          if (!compositionRef.current && multiCarets.length === 0) references.refresh(event.currentTarget);
         }}
         {...editorEvents}
       />
@@ -841,6 +892,7 @@ function FileEditor({
         onWheel={handleFontSizeWheel}
       >
         {titleBar}
+        {messageContext}{referenceCards}{references.popup}
         <div
           ref={markdownPreviewRef}
           className="markdown-preview-scroll"
@@ -906,6 +958,7 @@ function FileEditor({
           clearMultiCarets();
           onContentChange(event.target.value);
           syncSelection(event.currentTarget);
+          if (!compositionRef.current && multiCarets.length === 0) references.refresh(event.currentTarget);
         }}
         {...editorEvents}
       />
@@ -915,6 +968,7 @@ function FileEditor({
   return (
     <div className="file-view" data-tab-id={tab.id} style={{ ["--file-font-size" as string]: `${fontSize}px` }} onWheel={handleFontSizeWheel}>
       {showTitleBar ? titleBar : null}
+      {messageContext}{referenceCards}{references.popup}
       <Dropdown menu={{ items: contextMenuItems }} trigger={["contextMenu"]}>
         {textEditor}
       </Dropdown>

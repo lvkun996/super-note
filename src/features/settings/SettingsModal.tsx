@@ -2,6 +2,7 @@ import { uiText } from "../../../electron/uiLanguage";
 import { Button, Input, Modal, Segmented, Switch } from "antd";
 import type { AppSettings, ShortcutAction } from "../../appTypes";
 import { DEFAULT_SHORTCUTS, normalizeShortcut, shortcutFromEvent } from "./settingsModel";
+import { GlobalShortcutSetting } from "./GlobalShortcutSetting";
 
 const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; desc: string }> = [
   { action: "newCanvas", label: uiText("新建画板"), desc: uiText("仅在画板插件启用后生效") },
@@ -120,13 +121,7 @@ export function SettingsModal({ open, settings, onClose, onChange }: SettingsMod
           />
         </label>
 
-        <label className="settings-row">
-          <span>
-            <strong>{uiText("全局快速打开/关闭")}</strong>
-            <small>{uiText("在任意位置按 Ctrl + Alt + 空格，可打开或隐藏 Super Note。")}</small>
-          </span>
-          <Input value={uiText("Ctrl + Alt + 空格")} disabled />
-        </label>
+        <GlobalShortcutSetting open={open} />
 
         <div className="shortcut-settings">
           <div className="settings-section-title">{uiText("快捷键设置")}</div>

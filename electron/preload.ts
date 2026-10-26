@@ -76,6 +76,8 @@ contextBridge.exposeInMainWorld("superNote", {
   writeClipboardText: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   getRelativeFilePath: (filePath: string, basePath?: string) => ipcRenderer.invoke("path:relative", { filePath, basePath }),
   openExternal: (url: string) => ipcRenderer.invoke("shell:openExternal", url),
+  openPath: (filePath: string) => ipcRenderer.invoke("shell:openPath", filePath),
+  setGlobalShortcut: (shortcut: string) => ipcRenderer.invoke("app:setGlobalShortcut", shortcut),
   showItemInFolder: (filePath: string) => ipcRenderer.invoke("shell:showItemInFolder", filePath),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   setLanguage: (language: "zh-CN" | "en-US") => ipcRenderer.invoke("app:setLanguage", language),

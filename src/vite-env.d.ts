@@ -144,6 +144,8 @@ interface Window {
     writeClipboardText: (text: string) => Promise<{ ok: boolean }>;
     getRelativeFilePath: (filePath: string, basePath?: string) => Promise<{ ok: boolean; path?: string }>;
     openExternal: (url: string) => Promise<{ ok: boolean }>;
+    openPath: (filePath: string) => Promise<{ ok: boolean }>;
+    setGlobalShortcut: (shortcut: string) => Promise<{ ok: boolean; shortcut?: string; error?: string }>;
     showItemInFolder: (filePath: string) => Promise<{ ok: boolean }>;
     getAppInfo: () => Promise<AppInfo>;
     setLanguage: (language: "zh-CN" | "en-US") => Promise<{ ok: boolean }>;

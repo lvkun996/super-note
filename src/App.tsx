@@ -2762,6 +2762,12 @@ function AppShell() {
       <Suspense fallback={<FeatureLoading label={uiText("正在加载文本模块...")} />}>
       <LazyFileView
         tab={tab}
+        noteTargets={tabPresentation}
+        onOpenNote={(id) => {
+          if (!tabs.some(note => note.id === id)) { message.warning(uiText("关联笔记已关闭或移除")); return; }
+          const panes = getTabPanes(id);
+          focusTabInPane(id, panes.includes(pane) ? pane : panes[0] ?? pane);
+        }}
         showTitleBar={settings.tabLayout === "left"}
         title={getTabDisplayTitle(tab)}
         titleMenuItems={[

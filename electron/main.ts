@@ -10,6 +10,7 @@ import { atomicWriteText, getFileMetadata } from "./fileStorage";
 import { createWorkspaceStore } from "./workspaceStore";
 import { appendExtensionIfMissing } from "./filePathUtils";
 import { isNewerVersion } from "./versionUtils";
+import { createGlobalToggleShortcut, DEFAULT_GLOBAL_SHORTCUT } from "./globalToggleShortcut";
 
 if (process.env.SUPER_NOTE_DEV_USER_DATA) {
   app.setPath("userData", process.env.SUPER_NOTE_DEV_USER_DATA);
@@ -35,7 +36,9 @@ let quitFlushTimer: NodeJS.Timeout | null = null;
 
 const workspaceFileName = "workspace.json";
 const gotSingleInstanceLock = process.env.SUPER_NOTE_ALLOW_MULTIPLE_INSTANCES === "1" || app.requestSingleInstanceLock();
-const globalToggleShortcut = "Control+Alt+Space";
+const toggleShortcut = createGlobalToggleShortcut(globalShortcut, toggleMainWindow, async shortcut => {
+  await atomicWriteText(path.join(app.getPath("userData"), "global-shortcut.json"), JSON.stringify({ shortcut }));
+});
 const updateFeedUrl = "https://github.com/lvkun996/super-note/releases/latest/download/";
 const updateDownloadMaxAttempts = 3;
 const updateDownloadRetryDelayMs = 3000;
@@ -580,8 +583,11 @@ function installDownloadedUpdate() {
   return updateStatus;
 }
 
-function registerGlobalShortcuts() {
-  globalShortcut.register(globalToggleShortcut, toggleMainWindow);
+async function registerGlobalShortcuts() {
+  let saved: unknown;
+  try { saved = JSON.parse(await readFile(path.join(app.getPath("userData"), "global-shortcut.json"), "utf8")).shortcut; } catch { /* First launch. */ }
+  const result = await toggleShortcut.set(saved ?? DEFAULT_GLOBAL_SHORTCUT, false);
+  if (!result.ok) await toggleShortcut.set(DEFAULT_GLOBAL_SHORTCUT, false);
 }
 
 function createTray() {
@@ -718,12 +724,12 @@ if (!gotSingleInstanceLock) {
     }
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
     configureAutoUpdater();
+    await registerGlobalShortcuts();
     createWindow();
     createTray();
-    registerGlobalShortcuts();
     startUpdateChecks();
 
     app.on("activate", () => {
@@ -1104,6 +1110,17 @@ ipcMain.handle("shell:openExternal", async (_event, url: unknown) => {
   return { ok: true };
 });
 
+ipcMain.handle("shell:openPath", async (_event, filePath: unknown) => {
+  if (typeof filePath !== "string" || !path.isAbsolute(filePath) || /[\0\r\n]/.test(filePath)) return { ok: false };
+  try {
+    if (!(await getFileMetadata(filePath)).exists) return { ok: false };
+    const error = await shell.openPath(filePath);
+    return { ok: !error };
+  } catch { return { ok: false }; }
+});
+
+ipcMain.handle("app:setGlobalShortcut", (_event, shortcut: unknown) => toggleShortcut.set(shortcut));
+
 ipcMain.handle("shell:showItemInFolder", async (_event, filePath: unknown) => {
   if (typeof filePath !== "string" || !path.isAbsolute(filePath)) {
     return { ok: false };
@@ -1124,5 +1141,5 @@ ipcMain.handle("app:getInfo", () => ({
   version: app.getVersion(),
   author: "kunkun",
   desc: uiText("认识自身平凡后，依旧拥有改变世界的勇气"),
-  globalShortcut: "Ctrl+Alt+Space",
+  globalShortcut: toggleShortcut.current,
 }));
