@@ -30,5 +30,12 @@ export function getNoteReferenceQuery(content: string, start: number, end: numbe
 
 export function filterNoteTargets(targets: readonly NoteReferenceTarget[], ownId: string, query: string) {
   const needle = query.toLocaleLowerCase();
-  return targets.filter(target => target.id !== ownId && target.title.toLocaleLowerCase().includes(needle)).slice(0, 30);
+  const matches: NoteReferenceTarget[] = [];
+  for (const target of targets) {
+    if (target.id !== ownId && target.title.toLocaleLowerCase().includes(needle)) {
+      matches.push(target);
+      if (matches.length === 30) break;
+    }
+  }
+  return matches;
 }

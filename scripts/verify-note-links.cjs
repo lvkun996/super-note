@@ -66,7 +66,7 @@ async function verify() {
     await waitFor("document.querySelectorAll('.note-reference-picker [role=option]').length === 1");
     await key("Enter");
     await waitFor("document.querySelector('.file-editor').value.includes('super-note://note/second')");
-    assert.equal(await evaluate("document.querySelectorAll('.note-reference-cards button').length"), 1);
+    assert.equal(await evaluate("document.querySelectorAll('.note-reference-cards').length"), 0);
     const caret = await evaluate("const e=document.querySelector('.file-editor');({start:e.selectionStart,end:e.selectionEnd,length:e.value.length})");
     assert.equal(caret.start, caret.length); assert.equal(caret.end, caret.length);
     await key("Z", ["control"]);
@@ -75,8 +75,17 @@ async function verify() {
     if (markdown) {
       await waitFor("document.querySelector('.markdown-live-preview a[href^=\"super-note:\"]')");
       await evaluate("[...document.querySelectorAll('.markdown-editor-modal button')].find(b=>b.textContent.split(' ').join('')==='完成').click()");
+    } else {
+      await evaluate("document.querySelector('.file-title-edit').click()");
+      await waitFor("document.querySelector('.note-reference-text a')");
+      assert.equal(await evaluate("document.querySelector('.note-reference-text').textContent"), "前文 second");
+      await evaluate("document.querySelector('.note-reference-text').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))");
+      await waitFor("document.querySelector('.file-editor')");
+      assert.equal(await evaluate("document.querySelector('.file-editor').value"), "前文 [second](super-note://note/second)");
+      await evaluate("document.querySelector('.file-title-edit').click()");
     }
-    await evaluate("document.querySelector('.note-reference-cards button').click()");
+    await waitFor("document.querySelector('.file-view a[href^=\"super-note:\"]')");
+    await evaluate("document.querySelector('.file-view a[href^=\"super-note:\"]').click()");
     await waitFor("document.querySelector('.file-view[data-tab-id=second]')");
   }
   await load(String.raw`路径 D:\code\zd\front\h5\web\upload.py 结束`);

@@ -18,7 +18,7 @@ export function useNoteReferencePicker({ tabId, targets, editorRef, mirrorRef, r
   const [position, setPosition] = useState({ left: 0, top: 0, width: 320, maxHeight: 240 });
   const dismissed = useRef("");
   const popupRef = useRef<HTMLDivElement>(null);
-  const candidates = useMemo(() => filterNoteTargets(targets, tabId, query?.query ?? ""), [targets, tabId, query?.query]);
+  const candidates = useMemo(() => query ? filterNoteTargets(targets, tabId, query.query) : [], [targets, tabId, query?.query, Boolean(query)]);
   const close = () => { dismissed.current = JSON.stringify(query); setQuery(null); };
   const refresh = (editor: HTMLTextAreaElement) => {
     if (document.activeElement !== editor) return;

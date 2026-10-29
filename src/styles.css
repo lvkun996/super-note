@@ -2862,7 +2862,7 @@ body:has(.app-shell.dark-mode) .text-anchor-dropdown .text-anchor-menu-item-acti
 }
 .note-reference-picker-heading { display: flex; align-items: center; justify-content: space-between; padding: 5px 8px; color: #596473; font-size: 12px; }
 .note-reference-picker-heading small { color: #7a8596; font-size: 11px; }
-.note-reference-picker button, .note-reference-cards button {
+.note-reference-picker button {
   display: flex; align-items: center; gap: 8px; color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
 .note-reference-picker button { width: 100%; border: 0; border-radius: 6px; background: transparent; padding: 7px 8px; }
@@ -2871,14 +2871,11 @@ body:has(.app-shell.dark-mode) .text-anchor-dropdown .text-anchor-menu-item-acti
 .note-reference-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .note-reference-symbol { flex-shrink: 0; color: #7a8596; }
 .note-reference-empty { margin: 10px 8px; color: #7a8596; }
-.note-reference-cards { display: flex; flex-wrap: wrap; flex-shrink: 0; gap: 6px; max-height: 112px; overflow: auto; padding: 8px 14px; border-bottom: 1px solid #e5e8ef; }
-.note-reference-cards button { max-width: 280px; border: 1px solid #e5e8ef; border-radius: 7px; padding: 7px 10px; background: #fafbfc; font-size: 12px; }
-.note-reference-cards button:hover { color: #1677ff; border-color: #b3d2ff; }
-.note-reference-cards button:disabled { cursor: default; opacity: .55; color: inherit; border-color: #e5e8ef; }
-.note-reference-picker button:focus-visible, .note-reference-cards button:focus-visible { outline: 2px solid #1677ff; outline-offset: -2px; }
+.note-reference-picker button:focus-visible { outline: 2px solid #1677ff; outline-offset: -2px; }
 body:has(.app-shell.dark-mode) .note-reference-picker { border-color: #283648; background: #182230; color: #edf3fb; }
 body:has(.app-shell.dark-mode) .note-reference-picker button[aria-selected="true"], body:has(.app-shell.dark-mode) .note-reference-picker button:hover { background: #263344; }
-.dark-mode .note-reference-cards { border-color: #283648; }
-.dark-mode .note-reference-cards button { background: #141d28; border-color: #283648; color: #e8eef7; }
-.dark-mode .note-reference-cards button:hover { border-color: #72adff; color: #72adff; }
 body:has(.app-shell.dark-mode) .note-reference-picker-heading, .dark-mode .note-reference-symbol, body:has(.app-shell.dark-mode) .note-reference-picker button small { color: #a9b6c8; }
+
+.note-reference-text.file-highlight { pointer-events: auto; user-select: text; }
+.note-reference-text a { cursor: pointer; }
+.note-reference-text:focus-visible, .note-reference-text a:focus-visible { outline: 2px solid #1677ff; outline-offset: -2px; }
