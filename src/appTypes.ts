@@ -142,6 +142,7 @@ export type ShortcutConfig = Record<ShortcutAction, string>;
 
 export type AppSettings = {
   language: "zh-CN" | "en-US";
+  textScale: number;
   handwritten: boolean;
   programmerMode: boolean;
   darkMode: boolean;

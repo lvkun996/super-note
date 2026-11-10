@@ -24,6 +24,16 @@ describe("note references", () => {
     expect(getNoteReferenceQuery("$abc\n", 5, 5)).toBeNull();
     expect(filterNoteTargets([{ id: "a", title: "Alpha", kind: "file" }, { id: "b", title: "ALPHA board", kind: "canvas" }], "a", "alpha").map(note => note.id)).toEqual(["b"]);
   });
+
+  it("stops reading targets once the visible result limit is filled", () => {
+    let visits = 0;
+    const targets = Array.from({ length: 10000 }, (_, index) => ({
+      id: String(index), kind: "file" as const,
+      get title() { visits++; return "matching note"; },
+    }));
+    expect(filterNoteTargets(targets, "0", "matching")).toHaveLength(30);
+    expect(visits).toBe(30);
+  });
 });
 
 describe("local file links", () => {

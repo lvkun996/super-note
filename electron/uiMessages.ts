@@ -1,5 +1,8 @@
 // Exact source keys keep user-authored tab titles and document content out of translation.
 export const englishMessages: Record<string, string> = {
+  "基础设置": "Basic settings",
+  "全局文字缩放": "Global text scale",
+  "按比例调整整个应用的文字大小，默认 100%，修改后立即生效。": "Scale text throughout the app. Defaults to 100%; changes apply immediately.",
   "无法读取全局快捷键": "Unable to read the global shortcut",
   "快捷键已被占用，请选择其他组合": "This shortcut is already in use. Choose another combination.",
   "快捷键保存失败，请使用 Ctrl、Alt 或 Win 加一个按键": "Could not save the shortcut. Use Ctrl, Alt or Win with another key.",

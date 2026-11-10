@@ -91,15 +91,17 @@ export function useTextEditorOverlays({ mirrorRef, editorRef, carets, selectionL
     });
   }, [anchors, carets, content, selectionLayerRef, editorRef, mirrorRef, requiresMirror, revealMirror]);
 
+  const measureRef = useRef(measure);
   const scheduleOverlayMeasurement = useCallback(() => {
     if (frameRef.current !== null) return;
     frameRef.current = window.requestAnimationFrame(() => {
       frameRef.current = null;
-      measure();
+      measureRef.current();
     });
-  }, [measure]);
+  }, []);
 
   useEffect(() => {
+    if (!editorOpen) return;
     const syncNativeSelection = () => {
       if (editorRef.current && document.activeElement === editorRef.current) scheduleOverlayMeasurement();
     };
@@ -117,11 +119,16 @@ export function useTextEditorOverlays({ mirrorRef, editorRef, carets, selectionL
       document.removeEventListener("select", syncNativeSelection, true);
       window.removeEventListener("mousemove", syncDrag);
     };
-  }, [editorRef, scheduleOverlayMeasurement]);
+  }, [editorOpen, editorRef, scheduleOverlayMeasurement]);
 
   useLayoutEffect(() => {
+    measureRef.current = measure;
     invalidateTextMirrorIndex(mirrorRef.current);
     measure();
+  }, [measure, mirrorRef, fontSize, searchValue, searchRequestId, documentMode, editorOpen]);
+
+  useLayoutEffect(() => {
+    if (!editorOpen) return;
     const mirror = mirrorRef.current;
     const observer = mirror ? new ResizeObserver(scheduleOverlayMeasurement) : null;
     if (observer && mirror) observer.observe(mirror);
@@ -132,7 +139,7 @@ export function useTextEditorOverlays({ mirrorRef, editorRef, carets, selectionL
         frameRef.current = null;
       }
     };
-  }, [measure, scheduleOverlayMeasurement, mirrorRef, anchors.length, carets.length, content, fontSize, searchValue, searchRequestId, documentMode, editorOpen]);
+  }, [scheduleOverlayMeasurement, mirrorRef, documentMode, editorOpen]);
 
   return { caretPositions, anchorPositions, scheduleOverlayMeasurement, revealMirror };
 }

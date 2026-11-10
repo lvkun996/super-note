@@ -4,7 +4,7 @@ import { useEditorHistory } from "./features/history/useEditorHistory";
 import { useTabActions } from "./features/tabs/useTabActions";
 import { useAppShortcuts } from "./features/editor/useAppShortcuts";
 import { cloneItems, cloneCanvasSnapshot, pushHistory } from "./features/history/historyModel";
-import { DEFAULT_FILE_FONT_SIZE, createCanvasTab, createTextTab, createMarkdownTab, restoreTab, createTabFromOpenedFile, deriveCanvasTitle, getFileName } from "./features/tabs/tabDocument";
+import { DEFAULT_FILE_FONT_SIZE, createCanvasTab, createTextTab, createMarkdownTab, createTabFromOpenedFile, deriveCanvasTitle, getFileName } from "./features/tabs/tabDocument";
 import { uiText, getUiLanguage } from "../electron/uiLanguage";
 import enUS from "antd/locale/en_US";
 import zhCN from "antd/locale/zh_CN";
@@ -39,7 +39,7 @@ import {
   UserOutlined,
   HeartOutlined,
 } from "@ant-design/icons";
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import donationImageUrl from "../assets/wechat-donation.jpg";
 import { flushSync } from "react-dom";
 import { neutralConfirmDialog, neutralInfoDialog } from "./features/overlays/dialogPresets";
@@ -82,12 +82,12 @@ import {
   transformJsonText,
 } from "./features/editor/editorUtils";
 import { DEFAULT_SETTINGS, normalizeSettings } from "./features/settings/settingsModel";
+import { textScaleTokens, updateTextScale } from "./features/settings/textScale";
 import { getCanvasMode } from "./pluginSettings";
 import { rememberTabVisit } from "./features/tabs/tabHistory";
 import { getTabDisplayTitle } from "./features/tabs/tabTitle";
 import { createTabPresentationCache } from "./features/tabs/tabPresentation";
 import { getQuickOpenResults, searchWorkspace } from "./features/search/searchModel";
-import { sortPinnedTabs } from "./features/tabs/tabOrder";
 import { createTextAnchor, MAX_TEXT_ANCHORS, normalizeTextAnchors, updateTextAnchors } from "./features/text/textAnchors";
 import { hasExternalFileChange } from "./features/files/fileState";
 import {
@@ -108,10 +108,12 @@ import {
 import type { MindMapCanvasLink, MindMapDocument, MindMapStyle, SelectedMindMapNode } from "./features/mindmap/mindMapTypes";
 import type { ResolvedMindMapRelationAnchors } from "./features/mindmap/mindMapRelations";
 import {
-  normalizeRecentFiles,
   rememberRecentFiles,
   selectWorkspaceCandidate,
 } from "./features/workspace/workspaceUtils";
+
+import { insertPaneWidth, makePaneGridTemplate, normalizePaneWidths, removePaneWidth } from "./features/workspace/paneWidths";
+import { restoreWorkspace } from "./features/workspace/restoreWorkspace";
 
 const LONG_PRESS_MS = 160;
 const INITIAL_PANE_ID = "pane-main";
@@ -121,6 +123,7 @@ const LazyCanvasView = lazy(() => import("./features/canvas/CanvasView").then(({
 const LazyMindMapCanvasView = lazy(() => import("./features/mindmap/MindMapCanvasView").then(({ MindMapCanvasView }) => ({ default: MindMapCanvasView })));
 const LazyAppTitleBar = lazy(() => import("./components/AppTitleBar").then(({ AppTitleBar }) => ({ default: AppTitleBar })));
 const LazyFileView = lazy(() => import("./features/text/FileView").then(({ FileView }) => ({ default: FileView })));
+const LazyReleaseTimeline = lazy(() => import("./components/ReleaseTimeline").then(({ ReleaseTimeline }) => ({ default: ReleaseTimeline })));
 const LazyHelpDocumentation = lazy(() => import("./components/HelpDocumentation").then(({ HelpDocumentation }) => ({ default: HelpDocumentation })));
 const LazySettingsModal = lazy(() => import("./features/settings/SettingsModal").then(({ SettingsModal }) => ({ default: SettingsModal })));
 const LazyTabNavigation = lazy(() => import("./features/tabs/TabNavigation").then(({ TabNavigation }) => ({ default: TabNavigation })));
@@ -132,207 +135,6 @@ const canvasThemes: CanvasTheme[] = [
   { accent: "#fa8c16" },
   { accent: "#eb2f96" },
   { accent: "#52c41a" },
-];
-
-const releaseTimeline: Array<{ version: string; date: string; title: string; description: string; upcoming?: boolean }> = [
-  {
-    version: "v0.1.34",
-    date: "2026-10-10",
-    title: uiText("导航边界与独立思维导图"),
-    description: uiText("修复导航白线并增加正文左上圆角；思维导图独立为需勾选启用的插件，保留已有导图与混合内容。"),
-  },
-  {
-    version: "v0.1.33",
-    date: "2026-10-09",
-    title: uiText("输入修复与聚焦背景优化"),
-    description: uiText("修复已有文件异常换行造成的光标错位；聚焦时仅导航背景半透明，欢迎词随机切换，并完善一键发布校验。"),
-  },
-  {
-    version: "v0.1.32",
-    date: "2026-10-09",
-    title: uiText("侧栏拖拽与性能优化"),
-    description: uiText("侧栏拖拽新增半透明浮动预览；优化搜索、标题生成和编辑器覆盖层更新，减少无效计算。"),
-  },
-  {
-    version: "v0.1.31",
-    date: "2026-09-22",
-    title: uiText("大文本与保存体验优化"),
-    description: uiText("保存 JSON 时自动规范格式；大文本改为安全只读预览，并优化窗口聚焦时的边框透明度。"),
-  },
-  {
-    version: "v0.1.30",
-    date: "2026-09-14",
-    title: uiText("锚点标识与导航细节统一"),
-    description: uiText("正文锚点增加连续数字标识；统一顶部菜单悬浮样式、窗口聚焦透明度和侧栏操作区高度。"),
-  },
-  {
-    version: "v0.1.29",
-    date: "2026-09-11",
-    title: uiText("锚点导航与窗口层次优化"),
-    description: uiText("选中文本后可设置锚点，从标题栏列表快速跳转；窗口失焦时淡化非内容区域，并降低滚动条存在感。"),
-  },
-  {
-    version: "v0.1.27",
-    date: "2026-09-07",
-    title: uiText("欢迎页与文件保存修复"),
-    description: uiText("放大欢迎页文字，修复作者页全屏间隙，优化 Markdown 标题栏按钮提示，并正确保留用户输入的文件后缀。"),
-  },
-  {
-    version: "v0.1.26",
-    date: "2026-09-07",
-    title: uiText("JSON 与 Markdown 编辑体验"),
-    description: uiText("打开 JSON 文件时自动格式化内容，Markdown 默认预览并通过独立弹窗实时编辑，同时优化保存目录输入和网站界面。"),
-  },
-  {
-    version: "v0.1.25",
-    date: "2026-09-04",
-    title: uiText("双语界面与透明弹窗"),
-    description: uiText("设置支持中英文切换，统一透明弹窗与灰黑控件，文档改为操作列表，并优化置顶与缩放重置文案。"),
-  },
-  {
-    version: "v0.1.24",
-    date: "2026.09.04",
-    title: uiText("修复左侧布局标题栏间隙"),
-    description: uiText("统一移除文本区域顶部圆角与灰色间隙，左侧布局标题栏紧贴操作栏。"),
-  },
-  {
-    version: "v0.1.23",
-    date: "2026.09.04",
-    title: uiText("顶栏边界与多选撤销修复"),
-    description: uiText("顶部文本区域取消多余弧形灰底，多行中键编辑撤销时同步恢复焦点位置。"),
-  },
-  {
-    version: "v0.1.22",
-    date: "2026.09.04",
-    title: uiText("界面配色与中键编辑优化"),
-    description: uiText("统一导航区域为浅灰背景，欢迎页更贴近设计稿；托盘菜单避开图标并缩小，中键多选恢复原生色系且支持撤销。"),
-  },
-  {
-    version: "v0.1.21",
-    date: "2026.09.03",
-    title: uiText("默认欢迎页与托盘入口"),
-    description: uiText("托盘左键直接打开主窗口；横栏布局直达文本编辑区；首次启动、完全重启和点击 Super Note 时展示默认欢迎页。"),
-  },
-  {
-    version: "v0.1.20",
-    date: "2026.09.03",
-    title: uiText("文本标题栏与光标修复"),
-    description: uiText("文本模块采用顶部圆角与独立文档标题栏，支持标题菜单操作；修复输入时光标回退，多光标改为不闪烁、不挤占文字空间的独立覆盖层。"),
-  },
-  {
-    version: "v0.1.19",
-    date: "2026.09.02",
-    title: uiText("修复在线更新下载"),
-    description: uiText("安装包补齐自动更新配置与缓存目录，解决检测到新版本后下载时报 app-update.yml 缺失的问题，并加入打包配置校验。"),
-  },
-  {
-    version: "v0.1.18",
-    date: "2026.09.02",
-    title: uiText("统一导航配色与置顶分组"),
-    description: uiText("顶栏与顶部标签沿用侧栏配色，操作栏更紧凑；左侧新增可持久化的 Pinned 分组与取消置顶。同步改进文本保存、标签位置恢复、搜索范围和缩放提示。"),
-  },
-  {
-    version: "v0.1.17",
-    date: "2026.08.28",
-    title: uiText("保存命名与标签菜单优化"),
-    description: uiText("首次保存文本时使用当前标签标题并统一为 .snote 文件，标签右键菜单同步收紧尺寸、间距与视觉层级。"),
-  },
-  {
-    version: "v0.1.16",
-    date: "2026.08.27",
-    title: uiText("标签操作、保存位置与搜索入口"),
-    description: uiText("两种布局的标签右键菜单新增置顶、删除、编辑和资源管理器定位；设置可选择默认保存位置，并加入顶部搜索入口、长按竖向多光标同步输入与打赏作者页面。"),
-  },
-  {
-    version: "v0.1.15",
-    date: "2026.08.25",
-    title: uiText("可调侧栏、全屏与缩放反馈"),
-    description: uiText("左侧标签栏支持实时拖拽调宽并精简视觉元素，侧栏模式聚焦单栏编辑；新增 Ctrl + H 全屏、缩放倍率提示和 Ctrl + 0 恢复 100%。"),
-  },
-  {
-    version: "v0.1.14",
-    date: "2026.08.20",
-    title: uiText("标签导航与 Windows 文件集成"),
-    description: uiText("新增标签拖拽排序和 Ctrl + B 左侧标签菜单，优化标签渲染与代码层级，并扩展 Windows 默认打开和资源管理器预览支持。"),
-  },
-  {
-    version: "v0.1.13",
-    date: "2026.08.12",
-    title: uiText("画板思维导图与内容关联"),
-    description: uiText("增加思维导图、主题跨层级拖动、文字与图片关联、连线吸附点拖拽和画板图片导出，并优化样式面板启动与夜间模式。"),
-  },
-  {
-    version: "v0.1.12",
-    date: "2026.08.11",
-    title: uiText("更新与文本操作优化"),
-    description: uiText("修复低版本更新提示，增加中键竖向选中文本与 Ctrl + 滚轮调整字号，并让 Markdown 默认进入预览模式。"),
-  },
-  {
-    version: "v0.1.11",
-    date: "2026.08.07",
-    title: uiText("工作区安全与文件操作优化"),
-    description: uiText("增加工作区备份恢复、外部文件变化检测、最近文件和快速打开，并优化 Markdown 预览体验。"),
-  },
-  {
-    version: "v0.1.10",
-    date: "2026.08.04",
-    title: uiText("标签关闭状态与全屏弹窗优化"),
-    description: uiText("优化当前标签关闭状态提示、全屏版本与作者弹窗布局，并新增 .snote 文件的 Windows 资源管理器预览注册。"),
-  },
-  {
-    version: "v0.1.9",
-    date: "2026.07.20",
-    title: uiText("标签、托盘与弹窗体验"),
-    description: uiText("更新分栏与标签切换快捷键，新增内容标签名和最近标签托盘菜单，并优化全屏版本页、弹窗滚动与标签栏溢出。"),
-  },
-  {
-    version: "v0.1.8",
-    date: "2026.07.17",
-    title: uiText("链接、搜索与编辑体验"),
-    description: uiText("修复文本底部点击和搜索定位，新增 Ctrl + 单击外部链接、固定编辑菜单，并按功能拆分核心代码。"),
-  },
-  {
-    version: "v0.1.7",
-    date: "2026.07.09",
-    title: uiText("透明图标与作者全屏"),
-    description: uiText("更新透明背景的新 logo，作者寄语改为全屏展示，优化标签栏边框，并暂时移除文本对比插件。"),
-  },
-  {
-    version: "v0.1.6",
-    date: "2026.07.08",
-    title: uiText("自动更新与全局快捷键"),
-    description: uiText("根据凯哥的提议，新增自动更新按钮、Windows 版本通道识别、一键发布脚本，以及 Ctrl + Alt + 空格全局打开/隐藏。"),
-  },
-  {
-    version: "v0.1.5",
-    date: "2026.07.08",
-    title: uiText("为凯哥更新的版本"),
-    description: uiText("新增凯哥生日快乐独立页面，用纯 CSS 做蛋糕、礼物、烟花与生日签互动；同时保留空工作区、插件开关、安装目录选择和本地打包缓存优化。"),
-  },
-  {
-    version: "v0.1.4",
-    date: "2026.06.30",
-    title: uiText("文本模块字号与滚动空间"),
-    description: uiText("新增文本模块字号放大、缩小快捷键设置，并把文本编辑区底部空白扩展到约 22 行。"),
-  },
-  {
-    version: "v0.1.3",
-    date: "2026.06.24",
-    title: uiText("更多 Windows 版本支持"),
-    description: uiText("新增 Windows 7 / 8 安装包，同时保留 Windows 10 / 11 独立下载入口。"),
-  },
-  {
-    version: "v0.1.2",
-    date: "2026.06.23",
-    title: uiText("项目网站与直接下载"),
-    description: uiText("重构项目页面视觉与响应式布局，安装包可从网站直接下载。"),
-  },
-  {
-    version: "v0.1.1",
-    date: "2026.06.22",
-    title: uiText("多栏工作区"),
-    description: uiText("加入自由画板、动态分栏、全局搜索与本地工作区保存。"),
-  },
 ];
 
 const makeId = () => crypto.randomUUID();
@@ -363,47 +165,7 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function normalizePaneWidths(widths: number[], count: number) {
-  if (count <= 0) {
-    return [];
-  }
-  if (widths.length !== count || widths.some((width) => !Number.isFinite(width) || width <= 0)) {
-    return Array.from({ length: count }, () => 100 / count);
-  }
-  const total = widths.reduce((sum, width) => sum + width, 0);
-  return widths.map((width) => (width / total) * 100);
-}
-
-function insertPaneWidth(widths: number[], paneIndex: number, direction: "left" | "right") {
-  const normalized = normalizePaneWidths(widths, widths.length);
-  const sourceWidth = normalized[paneIndex] ?? 100;
-  const half = sourceWidth / 2;
-  const next = [...normalized];
-  next.splice(direction === "left" ? paneIndex : paneIndex + 1, 0, half);
-  next[direction === "left" ? paneIndex + 1 : paneIndex] = half;
-  return normalizePaneWidths(next, next.length);
-}
-
-function removePaneWidth(widths: number[], paneIndex: number) {
-  if (widths.length <= 1) {
-    return [100];
-  }
-  const next = normalizePaneWidths(widths, widths.length);
-  const removed = next[paneIndex];
-  next.splice(paneIndex, 1);
-  const targetIndex = paneIndex > 0 ? paneIndex - 1 : 0;
-  next[targetIndex] += removed;
-  return normalizePaneWidths(next, next.length);
-}
-
-function makePaneGridTemplate(widths: number[]) {
-  return widths.flatMap((width, index) => [
-    `minmax(0, ${width}fr)`,
-    ...(index < widths.length - 1 ? ["7px"] : []),
-  ]).join(" ");
-}
-
-function AppShell() {
+function AppShell({ onTextScaleChange }: { onTextScaleChange: (scale: number) => void }) {
   const { message, modal } = AntApp.useApp();
   const [tabs, setTabs] = useState<NoteTab[]>(() => [createTextTab(0)]);
   const [welcomeVisible, setWelcomeVisible] = useState(true);
@@ -414,6 +176,10 @@ function AppShell() {
   const [paneWidths, setPaneWidths] = useState<number[]>([100]);
   const [canvasViewStates, setCanvasViewStates] = useState<Record<string, Partial<Record<PaneKey, CanvasViewState>>>>({});
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  useLayoutEffect(() => {
+    updateTextScale(settings.textScale);
+    onTextScaleChange(settings.textScale);
+  }, [settings.textScale, onTextScaleChange]);
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
   const [systemDarkMode, setSystemDarkMode] = useState(false);
   const [windowFocused, setWindowFocused] = useState(() => document.hasFocus());
@@ -493,13 +259,14 @@ function AppShell() {
     const nextTabs: Record<PaneKey, NoteTab[]> = Object.fromEntries(paneIds.map((paneId) => [paneId, []]));
     const nextIds: Record<PaneKey, string[]> = Object.fromEntries(paneIds.map((paneId) => [paneId, []]));
     const validPaneIds = new Set(paneIds);
-    tabs.forEach((tab) => {
-      const placements = tabPaneIds[tab.id]?.filter((paneId) => validPaneIds.has(paneId)) ?? [paneIds[0]];
-      placements.forEach((paneId) => {
-        nextTabs[paneId]?.push(tab);
-        nextIds[paneId]?.push(tab.id);
-      });
-    });
+    const defaultPlacement = [paneIds[0]];
+    for (const tab of tabs) {
+      for (const paneId of tabPaneIds[tab.id] ?? defaultPlacement) {
+        if (!validPaneIds.has(paneId)) continue;
+        nextTabs[paneId].push(tab);
+        nextIds[paneId].push(tab.id);
+      }
+    }
     const previous = paneTabIdsRef.current;
     let changed = Object.keys(previous).length !== paneIds.length;
     for (const pane of paneIds) {
@@ -562,7 +329,7 @@ function AppShell() {
 
   const focusTabInPane = useCallback((tabId: string, pane: PaneKey) => {
     paneTabHistoryRef.current[pane] = rememberTabVisit(paneTabHistoryRef.current[pane] ?? [], tabId);
-    setPaneActiveTabIds((current) => ({ ...current, [pane]: tabId }));
+    setPaneActiveTabIds((current) => current[pane] === tabId ? current : { ...current, [pane]: tabId });
     setActivePane(pane);
     setWelcomeVisible(false);
   }, []);
@@ -654,7 +421,7 @@ function AppShell() {
   }, []);
 
   useEffect(() => {
-    const populatedPaneIds = paneIds.filter((paneId) => (paneTabs[paneId]?.length ?? 0) > 0);
+    const populatedPaneIds = paneIds.filter((paneId) => (paneTabIds[paneId]?.length ?? 0) > 0);
     const retainedPaneIds = populatedPaneIds.length > 0 ? populatedPaneIds : [paneIds[0]];
 
     if (retainedPaneIds.length !== paneIds.length) {
@@ -663,7 +430,7 @@ function AppShell() {
       setPaneWidths((current) => normalizePaneWidths(current.filter((_, index) => retained.has(paneIds[index])), retainedPaneIds.length));
       setTabPaneIds((current) => {
         const next: Record<string, PaneKey[]> = {};
-        tabs.forEach((tab) => {
+        tabsRef.current.forEach((tab) => {
           const validPanes = (current[tab.id] ?? []).filter((paneId) => retained.has(paneId));
           next[tab.id] = validPanes.length > 0 ? validPanes : [retainedPaneIds[0]];
         });
@@ -683,9 +450,9 @@ function AppShell() {
       let changed = Object.keys(current).some((paneId) => !paneIds.includes(paneId));
       const next: Record<PaneKey, string> = {};
       paneIds.forEach((paneId) => {
-        const available = paneTabs[paneId] ?? [];
+        const available = paneTabIds[paneId] ?? [];
         const currentId = current[paneId];
-        const nextId = available.some((tab) => tab.id === currentId) ? currentId : available[0]?.id;
+        const nextId = available.includes(currentId) ? currentId : available[0];
         if (nextId) {
           next[paneId] = nextId;
         }
@@ -698,7 +465,7 @@ function AppShell() {
     if (!paneIds.includes(activePane)) {
       setActivePane(paneIds[0]);
     }
-  }, [activePane, paneIds, paneTabs, tabs]);
+  }, [activePane, paneIds, paneTabIds]);
 
   useEffect(() => {
     const paneSet = new Set(paneIds);
@@ -1810,106 +1577,18 @@ function AppShell() {
 
         const selectedWorkspace = selectWorkspaceCandidate(workspace, null).workspace;
         if (selectedWorkspace) {
-          const workspace = selectedWorkspace;
-          if (workspace.tabs.length === 0) {
-            const savedPaneIds =
-              workspace.version >= 4 && Array.isArray(workspace.paneIds)
-                ? Array.from(new Set(workspace.paneIds.filter((paneId): paneId is string => typeof paneId === "string" && paneId.length > 0)))
-                : [];
-            const emptyPane = savedPaneIds.includes(workspace.activePane ?? "") ? workspace.activePane! : savedPaneIds[0] ?? INITIAL_PANE_ID;
-
-            setTabs([]);
-            setPaneIds([emptyPane]);
-            setTabPaneIds({});
-            setPaneActiveTabIds({});
-            setActivePane(emptyPane);
-            setPaneWidths([100]);
-            setCanvasViewStates({});
-            setSettings(normalizeSettings(workspace.settings));
-            setRecentFiles(normalizeRecentFiles(workspace.recentFiles));
-            paneTabHistoryRef.current = {};
-            return;
-          }
-
-          const restored = sortPinnedTabs(workspace.tabs.map(restoreTab));
-          let restoredPaneIds: PaneKey[];
-          let restoredTabPaneIds: Record<string, PaneKey[]> = {};
-          let restoredActiveTabIds: Record<PaneKey, string> = {};
-          let restoredActivePane: PaneKey;
-          let restoredPaneWidths: number[];
-          let restoredViewStates: Record<string, Partial<Record<PaneKey, CanvasViewState>>> = {};
-
-          if (workspace.version >= 4 && Array.isArray(workspace.paneIds) && workspace.paneIds.length > 0) {
-            restoredPaneIds = Array.from(new Set(workspace.paneIds.filter((paneId): paneId is string => typeof paneId === "string" && paneId.length > 0)));
-            restored.forEach((tab) => {
-              const validPanes = (workspace.tabPaneIds?.[tab.id] ?? []).filter((paneId) => restoredPaneIds.includes(paneId));
-              restoredTabPaneIds[tab.id] = validPanes.length > 0 ? Array.from(new Set(validPanes)) : [restoredPaneIds[0]];
-            });
-            const populated = restoredPaneIds.filter((paneId) => restored.some((tab) => restoredTabPaneIds[tab.id].includes(paneId)));
-            restoredPaneIds = populated.length > 0 ? populated : [restoredPaneIds[0]];
-            restored.forEach((tab) => {
-              restoredTabPaneIds[tab.id] = restoredTabPaneIds[tab.id].filter((paneId) => restoredPaneIds.includes(paneId));
-              if (restoredTabPaneIds[tab.id].length === 0) {
-                restoredTabPaneIds[tab.id] = [restoredPaneIds[0]];
-              }
-            });
-            restoredPaneIds.forEach((paneId) => {
-              const available = restored.filter((tab) => restoredTabPaneIds[tab.id].includes(paneId));
-              const preferred = workspace.paneActiveTabIds?.[paneId];
-              restoredActiveTabIds[paneId] = available.some((tab) => tab.id === preferred) ? preferred! : available[0].id;
-            });
-            restoredActivePane = restoredPaneIds.includes(workspace.activePane ?? "") ? workspace.activePane! : restoredPaneIds[0];
-            restoredPaneWidths = normalizePaneWidths(workspace.paneWidths ?? [], restoredPaneIds.length);
-            restoredViewStates = workspace.canvasViewStates ?? {};
-          } else {
-            const leftPane = "pane-left";
-            const rightPane = "pane-right";
-            const hasRightPane = Boolean(
-              workspace.splitView ||
-              workspace.splitTabId ||
-              Object.values(workspace.tabPlacements ?? {}).some((placement) => placement === "right" || placement === "both"),
-            );
-            restoredPaneIds = hasRightPane ? [leftPane, rightPane] : [leftPane];
-            restored.forEach((tab) => {
-              const placement = workspace.tabPlacements?.[tab.id] ?? (workspace.splitTabId === tab.id ? "both" : "left");
-              restoredTabPaneIds[tab.id] = placement === "both" && hasRightPane
-                ? [leftPane, rightPane]
-                : placement === "right" && hasRightPane
-                  ? [rightPane]
-                  : [leftPane];
-            });
-            const leftAvailable = restored.filter((tab) => restoredTabPaneIds[tab.id].includes(leftPane));
-            const rightAvailable = restored.filter((tab) => restoredTabPaneIds[tab.id].includes(rightPane));
-            restoredActiveTabIds[leftPane] = leftAvailable.some((tab) => tab.id === workspace.leftActiveTabId)
-              ? workspace.leftActiveTabId!
-              : leftAvailable[0]?.id ?? restored[0].id;
-            if (hasRightPane) {
-              restoredActiveTabIds[rightPane] = rightAvailable.some((tab) => tab.id === workspace.rightActiveTabId)
-                ? workspace.rightActiveTabId!
-                : rightAvailable[0]?.id ?? restoredActiveTabIds[leftPane];
-            }
-            restoredActivePane = workspace.activePane === "right" && hasRightPane ? rightPane : leftPane;
-            const leftWidth = clamp(workspace.splitRatio ?? 50, 12, 88);
-            restoredPaneWidths = hasRightPane ? [leftWidth, 100 - leftWidth] : [100];
-            Object.entries(workspace.canvasViewStates ?? {}).forEach(([tabId, states]) => {
-              restoredViewStates[tabId] = {
-                ...(states.left ? { [leftPane]: states.left } : {}),
-                ...(hasRightPane && states.right ? { [rightPane]: states.right } : {}),
-              };
-            });
-          }
-
-          setTabs(restored);
-          setPaneIds(restoredPaneIds);
-          setTabPaneIds(restoredTabPaneIds);
-          setPaneActiveTabIds(restoredActiveTabIds);
-          setActivePane(restoredActivePane);
-          setPaneWidths(restoredPaneWidths);
-          setCanvasViewStates(restoredViewStates);
-          setSettings(normalizeSettings(workspace.settings));
-          setRecentFiles(normalizeRecentFiles(workspace.recentFiles));
+          const restored = restoreWorkspace(selectedWorkspace, INITIAL_PANE_ID);
+          setTabs(restored.tabs);
+          setPaneIds(restored.paneIds);
+          setTabPaneIds(restored.tabPaneIds);
+          setPaneActiveTabIds(restored.paneActiveTabIds);
+          setActivePane(restored.activePane);
+          setPaneWidths(restored.paneWidths);
+          setCanvasViewStates(restored.canvasViewStates);
+          setSettings(normalizeSettings(selectedWorkspace.settings));
+          setRecentFiles(restored.recentFiles);
           paneTabHistoryRef.current = Object.fromEntries(
-            Object.entries(restoredActiveTabIds).map(([paneId, tabId]) => [paneId, [tabId]]),
+            Object.entries(restored.paneActiveTabIds).map(([paneId, tabId]) => [paneId, [tabId]]),
           );
         }
       } catch (error) {
@@ -2575,21 +2254,9 @@ function AppShell() {
           width: 680,
           content: (
             <div className="scrollable-modal-content">
-              <ol className="help-update-timeline">
-              {releaseTimeline.map((release) => (
-                <li key={release.version} className={release.upcoming ? "upcoming" : ""}>
-                  <span className="help-update-marker" aria-hidden />
-                  <article>
-                    <div className="help-update-meta">
-                      <strong>{release.version}</strong>
-                      <span>{release.date}</span>
-                    </div>
-                    <h4>{release.title}</h4>
-                    <p>{release.description}</p>
-                  </article>
-                </li>
-              ))}
-              </ol>
+              <Suspense fallback={<FeatureLoading label={uiText("正在加载文档...")} />}>
+                <LazyReleaseTimeline />
+              </Suspense>
             </div>
           ),
         }),
@@ -2832,6 +2499,7 @@ function AppShell() {
           colorInfo: "#262626",
           colorLink: "#262626",
           controlHeight: 34,
+          ...textScaleTokens(settings.textScale),
           fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif",
         },
       }}
@@ -2986,6 +2654,7 @@ function AppShell() {
 }
 
 export default function App() {
+  const [textScale, setTextScale] = useState(100);
   return (
     <ConfigProvider
       locale={getUiLanguage() === "en-US" ? enUS : zhCN}
@@ -2997,13 +2666,14 @@ export default function App() {
           colorInfo: "#262626",
           colorLink: "#262626",
           controlHeight: 34,
+          ...textScaleTokens(textScale),
           fontFamily:
             "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif",
         },
       }}
     >
       <AntApp>
-        <AppShell />
+        <AppShell onTextScaleChange={setTextScale} />
       </AntApp>
     </ConfigProvider>
   );

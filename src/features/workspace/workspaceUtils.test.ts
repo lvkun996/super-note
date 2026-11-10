@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PersistedWorkspace } from "../../appTypes";
+import { restoreWorkspace } from "./restoreWorkspace";
 import {
   CURRENT_WORKSPACE_VERSION,
   normalizeRecentFiles,
@@ -27,6 +28,37 @@ describe("workspace recovery", () => {
   it("falls back to backup when primary is invalid", () => {
     const backup = workspace("backup");
     expect(selectWorkspaceCandidate({ version: 5 }, backup)).toEqual({ workspace: backup, source: "backup" });
+  });
+
+  it("retains saved pane assignments and repairs a selected tab in the wrong pane", () => {
+    const file = (id: string) => ({ id, kind: "file" as const, fileName: `${id}.txt`, title: id, content: id, themeIndex: 0, dirty: false });
+    const restored = restoreWorkspace({
+      ...workspace("saved"),
+      tabs: [file("one"), file("two"), file("three")],
+      paneIds: ["left", "right", "unused"],
+      tabPaneIds: { one: ["left", "missing"], two: ["right", "right"], three: ["right"] },
+      paneActiveTabIds: { left: "three", right: "three" },
+      activePane: "right",
+    }, "pane-main");
+    expect(restored.paneIds).toEqual(["left", "right"]);
+    expect(restored.activePane).toBe("right");
+    expect(restored.tabPaneIds).toEqual({ one: ["left"], two: ["right"], three: ["right"] });
+    expect(restored.paneActiveTabIds).toEqual({ left: "one", right: "three" });
+  });
+
+  it("restores the shared tab and width of a legacy split workspace", () => {
+    const restored = restoreWorkspace({
+      ...workspace("saved"),
+      version: 3,
+      tabs: [{ id: "shared", kind: "file", fileName: "note.txt", title: "Note", content: "text", themeIndex: 0, dirty: false }],
+      activePane: "right",
+      splitTabId: "shared",
+      splitRatio: 60,
+    }, "pane-main");
+    expect(restored.activePane).toBe("pane-right");
+    expect(restored.paneWidths).toEqual([60, 40]);
+    expect(restored.tabPaneIds.shared).toEqual(["pane-left", "pane-right"]);
+    expect(restored.paneActiveTabIds).toEqual({ "pane-left": "shared", "pane-right": "shared" });
   });
 });
 

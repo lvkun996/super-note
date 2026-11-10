@@ -3,8 +3,8 @@ import { uiText } from "../../../electron/uiLanguage";
 import { AimOutlined, CloseOutlined, CodeOutlined, CopyOutlined, EditOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Tooltip, message } from "antd";
 import type { MenuProps } from "antd";
-import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent, ReactNode, WheelEvent as ReactWheelEvent } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from "react";
 import type { FileTab, FileViewState, ProgrammerAction, TextAnchor, TextSearchTarget, TextSelection } from "../../appTypes";
 import {
   continueOrderedList,
@@ -14,7 +14,6 @@ import {
   openExternalUrl,
   placeCaretAtEndForBlankArea,
   readClipboardText,
-  renderTextWithLinks,
   trimTextSelectionWhitespace,
   writeClipboardText,
 } from "../editor/editorUtils";
@@ -29,7 +28,8 @@ import { MarkdownContent } from "./MarkdownContent";
 import { findLocalFileAtOffset, getLocalFileLinks } from "./localFileLinks";
 import { getNoteReferences, noteIdFromUrl, type NoteReferenceTarget } from "./noteReferences";
 import { useNoteReferencePicker } from "./useNoteReferencePicker";
-import { NoteReferenceText } from "./NoteReferenceText";
+import { PlainTextMirror } from "./PlainTextMirror";
+import { useMarkdownRender } from "./useMarkdownRender";
 
 const EMPTY_SELECTION: TextSelection = { start: 0, end: 0 };
 const EMPTY_ANCHORS: TextAnchor[] = [];
@@ -112,7 +112,6 @@ function FileEditor({
   onProgrammerAction,
   onSearchTargetHandled,
 }: FileViewProps) {
-  const markdownClientKey = useId();
   const selectionLayerRef = useRef<HTMLDivElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
@@ -122,29 +121,22 @@ function FileEditor({
   const markdownScrollSnapshotRef = useRef<{ sourceTop: number; sourceLeft: number; previewTop: number } | null>(null);
   const restoredViewRef = useRef<string | null>(null);
   const [markdownEditorOpen, setMarkdownEditorOpen] = useState(false);
-  const [textReferenceEditorId, setTextReferenceEditorId] = useState<string | null>(null);
-  const pendingReferenceAnchor = useRef<TextAnchor | null>(null);
   const [anchorMenuOpen, setAnchorMenuOpen] = useState(false);
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
   const pointerDown = useRef<{ x: number; y: number } | null>(null);
   const [messageApi, messageContext] = message.useMessage();
-  const [markdownRender, setMarkdownRender] = useState<{
-    tabId: string;
-    content: string;
-    filePath?: string;
-    blocks: string[];
-  } | null>(null);
   const fontSize = tab.fontSize ?? 13;
   const documentMode = getFileDocumentMode(tab);
-  const noteReferences = useMemo(() => getNoteReferences(tab.content), [tab.content]);
-  const hasTextReferences = documentMode === "text" && noteReferences.length > 0;
-  const textReferencePreview = hasTextReferences && textReferenceEditorId !== tab.id;
+  const hasLinks = useMemo(
+    () => documentMode === "text" && !tab.isPreviewOnly && /https?:\/\/|super-note:\/\/|[a-z]:[\\/]|\\\\/i.test(tab.content),
+    [documentMode, tab.isPreviewOnly, tab.content],
+  );
+  const markdownRender = useMarkdownRender(documentMode === "markdown" && !tab.isPreviewOnly, tab.id, tab.content, tab.filePath);
   const hasSelection = selection.end > selection.start;
   const textAnchors = tab.textAnchors ?? EMPTY_ANCHORS;
   const activeSearchTarget = searchTarget?.tabId === tab.id ? searchTarget : null;
   const displayTitle = title?.trim() || tab.title.trim() || uiText("未命名文本");
-  const editActionTitle = hasTextReferences && !textReferencePreview ? uiText("完成") : uiText("编辑");
   const titleBar = (
     <header className="file-title-bar" aria-label={uiText("文档标题栏")}>
       <h1 className="file-title" title={displayTitle}>{displayTitle}</h1>
@@ -201,14 +193,14 @@ function FileEditor({
           </Button>
         </Dropdown>
       </Tooltip>
-      {documentMode === "markdown" || hasTextReferences ? (
-        <Tooltip title={editActionTitle} placement="bottom">
+      {documentMode === "markdown" && !tab.isPreviewOnly ? (
+        <Tooltip title={uiText("编辑")} placement="bottom">
           <Button
             type="text"
             className="file-title-edit"
             icon={<EditOutlined />}
-            aria-label={editActionTitle}
-            onClick={() => documentMode === "markdown" ? setMarkdownEditorOpen(true) : setTextReferenceEditorId(textReferencePreview ? tab.id : null)}
+            aria-label={uiText("编辑")}
+            onClick={() => setMarkdownEditorOpen(true)}
           />
         </Tooltip>
       ) : null}
@@ -229,7 +221,6 @@ function FileEditor({
 
   const onContentChange = (content: string, metadata?: TextEditMetadata) => {
     const editor = editorRef.current;
-    if (editor && documentMode === "text") setTextReferenceEditorId(tab.id);
     let inferred: ReturnType<typeof createTextHistoryEntry> | undefined;
     const infer = () => inferred ??= createTextHistoryEntry(tab.content, content);
     const before = metadata?.before ?? compositionRef.current?.before ?? pendingBeforeInputRef.current ?? infer().before.selection;
@@ -308,8 +299,8 @@ function FileEditor({
     searchValue,
     searchRequestId: activeSearchTarget?.requestId,
     documentMode,
-    editorOpen: markdownEditorOpen || !textReferencePreview,
-    requiresMirror: documentMode === "text" && (Boolean(searchValue.trim()) || Boolean(activeSearchTarget) || /https?:\/\/|super-note:\/\/|[a-z]:[\\/]|\\\\/i.test(tab.content)),
+    editorOpen: !tab.isPreviewOnly && (documentMode === "text" || markdownEditorOpen),
+    requiresMirror: documentMode === "text" && (hasLinks || Boolean(searchValue.trim()) || Boolean(activeSearchTarget)),
   });
 
   const references = useNoteReferencePicker({ tabId: tab.id, targets: noteTargets, editorRef, mirrorRef: highlightRef, revealMirror,
@@ -323,8 +314,6 @@ function FileEditor({
 
   useEffect(() => {
     setMarkdownEditorOpen(false);
-    setTextReferenceEditorId(null);
-    pendingReferenceAnchor.current = null;
     setAnchorMenuOpen(false);
     setActiveAnchorId(null);
     setSelection(EMPTY_SELECTION);
@@ -334,7 +323,7 @@ function FileEditor({
   useLayoutEffect(() => {
     // Saved state is a tab/mode entry snapshot, not a controlled caret value.
     // Reapplying it after input rewinds the native caret to the previous keystroke.
-    const viewKey = JSON.stringify([tab.id, documentMode, markdownEditorOpen, textReferencePreview]);
+    const viewKey = JSON.stringify([tab.id, documentMode, markdownEditorOpen]);
     if (restoredViewRef.current === viewKey) return;
     restoredViewRef.current = viewKey;
     pendingBeforeInputRef.current = null;
@@ -361,16 +350,7 @@ function FileEditor({
     if (markdownLivePreviewRef.current && viewState) {
       markdownLivePreviewRef.current.scrollTop = viewState.livePreviewScrollTop;
     }
-  }, [documentMode, markdownEditorOpen, textReferencePreview, tab.id, viewState]);
-
-  useLayoutEffect(() => {
-    if (hasTextReferences && !textReferencePreview) {
-      editorRef.current?.focus({ preventScroll: true });
-      const anchor = pendingReferenceAnchor.current;
-      pendingReferenceAnchor.current = null;
-      if (anchor) jumpToTextAnchor(anchor);
-    }
-  }, [hasTextReferences, textReferencePreview]);
+  }, [documentMode, markdownEditorOpen, tab.id, viewState]);
 
   useLayoutEffect(() => {
     const request = historyRestore?.tabId === tab.id ? historyRestore : null;
@@ -398,36 +378,6 @@ function FileEditor({
     onViewStateChange({ selectionStart: state.selectionStart, selectionEnd: state.selectionEnd, selectionDirection: state.selectionDirection, editorScrollTop: editor.scrollTop, editorScrollLeft: editor.scrollLeft });
     if (restoreHistory) onHistoryRestoreHandled?.(request.requestId);
   }, [historyRestore, tab.id, tab.content, documentMode, markdownEditorOpen, restoreMultiCarets]);
-
-  useEffect(() => {
-    if (documentMode !== "markdown" || tab.isPreviewOnly) {
-      setMarkdownRender(null);
-      return;
-    }
-    let active = true;
-    let cancel: (() => void) | undefined;
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        const client = await import("./markdownWorkerClient");
-        if (!active) return;
-        cancel = () => client.cancelMarkdownRender(markdownClientKey);
-        let blocks: string[] | null;
-        try { blocks = await client.renderMarkdownInWorker(markdownClientKey, tab.content, tab.filePath); }
-        catch {
-          if (!active) return;
-          // Preserve editing in environments without worker support.
-          const { renderMarkdownBlocks } = await import("./markdownRenderer");
-          blocks = renderMarkdownBlocks(tab.content, tab.filePath);
-        }
-        if (active && blocks !== null) setMarkdownRender({ tabId: tab.id, content: tab.content, filePath: tab.filePath, blocks });
-      })();
-    }, markdownRender?.tabId === tab.id ? 120 : 0);
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-      cancel?.();
-    };
-  }, [documentMode, tab.content, tab.filePath, tab.id, markdownClientKey]);
 
   useLayoutEffect(() => {
     if (documentMode !== "markdown" || !markdownEditorOpen || markdownRender?.content !== tab.content) {
@@ -472,10 +422,6 @@ function FileEditor({
       setMarkdownEditorOpen(true);
       return;
     }
-    if (textReferencePreview) {
-      setTextReferenceEditorId(tab.id);
-      return;
-    }
 
     const editor = editorRef.current;
     if (!editor) {
@@ -505,7 +451,7 @@ function FileEditor({
       highlightRef.current.scrollLeft = editor.scrollLeft;
     }
     onSearchTargetHandled(activeSearchTarget.requestId);
-  }, [activeSearchTarget?.requestId, documentMode, fontSize, markdownEditorOpen, textReferencePreview]);
+  }, [activeSearchTarget?.requestId, documentMode, fontSize, markdownEditorOpen]);
 
   const syncSelection = (editor: HTMLTextAreaElement, rememberDirection = true) => {
     const captured = captureEditorSelection(editor, multiCaretsRef.current);
@@ -717,7 +663,7 @@ function FileEditor({
     }
     revealMirror();
     const offset = getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY) ?? editor.selectionStart;
-    const reference = noteReferences.find(link => offset >= link.start && offset < link.end);
+    const reference = getNoteReferences(editor.value).find(link => offset >= link.start && offset < link.end);
     if (reference) { event.preventDefault(); onOpenNote?.(reference.id); return; }
     const filePath = findLocalFileAtOffset(editor.value, offset);
     if (filePath) { event.preventDefault(); void openLocalPath(filePath); return; }
@@ -795,13 +741,7 @@ function FileEditor({
 
   function jumpToTextAnchor(anchor: TextAnchor) {
     const editor = editorRef.current;
-    if (!editor) {
-      if (textReferencePreview) {
-        pendingReferenceAnchor.current = anchor;
-        setTextReferenceEditorId(tab.id);
-      }
-      return;
-    }
+    if (!editor) return;
     const offset = Math.max(0, Math.min(anchor.start, editor.value.length));
     const measured = getTextCaretPositions(highlightRef.current, [offset], editor.value)[0];
     const lineHeight = Number.parseFloat(window.getComputedStyle(editor).lineHeight) || fontSize * 1.65;
@@ -816,24 +756,6 @@ function FileEditor({
     setActiveAnchorId(anchor.id);
     syncEditorScroll(editor);
   }
-
-  const plainHighlight = useMemo<ReactNode>(() => {
-    if (documentMode === "markdown" || tab.isPreviewOnly || textReferencePreview) return null;
-    const start = activeSearchTarget?.selectionStart;
-    const end = activeSearchTarget?.selectionEnd;
-    if (start == null || end == null || start < 0 || end < start || start > tab.content.length) {
-      return renderTextWithLinks(tab.content || " ", searchValue);
-    }
-    const boundedEnd = Math.min(end, tab.content.length);
-    return (
-      <>
-        {renderTextWithLinks(tab.content.slice(0, start), searchValue)}
-        <span className="file-search-position-marker">{"\u200b"}</span>
-        {renderTextWithLinks(tab.content.slice(start, boundedEnd), searchValue)}
-        {renderTextWithLinks(tab.content.slice(boundedEnd), searchValue)}
-      </>
-    );
-  }, [documentMode, tab.isPreviewOnly, tab.content, searchValue, activeSearchTarget?.selectionStart, activeSearchTarget?.selectionEnd, textReferencePreview]);
 
   const renderSelection = () => (
     <div ref={selectionLayerRef} className="file-selection-layer" aria-hidden />
@@ -853,12 +775,7 @@ function FileEditor({
     </div>
   );
 
-  const renderedMarkdown =
-    markdownRender?.tabId === tab.id &&
-    markdownRender.filePath === tab.filePath
-      ? markdownRender.blocks
-      : null;
-
+  const renderedMarkdown = markdownRender?.blocks ?? null;
   const renderMarkdownPreview = (className = "") =>
     tab.content.trim() && renderedMarkdown === null ? (
       <article className={`markdown-body markdown-loading ${className}`}>{uiText("正在加载 Markdown...")}</article>
@@ -960,9 +877,14 @@ function FileEditor({
 
   const textEditor = (
     <div className={`file-editor-wrap${multiCarets.length > 0 ? " has-multi-carets" : ""}`}>
-      <pre ref={highlightRef} className="file-highlight" aria-hidden>
-        {plainHighlight}<span className="file-highlight-end-marker">{"\u200b"}</span>
-      </pre>
+      <PlainTextMirror
+        mirrorRef={highlightRef}
+        content={tab.content}
+        query={searchValue}
+        hasLinks={hasLinks}
+        searchOffset={activeSearchTarget?.selectionStart}
+        searchEnd={activeSearchTarget?.selectionEnd}
+      />
       {renderSelection()}
       <div className="file-caret-layer" aria-hidden>
         {caretPositions.map(caret => (
@@ -996,20 +918,7 @@ function FileEditor({
     <div className="file-view" data-tab-id={tab.id} style={{ ["--file-font-size" as string]: `${fontSize}px` }} onWheel={handleFontSizeWheel}>
       {showTitleBar ? titleBar : null}
       {messageContext}{references.popup}
-        {textReferencePreview ? (
-          <div className="file-editor-wrap">
-            <pre className="file-highlight note-reference-text" tabIndex={0}
-              ref={element => { if (element) element.scrollTop = viewState?.previewScrollTop ?? 0; }}
-              onScroll={event => onViewStateChange({ previewScrollTop: event.currentTarget.scrollTop })}
-              onClick={handleMarkdownLinkClick}
-              onDoubleClick={(event) => {
-                if (!(event.target as HTMLElement).closest("a")) setTextReferenceEditorId(tab.id);
-              }}
-              onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === "F2")) { event.preventDefault(); setTextReferenceEditorId(tab.id); } }}>
-              <NoteReferenceText content={tab.content} query={searchValue} targets={noteTargets} />
-            </pre>
-          </div>
-        ) : <Dropdown menu={{ items: contextMenuItems }} trigger={["contextMenu"]}>{textEditor}</Dropdown>}
+      <Dropdown menu={{ items: contextMenuItems }} trigger={["contextMenu"]}>{textEditor}</Dropdown>
     </div>
   );
 }

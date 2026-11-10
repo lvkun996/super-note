@@ -4,20 +4,40 @@ import { getTabDisplayTitle } from "./tabTitle";
 export type TabPresentation = { id: string; title: string; themeIndex: number; dirty: boolean; filePath?: string; pinned?: boolean; kind: NoteTab["kind"] };
 
 export function createTabPresentationCache() {
-  let previous: TabPresentation[] = [], language = getUiLanguage();
+  let previous: TabPresentation[] = [];
+  let byId = new Map<string, TabPresentation>();
   let byTab = new WeakMap<NoteTab, TabPresentation>();
+  let language = getUiLanguage();
+
   return (tabs: NoteTab[]) => {
-    if (getUiLanguage() !== language) { language = getUiLanguage(); byTab = new WeakMap(); previous = []; }
-    const byId = new Map(previous.map(row => [row.id, row]));
-    const next = tabs.map(tab => {
-      const cached = byTab.get(tab);
-      if (cached) return cached;
-      const row: TabPresentation = { id: tab.id, title: getTabDisplayTitle(tab), kind: tab.kind, themeIndex: tab.themeIndex, dirty: tab.dirty, filePath: tab.filePath, pinned: tab.pinned };
-      const old = byId.get(tab.id);
-      const result = old && Object.keys(row).every(key => row[key as keyof TabPresentation] === old[key as keyof TabPresentation]) ? old : row;
-      byTab.set(tab, result); return result;
-    });
-    if (next.length !== previous.length || next.some((row, i) => row !== previous[i])) previous = next;
+    const nextLanguage = getUiLanguage();
+    if (nextLanguage !== language) {
+      language = nextLanguage;
+      byId = new Map();
+      byTab = new WeakMap();
+      previous = [];
+    }
+
+    let next: TabPresentation[] | undefined;
+    for (let index = 0; index < tabs.length; index += 1) {
+      const tab = tabs[index];
+      let row = byTab.get(tab);
+      if (!row) {
+        const title = getTabDisplayTitle(tab);
+        const old = byId.get(tab.id);
+        row = old && old.title === title && old.kind === tab.kind && old.themeIndex === tab.themeIndex &&
+          old.dirty === tab.dirty && old.filePath === tab.filePath && old.pinned === tab.pinned
+          ? old
+          : { id: tab.id, title, kind: tab.kind, themeIndex: tab.themeIndex, dirty: tab.dirty, filePath: tab.filePath, pinned: tab.pinned };
+        byTab.set(tab, row);
+      }
+      if (!next && row !== previous[index]) next = previous.slice(0, index);
+      next?.push(row);
+    }
+    if (next || previous.length !== tabs.length) {
+      previous = next ?? previous.slice(0, tabs.length);
+      byId = new Map(previous.map((row) => [row.id, row]));
+    }
     return previous;
   };
 }

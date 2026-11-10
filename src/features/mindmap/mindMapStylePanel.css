@@ -35,7 +35,7 @@ body.mind-map-style-mode #root {
   overflow-x: hidden;
   color: #20242b;
   background: #f3f4f6;
-  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font: calc(13px * var(--global-text-scale, 1))/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 .mind-map-style-window.loading {
@@ -43,6 +43,12 @@ body.mind-map-style-mode #root {
   place-items: center;
   color: #8c939d;
   letter-spacing: 0.3em;
+}
+
+.mind-map-style-window button,
+.mind-map-style-window input,
+.mind-map-style-window select {
+  font: inherit;
 }
 
 .property-tabs {
@@ -84,12 +90,12 @@ body.mind-map-style-mode #root {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: calc(13px * var(--global-text-scale, 1));
   font-weight: 680;
 }
 
 .property-section-title span {
-  font-size: 10px;
+  font-size: calc(10px * var(--global-text-scale, 1));
 }
 
 .property-row {
@@ -334,7 +340,7 @@ body.mind-map-style-mode #root {
   border-radius: 4px;
   background: #fff;
   color: #6c737e;
-  font-size: 11px;
+  font-size: calc(11px * var(--global-text-scale, 1));
   text-align: center;
 }
 

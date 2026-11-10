@@ -1,8 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { getUiLanguage, LANGUAGE_KEY } from "../electron/uiLanguage";
+import { initializeTextScale } from "./features/settings/textScale";
 
 document.documentElement.lang = getUiLanguage();
+initializeTextScale();
 window.addEventListener("storage", (event) => {
   if (event.key === LANGUAGE_KEY && event.newValue !== getUiLanguage()) window.location.reload();
 });

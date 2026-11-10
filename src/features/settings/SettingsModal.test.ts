@@ -2,6 +2,19 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, normalizeSettings, normalizeShortcut } from "./settingsModel";
 
 describe("tab layout settings", () => {
+  it("defaults old workspaces to 100% and preserves custom global text scaling", () => {
+    expect(normalizeSettings({}).textScale).toBe(100);
+    expect(normalizeSettings({ textScale: 130 }).textScale).toBe(130);
+    expect(normalizeSettings(JSON.parse(JSON.stringify({ textScale: 130 }))).textScale).toBe(130);
+  });
+
+  it("limits text scaling and ignores invalid stored values", () => {
+    expect(normalizeSettings({ textScale: 20 }).textScale).toBe(50);
+    expect(normalizeSettings({ textScale: 300 }).textScale).toBe(200);
+    expect(normalizeSettings({ textScale: Number.NaN }).textScale).toBe(100);
+    expect(normalizeSettings({ textScale: Number.POSITIVE_INFINITY }).textScale).toBe(100);
+  });
+
   it("restores old workspaces with separate sidebar and layout shortcuts", () => {
     const settings = normalizeSettings({});
     expect(settings.tabLayout).toBe("top");

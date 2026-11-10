@@ -24,7 +24,7 @@
     <header class="site-header">
       <div class="header-shell">
         <a class="brand" href="#top" aria-label="Super Note 首页">
-          <img src="./assets/app-icon.png" alt="" />
+          <img src="./assets/app-icon.png" alt="" width="28" height="28" />
           <span>Super Note</span>
         </a>
         <nav class="site-nav" aria-label="主要导航">
@@ -39,7 +39,7 @@
               <path d="M20.2 15.2A8.6 8.6 0 0 1 8.8 3.8 8.6 8.6 0 1 0 20.2 15.2Z"></path>
             </svg>
           </button>
-          <a class="download-link" href="https://github.com/lvkun996/super-note/releases/download/v0.1.42/Super.Note.Setup.0.1.42.exe">下载</a>
+          <a class="download-link" href="https://github.com/lvkun996/super-note/releases/download/v0.1.43/Super.Note.Setup.0.1.43.exe">下载</a>
         </nav>
       </div>
     </header>
@@ -48,22 +48,22 @@
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-layout">
           <div class="hero-copy">
-            <p class="hero-version-badge">Super Note <span>0.1.42</span></p>
+            <p class="hero-version-badge">Super Note <span>0.1.43</span></p>
             <p class="eyebrow">Windows 桌面笔记</p>
-            <h1 id="hero-title">阅读保持安静，<br /><span>编辑随时展开</span></h1>
-            <p class="hero-description">JSON 打开即整理，Markdown 默认专注预览。需要修改时，用独立实时编辑窗口把源码和结果并排放在眼前。</p>
+            <h1 id="hero-title">打开就写，<br /><span>多栏并排处理</span></h1>
+            <p class="hero-description">在同一个工作区编辑纯文本、预览 Markdown，也能打开画板和思维导图。全局文字缩放让菜单和正文都能调到顺眼的大小。</p>
             <div class="hero-actions" aria-label="下载与了解">
-              <a class="primary-button" href="https://github.com/lvkun996/super-note/releases/download/v0.1.42/Super.Note.Setup.0.1.42.exe">下载 Windows 10 / 11</a>
+              <a class="primary-button" href="https://github.com/lvkun996/super-note/releases/download/v0.1.43/Super.Note.Setup.0.1.43.exe">下载 Windows 10 / 11</a>
               <a class="text-link" href="#features">了解 Super Note <span aria-hidden="true">↘</span></a>
             </div>
-            <p class="release-note"><span class="status-dot" aria-hidden="true"></span>当前版本 v0.1.42 · 免费使用</p>
+            <p class="release-note">适用 Windows 10 / 11 · 免费使用</p>
           </div>
 
           <div class="hero-visual" aria-label="Super Note 多栏工作区预览">
             <figure class="product-window">
-              <img src="./assets/super-note-welcome.svg" alt="Super Note 欢迎页工作区" />
+              <img src="./assets/super-note-welcome.svg" alt="Super Note 欢迎页工作区" width="1280" height="720" fetchpriority="high" />
             </figure>
-            <div class="visual-caption"><span>JSON · Markdown · Canvas</span></div>
+            <div class="visual-caption"><span>纯文本 · Markdown · 多栏工作区</span></div>
           </div>
         </div>
       </section>
@@ -76,10 +76,10 @@
         </div>
         <div class="feature-grid">
           <article class="feature-card">
-            <p class="feature-kicker">JSON</p>
+            <p class="feature-kicker">TEXT</p>
             <p class="feature-index">01</p>
-            <h3>打开即格式化</h3>
-            <p>识别 .json 文件并自动整理缩进；内容不合法时保留原文，不阻断打开流程。</p>
+            <h3>纯文本直接编辑</h3>
+            <p>打开笔记就可以输入。正文中的关联笔记支持 Ctrl+单击跳转。</p>
           </article>
           <article class="feature-card">
             <p class="feature-kicker">MARKDOWN</p>
@@ -88,10 +88,10 @@
             <p>默认直接阅读渲染结果；点击标题栏右侧的编辑图标，在弹窗中实时对照源码和预览。</p>
           </article>
           <article class="feature-card">
-            <p class="feature-kicker">WORKSPACE</p>
+            <p class="feature-kicker">APPEARANCE</p>
             <p class="feature-index">03</p>
-            <h3>路径完整显示</h3>
-            <p>默认保存位置输入区拥有更充足的宽度，长路径可以直接确认，选择文件夹仍保持一步完成。</p>
+            <h3>全局文字缩放</h3>
+            <p>在基础设置中调整 50%–200% 的文字比例，立即生效，重启后保留。</p>
           </article>
         </div>
       </section>
@@ -114,9 +114,15 @@
             <p>持续打磨日常使用中的每一个细节。</p>
           </div>
           <div class="update-ring-scene">
-             <ol class="update-timeline" id="release-list">
+            <ol class="update-timeline">
             <li class="update-item update-item-current">
               <article><details open>
+                <summary><div class="update-meta"><strong>v0.1.43</strong><time datetime="2026-11-10">2026.11.10</time></div><h3>全局文字缩放与直接编辑</h3><p class="update-summary">纯文本打开即可编辑，标签多时减少输入触发的后台计算。</p></summary>
+                <ul class="update-details"><li>基础设置新增全局文字缩放，默认 100%，支持 50%–200%。</li><li>带关联笔记的纯文本也直接编辑，按住 Ctrl 单击可跳转到引用。</li><li>拆分工作区恢复与编辑器渲染，减少正文输入时的标签和分栏计算。</li></ul>
+              </details></article>
+            </li>
+            <li class="update-item">
+              <article><details>
                 <summary><div class="update-meta"><strong>v0.1.42</strong><time datetime="2026-10-29">2026.10.29</time></div><h3>笔记引用显示与性能优化</h3><p class="update-summary">正文更清爽，笔记引用阅读时只显示名称，减少候选搜索中的重复计算。</p></summary>
                 <ul class="update-details"><li>移除文档顶部的关联笔记条，保留正文引用与点击跳转。</li><li>文本中的笔记引用阅读时只显示名称；双击正文或点击编辑可修改原文，完成后返回阅读。</li><li>候选菜单关闭时不计算搜索结果，匹配满 30 条即停止扫描；复用引用解析结果。</li><li>保留引用插入、撤销重做、搜索定位与锚点跳转。</li></ul>
               </details></article>
@@ -133,6 +139,13 @@
                 <ul class="update-details"><li>长文本优先使用原生文本绘制，选区按可见范围计算，减少重复布局与无效界面更新。</li><li>Markdown 后台解析并增量更新预览，连续输入时合并过期任务，保留未变化内容。</li><li>工作区增量保存并合并待写入快照，撤销历史采用有容量限制的差量记录。</li><li>优化字体加载、后台文件检查、画板图片和思维导图节点计算。</li></ul>
               </details></article>
             </li>
+            </ol>
+            <details class="update-history">
+              <summary class="updates-more">
+                <span class="history-show">查看历史更新 ↓</span>
+                <span class="history-hide">收起历史更新 ↑</span>
+              </summary>
+              <ol class="update-timeline" start="5">
             <li class="update-item">
               <article><details>
                 <summary><div class="update-meta"><strong>v0.1.39</strong><time datetime="2026-10-21">2026.10.21</time></div><h3>实时拖选与原生文本导航</h3><p class="update-summary">拖动时实时显示选区，编辑中的 Ctrl+方向键恢复原生导航。</p></summary>
@@ -513,8 +526,8 @@
               </ul>
               </details></article>
           </li>
-            </ol>
-            <button class="updates-more" id="updates-more" type="button" aria-expanded="false" aria-controls="release-list" hidden>查看全部更新 <span aria-hidden="true">↓</span></button>
+              </ol>
+            </details>
           </div>
         </div>
       </section>
@@ -523,8 +536,8 @@
         <div class="download-card">
           <p class="eyebrow">准备开始</p>
           <h2 id="download-title">给想法一个更大的空间</h2>
-          <a class="primary-button" href="https://github.com/lvkun996/super-note/releases/download/v0.1.42/Super.Note.Setup.0.1.42.exe">下载 Super Note</a>
-          <p class="download-meta">Windows 10 / 11 · v0.1.42 · <a href="https://github.com/lvkun996/super-note/releases">查看所有版本</a></p>
+          <a class="primary-button" href="https://github.com/lvkun996/super-note/releases/download/v0.1.43/Super.Note.Setup.0.1.43.exe">下载 Super Note</a>
+          <p class="download-meta">Windows 10 / 11 · v0.1.43 · <a href="https://github.com/lvkun996/super-note/releases">查看所有版本</a></p>
         </div>
       </section>
     </main>
@@ -552,21 +565,6 @@
         }
         applyTheme(nextTheme);
       });
-
-      const releaseList = document.querySelector("#release-list");
-      const updatesMore = document.querySelector("#updates-more");
-      const releaseItems = Array.from(document.querySelectorAll(".update-item"));
-      if (releaseList && updatesMore && releaseItems.length > 4) {
-        releaseList.classList.add("is-condensed");
-        updatesMore.hidden = false;
-        updatesMore.addEventListener("click", () => {
-          const expanded = updatesMore.getAttribute("aria-expanded") !== "true";
-          releaseList.classList.toggle("is-condensed", !expanded);
-          updatesMore.setAttribute("aria-expanded", String(expanded));
-          updatesMore.textContent = expanded ? "收起历史更新 ↑" : "查看全部更新 ↓";
-          if (!expanded) document.querySelector("#updates-title")?.scrollIntoView({ block: "start" });
-        });
-      }
     </script>
 
     <footer>

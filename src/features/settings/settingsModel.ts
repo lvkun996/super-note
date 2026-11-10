@@ -27,6 +27,7 @@ export const DEFAULT_SHORTCUTS: ShortcutConfig = {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   language: "zh-CN",
+  textScale: 100,
   handwritten: false,
   programmerMode: false,
   darkMode: false,
@@ -105,6 +106,12 @@ export function shortcutMatches(event: KeyboardEvent, shortcut: string) {
   return normalizeShortcut(shortcutFromEvent(event)) === normalizeShortcut(shortcut);
 }
 
+export function normalizeTextScale(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(200, Math.max(50, Math.round(value)))
+    : 100;
+}
+
 export function normalizeSettings(value?: Partial<AppSettings>): AppSettings {
   const shortcuts = { ...DEFAULT_SHORTCUTS, ...(value?.shortcuts ?? {}) };
   if (value?.shortcuts?.toggleTabLayout === "Ctrl+B") shortcuts.toggleTabLayout = DEFAULT_SHORTCUTS.toggleTabLayout;
@@ -113,6 +120,7 @@ export function normalizeSettings(value?: Partial<AppSettings>): AppSettings {
   if (!value?.shortcuts?.nextTab && value?.shortcuts?.splitRight === "Ctrl+Right") shortcuts.splitRight = DEFAULT_SHORTCUTS.splitRight;
 
   return {
+    textScale: normalizeTextScale(value?.textScale),
     handwritten: Boolean(value?.handwritten),
     language: value?.language === "en-US" ? "en-US" : "zh-CN",
     programmerMode: Boolean(value?.programmerMode),

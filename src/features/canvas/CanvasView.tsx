@@ -602,7 +602,7 @@ export function CanvasView({
             const isSearchTarget = activeSearchItemId === item.id;
             if (item.type === "text") {
               const matched = Boolean(needle && item.text.toLowerCase().includes(needle));
-              const fontSize = (layout as TextCanvasItem).fontSize;
+              const fontSize = `calc(${(layout as TextCanvasItem).fontSize}px * var(--global-text-scale, 1))`;
               const editorStyle: CSSProperties = {
                 left: layout.x,
                 top: layout.y,

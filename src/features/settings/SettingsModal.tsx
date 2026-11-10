@@ -1,7 +1,7 @@
 import { uiText } from "../../../electron/uiLanguage";
-import { Button, Input, Modal, Segmented, Switch } from "antd";
+import { Button, Input, InputNumber, Modal, Segmented, Switch } from "antd";
 import type { AppSettings, ShortcutAction } from "../../appTypes";
-import { DEFAULT_SHORTCUTS, normalizeShortcut, shortcutFromEvent } from "./settingsModel";
+import { DEFAULT_SHORTCUTS, normalizeTextScale, normalizeShortcut, shortcutFromEvent } from "./settingsModel";
 import { GlobalShortcutSetting } from "./GlobalShortcutSetting";
 
 const SHORTCUT_ROWS: Array<{ action: ShortcutAction; label: string; desc: string }> = [
@@ -54,6 +54,27 @@ export function SettingsModal({ open, settings, onClose, onChange }: SettingsMod
       styles={{ body: { maxHeight: "min(72vh, calc(100vh - 140px))", overflowY: "auto", paddingRight: 8 } }}
     >
       <div className="settings-panel">
+        <div className="settings-section-title">{uiText("基础设置")}</div>
+        <div className="settings-row">
+          <span>
+            <strong>{uiText("全局文字缩放")}</strong>
+            <small>{uiText("按比例调整整个应用的文字大小，默认 100%，修改后立即生效。")}</small>
+          </span>
+          <InputNumber
+            aria-label={uiText("全局文字缩放")}
+            min={50}
+            max={200}
+            step={10}
+            precision={0}
+            value={settings.textScale}
+            suffix="%"
+            onChange={(value) => {
+              if (typeof value === "number" && value >= 50 && value <= 200) {
+                onChange({ ...settings, textScale: normalizeTextScale(value) });
+              }
+            }}
+          />
+        </div>
         <div className="settings-row">
           <span><strong>{uiText("界面语言")}</strong><small>{uiText("切换时自动保存工作区并重新加载界面。")}</small></span>
           <Segmented aria-label={uiText("界面语言")} value={settings.language}
