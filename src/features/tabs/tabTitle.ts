@@ -26,7 +26,7 @@ export function getTextTitlePrefix(content: string, limit = 14) {
 }
 
 export function getTabDisplayTitle(tab: NoteTab) {
-  if (tab.kind !== "file" || tab.filePath || !tab.title.startsWith(uiText("未命名"))) {
+  if (tab.kind !== "file" || tab.filePath || tab.customTitle || !tab.title.startsWith(uiText("未命名"))) {
     return tab.title;
   }
   const preview = getTextTitlePrefix(tab.content);

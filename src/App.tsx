@@ -79,6 +79,7 @@ import {
 } from "./features/canvas/canvasUtils";
 import {
   openExternalUrl,
+  readTableClipboard,
   transformJsonText,
 } from "./features/editor/editorUtils";
 import { DEFAULT_SETTINGS, normalizeSettings } from "./features/settings/settingsModel";
@@ -87,6 +88,10 @@ import { getCanvasMode } from "./pluginSettings";
 import { rememberTabVisit } from "./features/tabs/tabHistory";
 import { getTabDisplayTitle } from "./features/tabs/tabTitle";
 import { createTabPresentationCache } from "./features/tabs/tabPresentation";
+import { OpenNoteShareCode, noteShareError } from "./features/tabs/OpenNoteShareCode";
+import type { SharedTextNote } from "../electron/noteShareCode";
+import { getFileDocumentMode } from "./features/text/fileDocument";
+import { normalizeTextLineEndings } from "./features/text/textLineEndings";
 import { getQuickOpenResults, searchWorkspace } from "./features/search/searchModel";
 import { createTextAnchor, MAX_TEXT_ANCHORS, normalizeTextAnchors, updateTextAnchors } from "./features/text/textAnchors";
 import { hasExternalFileChange } from "./features/files/fileState";
@@ -184,6 +189,7 @@ function AppShell({ onTextScaleChange }: { onTextScaleChange: (scale: number) =>
   const [systemDarkMode, setSystemDarkMode] = useState(false);
   const [windowFocused, setWindowFocused] = useState(() => document.hasFocus());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shareCodeOpen, setShareCodeOpen] = useState(false);
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
@@ -333,6 +339,38 @@ function AppShell({ onTextScaleChange }: { onTextScaleChange: (scale: number) =>
     setActivePane(pane);
     setWelcomeVisible(false);
   }, []);
+
+  const copyShareCode = useCallback(async (tabId: string) => {
+    const tab = tabsRef.current.find((item) => item.id === tabId);
+    if (tab?.kind !== "file" || tab.isPreviewOnly) return;
+    const api = window.superNote;
+    if (!api) {
+      message.warning(uiText("请在 Super Note 桌面应用中复制口令"));
+      return;
+    }
+    try {
+      const result = await api.encodeNoteShareCode({ title: getTabDisplayTitle(tab), content: tab.content, mode: getFileDocumentMode(tab) });
+      if (!result.ok) {
+        message.error(noteShareError(result));
+        return;
+      }
+      if (!(await api.writeClipboardText(result.code)).ok) throw new Error("clipboard write failed");
+      message.success(uiText("口令已复制"));
+    } catch {
+      message.error(uiText("复制口令失败"));
+    }
+  }, [message]);
+
+  const openSharedNote = (note: SharedTextNote) => {
+    const base = note.mode === "markdown" ? createMarkdownTab(tabs.length) : createTextTab(tabs.length);
+    const nextTab = { ...base, title: note.title, customTitle: true, content: normalizeTextLineEndings(note.content) };
+    const destination = paneIds.includes(activePane) ? activePane : paneIds[0];
+    setTabs((current) => [...current, nextTab]);
+    setTabPaneIds((current) => ({ ...current, [nextTab.id]: [destination] }));
+    focusTabInPane(nextTab.id, destination);
+    setSelectedItem(null);
+    setShareCodeOpen(false);
+  };
 
   const toggleCanvasPlugin = useCallback(() => {
     setSettings((current) => ({
@@ -1387,6 +1425,22 @@ function AppShell({ onTextScaleChange }: { onTextScaleChange: (scale: number) =>
 
   const pasteFromClipboard = useCallback(async () => {
     try {
+      if (activeTab?.kind === "file" && !activeTab.isPreviewOnly) {
+        const { text, html } = await readTableClipboard();
+        const { buildTableInsertion, readPastedTable } = await import("./features/text/markdownTables");
+        const current = tabsRef.current.find((tab) => tab.id === activeTab.id);
+        if (current?.kind !== "file" || current.isPreviewOnly) return;
+        const source = readPastedTable(text, html);
+        if (source) {
+          const end = current.content.length;
+          updateFileContent(current.id, buildTableInsertion(current.content, { start: end, end }, source).content);
+        } else if (text.trim()) {
+          updateFileContent(current.id, `${current.content}${current.content ? "\n" : ""}${text}`);
+        } else {
+          message.warning(uiText("剪贴板没有可粘贴的文字"));
+        }
+        return;
+      }
       const text = await readClipboardText();
       if (!text.trim()) {
         message.warning(uiText("剪贴板没有可粘贴的文字"));
@@ -1400,9 +1454,6 @@ function AppShell({ onTextScaleChange }: { onTextScaleChange: (scale: number) =>
         return;
       }
 
-      if (activeTab?.kind === "file") {
-        updateFileContent(activeTab.id, `${activeTab.content}${activeTab.content ? "\n" : ""}${text}`);
-      }
     } catch (error) {
       message.error(uiText("粘贴失败：{0}", [String(error)]));
     }
@@ -1439,7 +1490,7 @@ function AppShell({ onTextScaleChange }: { onTextScaleChange: (scale: number) =>
   );
 
   useAppShortcuts({
-    activeTab, settings, quickOpenOpen, searchOpen, settingsOpen, searchScope, canvasPluginEnabled,
+    activeTab, settings, quickOpenOpen, searchOpen, settingsOpen, shareCodeOpen, searchScope, canvasPluginEnabled,
     selectedItem, selectedMindMapNode, closeQuickOpen, closeSearch,
     setQuickOpenOpen, toggleSidebar, toggleTabLayout, updateFileFontSize, addCanvasTab, addTextTab,
     closeCurrentTab, saveCurrentTab, openSearch, focusSiblingTab, autoSplitTab, pasteFromClipboard,
@@ -2065,6 +2116,12 @@ function AppShell({ onTextScaleChange }: { onTextScaleChange: (scale: number) =>
       onClick: openExistingFile,
     },
     {
+      key: "open-share-code",
+      label: uiText("打开口令"),
+      icon: <LinkOutlined />,
+      onClick: () => setShareCodeOpen(true),
+    },
+    {
       key: "quick-open",
       label: uiText("快速打开 ({0})", [settings.shortcuts.quickOpen]),
       icon: <SearchOutlined />,
@@ -2439,6 +2496,7 @@ function AppShell({ onTextScaleChange }: { onTextScaleChange: (scale: number) =>
         title={getTabDisplayTitle(tab)}
         titleMenuItems={[
           { key: "rename", label: uiText("编辑名称"), onClick: () => renameTab(tab.id) },
+          ...(!tab.isPreviewOnly ? [{ key: "copy-share-code", label: uiText("复制口令"), onClick: () => void copyShareCode(tab.id) }] : []),
           { key: "pin", label: tab.pinned ? uiText("取消置顶") : uiText("置顶"), onClick: () => pinTab(tab.id) },
           { key: "explorer", label: uiText("打开所在文件夹"), disabled: !tab.filePath, onClick: () => openTabInExplorer(tab.id) },
         ]}
@@ -2571,6 +2629,7 @@ function AppShell({ onTextScaleChange }: { onTextScaleChange: (scale: number) =>
           onOpenTabInExplorer={openTabInExplorer}
           onCopyTabAbsolutePath={(tabId) => void copyTabAbsolutePath(tabId)}
           onCopyTabRelativePath={(tabId) => void copyTabRelativePath(tabId)}
+          onCopyShareCode={copyShareCode}
           onAddCanvas={addCanvasTab}
           onAddText={addTextTab}
           onStartSplitResize={startSplitResize}
@@ -2640,6 +2699,7 @@ function AppShell({ onTextScaleChange }: { onTextScaleChange: (scale: number) =>
           />
         </Suspense>
       ) : null}
+      {shareCodeOpen && <OpenNoteShareCode onClose={() => setShareCodeOpen(false)} onOpen={openSharedNote} />}
       {imagePreview ? (
         <div className="image-preview-layer" role="dialog" aria-modal="true" onClick={() => setImagePreview(null)}>
           <button type="button" className="image-preview-close" aria-label={uiText("关闭预览")} onClick={() => setImagePreview(null)}>

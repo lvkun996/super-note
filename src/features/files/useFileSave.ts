@@ -71,7 +71,7 @@ export function useFileSave({
                   ...tab,
                   filePath: result.path,
                   fileName: result.name ?? getFileName(result.path ?? tab.fileName),
-                  title: result.name ?? getFileName(result.path ?? tab.title),
+                  title: tab.customTitle ? tab.title : result.name ?? getFileName(result.path ?? tab.title),
                   documentMode: tab.documentMode === "markdown" || isMarkdownFileName(result.name) || isMarkdownFileName(result.path) ? "markdown" : "text",
                   lastKnownMtimeMs: result.mtimeMs,
                   lastKnownSize: result.size,

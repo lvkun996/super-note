@@ -10,6 +10,7 @@ import { atomicWriteText, getFileMetadata } from "./fileStorage";
 import { createWorkspaceStore } from "./workspaceStore";
 import { appendExtensionIfMissing } from "./filePathUtils";
 import { isNewerVersion } from "./versionUtils";
+import { decodeNoteShareCode, encodeNoteShareCode } from "./noteShareCode";
 import { createGlobalToggleShortcut, DEFAULT_GLOBAL_SHORTCUT } from "./globalToggleShortcut";
 
 if (process.env.SUPER_NOTE_DEV_USER_DATA) {
@@ -1070,6 +1071,16 @@ ipcMain.handle("window:close", () => {
 });
 
 ipcMain.handle("clipboard:readText", () => clipboard.readText());
+
+ipcMain.handle("clipboard:readTable", () => ({ text: clipboard.readText(), html: clipboard.readHTML() }));
+
+ipcMain.handle("clipboard:writeTable", (_event, text: unknown, html: unknown) => {
+  if (typeof text !== "string" || typeof html !== "string") return;
+  clipboard.write({ text, html });
+});
+
+ipcMain.handle("note:encodeShareCode", (_event, note: unknown) => encodeNoteShareCode(note));
+ipcMain.handle("note:decodeShareCode", (_event, code: unknown) => decodeNoteShareCode(code));
 
 ipcMain.handle("clipboard:writeText", (_event, text: unknown) => {
   if (typeof text !== "string") {

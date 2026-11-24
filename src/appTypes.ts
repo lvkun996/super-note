@@ -73,6 +73,7 @@ export type FileTab = {
   pinned?: boolean;
   kind: "file";
   title: string;
+  customTitle?: boolean;
   fileName: string;
   filePath?: string;
   content: string;

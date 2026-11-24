@@ -142,6 +142,11 @@ interface Window {
     getPathForFile: (file: File) => string;
     readClipboardText: () => Promise<string>;
     writeClipboardText: (text: string) => Promise<{ ok: boolean }>;
+    readTableClipboard: () => Promise<{ text: string; html: string }>;
+    writeTableClipboard: (text: string, html: string) => Promise<void>;
+    encodeNoteShareCode: (note: import("../electron/noteShareCode").SharedTextNote) =>
+      ReturnType<typeof import("../electron/noteShareCode").encodeNoteShareCode>;
+    decodeNoteShareCode: (code: string) => ReturnType<typeof import("../electron/noteShareCode").decodeNoteShareCode>;
     getRelativeFilePath: (filePath: string, basePath?: string) => Promise<{ ok: boolean; path?: string }>;
     openExternal: (url: string) => Promise<{ ok: boolean }>;
     openPath: (filePath: string) => Promise<{ ok: boolean }>;

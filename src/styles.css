@@ -2353,6 +2353,7 @@ body:has(.app-shell.dark-mode) .text-anchor-dropdown .text-anchor-menu-item-acti
   border: 1px solid #dfe5ee;
   text-align: left;
   vertical-align: top;
+  white-space: pre-line;
 }
 
 .markdown-body th {

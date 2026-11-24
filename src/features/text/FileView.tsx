@@ -1,6 +1,6 @@
 import { captureEditorSelection, clampEditorSelection, createTextHistoryEntry, type EditorSelectionState, type TextEditMetadata, type TextHistoryRestore } from "../history/textHistory";
 import { uiText } from "../../../electron/uiLanguage";
-import { AimOutlined, CloseOutlined, CodeOutlined, CopyOutlined, EditOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined } from "@ant-design/icons";
+import { AimOutlined, CloseOutlined, CodeOutlined, CopyOutlined, EditOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined, TableOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Tooltip, message } from "antd";
 import type { MenuProps } from "antd";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -13,7 +13,7 @@ import {
   getTextSelection,
   openExternalUrl,
   placeCaretAtEndForBlankArea,
-  readClipboardText,
+  readTableClipboard,
   trimTextSelectionWhitespace,
   writeClipboardText,
 } from "../editor/editorUtils";
@@ -30,6 +30,8 @@ import { getNoteReferences, noteIdFromUrl, type NoteReferenceTarget } from "./no
 import { useNoteReferencePicker } from "./useNoteReferencePicker";
 import { PlainTextMirror } from "./PlainTextMirror";
 import { useMarkdownRender } from "./useMarkdownRender";
+import { buildTableInsertion, buildTableRowEdit, findMarkdownTables, readPastedTable, rowAtOffset, type MarkdownTable } from "./markdownTables";
+import { TextTableDialog, MAX_VISUAL_TABLE_CELLS } from "./TextTableDialog";
 
 const EMPTY_SELECTION: TextSelection = { start: 0, end: 0 };
 const EMPTY_ANCHORS: TextAnchor[] = [];
@@ -124,6 +126,10 @@ function FileEditor({
   const [anchorMenuOpen, setAnchorMenuOpen] = useState(false);
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
+  const [tableTarget, setTableTarget] = useState<{ content: string; table: MarkdownTable; row: number } | null>(null);
+  const [tableDialog, setTableDialog] = useState<{ content: string; selection: TextSelection; table?: MarkdownTable } | null>(null);
+  const latestTab = useRef(tab);
+  latestTab.current = tab;
   const pointerDown = useRef<{ x: number; y: number } | null>(null);
   const [messageApi, messageContext] = message.useMessage();
   const fontSize = tab.fontSize ?? 13;
@@ -317,6 +323,8 @@ function FileEditor({
     setAnchorMenuOpen(false);
     setActiveAnchorId(null);
     setSelection(EMPTY_SELECTION);
+    setTableTarget(null);
+    setTableDialog(null);
     clearMultiCarets();
   }, [clearMultiCarets, documentMode, tab.id]);
 
@@ -549,11 +557,99 @@ function FileEditor({
     replaceSelection("");
   };
 
-  const pasteSelection = async () => {
-    const text = await readClipboardText();
-    if (text) {
-      replaceSelection(text);
+  const currentTable = tableTarget?.content === tab.content ? tableTarget : null;
+
+  const applyTableEdit = (edit: { content: string; caret: number }) => {
+    if (edit.content === tab.content) return;
+    clearMultiCarets();
+    if (editorRef.current) {
+      commitProgrammaticEdit(edit.content, edit.caret);
+    } else {
+      const history = createTextHistoryEntry(tab.content, edit.content);
+      onDocumentChange(edit.content, {
+        before: history.before.selection,
+        after: { ...history.after.selection, selectionStart: edit.caret, selectionEnd: edit.caret },
+      });
     }
+  };
+
+  const getTableInsertionSelection = (content: string, selection: TextSelection) => {
+    const table = findMarkdownTables(content).find(({ start, end }) =>
+      (selection.start > start && selection.start <= end) || (selection.end > start && selection.end < end));
+    return table ? { start: table.end, end: table.end } : selection;
+  };
+
+  const pasteSelection = async (preview = false) => {
+    const editor = editorRef.current;
+    if (!editor && !preview) return;
+    const content = editor?.value ?? tab.content;
+    const end = currentTable?.table.end ?? content.length;
+    const range = !preview && editor ? getTextSelection(editor) : { start: end, end };
+    try {
+      const { text, html } = await readTableClipboard();
+      if (latestTab.current.id !== tab.id || latestTab.current.content !== content || (editor && editor !== editorRef.current)) return;
+      const source = readPastedTable(text, html);
+      if (source) applyTableEdit(buildTableInsertion(content, getTableInsertionSelection(content, range), source));
+      else if (text && !preview) replaceSelection(text);
+      else if (preview) messageApi.info(uiText("剪贴板中没有可粘贴的表格"));
+    } catch {
+      messageApi.error(uiText("无法读取剪贴板"));
+    }
+  };
+
+  const openTableDialog = (preview: boolean, table?: MarkdownTable) => {
+    const editor = editorRef.current;
+    const end = currentTable?.table.end ?? tab.content.length;
+    const selection = table ? { start: table.start, end: table.end } :
+      !preview && editor ? getTableInsertionSelection(tab.content, getTextSelection(editor)) : { start: end, end };
+    setTableDialog({ content: tab.content, selection, table });
+  };
+
+  const copyTable = async (table: MarkdownTable) => {
+    const source = tab.content.slice(table.start, table.end);
+    try {
+      if (window.superNote?.writeTableClipboard) {
+        const { renderMarkdownContent } = await import("./markdownRenderer");
+        await window.superNote.writeTableClipboard(source, renderMarkdownContent(source));
+      } else {
+        await writeClipboardText(source);
+      }
+      messageApi.success(uiText("表格已复制"));
+    } catch {
+      messageApi.error(uiText("复制表格失败"));
+    }
+  };
+
+  const makeTableMenu = (preview: boolean): NonNullable<MenuProps["items"]> => [
+    { key: "new-table", label: uiText("新建表格"), icon: <TableOutlined />, onClick: () => openTableDialog(preview) },
+    ...(preview ? [{ key: "paste-table", label: uiText("粘贴表格"), icon: <SnippetsOutlined />, onClick: () => void pasteSelection(true) }] : []),
+    ...(currentTable ? [
+      {
+        key: "edit-table", label: uiText("编辑表格"), icon: <EditOutlined />,
+        disabled: currentTable.table.rows.length * currentTable.table.columns > MAX_VISUAL_TABLE_CELLS,
+        onClick: () => openTableDialog(preview, currentTable.table),
+      },
+      { key: "copy-table", label: uiText("复制表格"), icon: <CopyOutlined />, onClick: () => void copyTable(currentTable.table) },
+      { type: "divider" as const },
+      { key: "insert-row-above", label: uiText("在上方插入行"), disabled: currentTable.row === 0,
+        onClick: () => applyTableEdit(buildTableRowEdit(tab.content, currentTable.table, currentTable.row, "above")) },
+      { key: "insert-row-below", label: uiText("在下方插入行"),
+        onClick: () => applyTableEdit(buildTableRowEdit(tab.content, currentTable.table, currentTable.row, "below")) },
+      { key: "duplicate-row", label: uiText("复制当前行到下方"),
+        onClick: () => applyTableEdit(buildTableRowEdit(tab.content, currentTable.table, currentTable.row, "duplicate")) },
+    ] : []),
+  ];
+
+  const handlePreviewContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const row = (event.target as Element).closest<HTMLTableRowElement>("tr");
+    const tableElement = row?.closest("table");
+    if (!row || !tableElement?.parentElement?.matches(".markdown-body") || markdownRender?.content !== tab.content) {
+      setTableTarget(null);
+      return;
+    }
+    const index = Array.from(tableElement.parentElement.querySelectorAll(":scope > table")).indexOf(tableElement);
+    const table = findMarkdownTables(tab.content)[index];
+    setTableTarget(table && row.rowIndex < table.rows.length ? { content: tab.content, table, row: row.rowIndex } : null);
   };
 
   const runProgrammerAction = (action: ProgrammerAction) => {
@@ -602,6 +698,8 @@ function FileEditor({
         onAddTextAnchor(current.start, current.end);
       },
     },
+    { type: "divider" },
+    ...makeTableMenu(false),
     ...(programmerMode && !tab.isPreviewOnly
       ? [
           { type: "divider" as const },
@@ -684,7 +782,17 @@ function FileEditor({
       if (!compositionRef.current && multiCarets.length === 0) references.refresh(event.currentTarget);
     },
     onBlur: () => references.close(),
-    onContextMenu: (event: ReactMouseEvent<HTMLTextAreaElement>) => syncSelection(event.currentTarget),
+    onContextMenu: (event: ReactMouseEvent<HTMLTextAreaElement>) => {
+      const editor = event.currentTarget;
+      syncSelection(editor);
+      const tables = findMarkdownTables(editor.value);
+      if (!tables.length) { setTableTarget(null); return; }
+      const offset = event.clientX || event.clientY
+        ? getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY) ?? editor.selectionStart
+        : editor.selectionStart;
+      const table = tables.find(({ start, end }) => offset >= start && offset <= end);
+      setTableTarget(table ? { content: editor.value, table, row: rowAtOffset(table, offset) } : null);
+    },
     onCompositionStart: (event: React.CompositionEvent<HTMLTextAreaElement>) => {
       references.close();
       compositionRef.current = { before: captureEditorSelection(event.currentTarget), group: crypto.randomUUID() };
@@ -710,7 +818,12 @@ function FileEditor({
   };
 
   const handleEditorPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    handleMultiCaretPaste(event);
+    if (handleMultiCaretPaste(event)) return;
+    const source = readPastedTable(event.clipboardData.getData("text/plain"), event.clipboardData.getData("text/html"));
+    if (!source) return;
+    event.preventDefault();
+    const editor = event.currentTarget;
+    applyTableEdit(buildTableInsertion(editor.value, getTableInsertionSelection(editor.value, getTextSelection(editor)), source));
   };
 
   const handleMarkdownLinkClick = (event: ReactMouseEvent<HTMLElement>) => {
@@ -776,6 +889,23 @@ function FileEditor({
   );
 
   const renderedMarkdown = markdownRender?.blocks ?? null;
+  const tableEditor = tableDialog && (
+    <TextTableDialog
+      table={tableDialog.table}
+      onCancel={() => setTableDialog(null)}
+      onSave={(source) => {
+        const { content, selection, table } = tableDialog;
+        setTableDialog(null);
+        if (content !== tab.content) {
+          messageApi.warning(uiText("正文已变化，请重新打开表格"));
+          return;
+        }
+        applyTableEdit(table
+          ? { content: content.slice(0, selection.start) + source + content.slice(selection.end), caret: selection.start + source.length }
+          : buildTableInsertion(content, selection, source));
+      }}
+    />
+  );
   const renderMarkdownPreview = (className = "") =>
     tab.content.trim() && renderedMarkdown === null ? (
       <article className={`markdown-body markdown-loading ${className}`}>{uiText("正在加载 Markdown...")}</article>
@@ -836,15 +966,18 @@ function FileEditor({
         onWheel={handleFontSizeWheel}
       >
         {titleBar}
-        {messageContext}{references.popup}
-        <div
-          ref={markdownPreviewRef}
-          className="markdown-preview-scroll"
-          onScroll={(event) => onViewStateChange({ previewScrollTop: event.currentTarget.scrollTop })}
-          onDoubleClick={() => setMarkdownEditorOpen(true)}
-        >
-          {renderMarkdownPreview("markdown-preview")}
-        </div>
+        {messageContext}{references.popup}{tableEditor}
+        <Dropdown menu={{ items: makeTableMenu(true) }} trigger={["contextMenu"]}>
+          <div
+            ref={markdownPreviewRef}
+            className="markdown-preview-scroll"
+            onContextMenu={handlePreviewContextMenu}
+            onScroll={(event) => onViewStateChange({ previewScrollTop: event.currentTarget.scrollTop })}
+            onDoubleClick={() => setMarkdownEditorOpen(true)}
+          >
+            {renderMarkdownPreview("markdown-preview")}
+          </div>
+        </Dropdown>
         <MarkdownEditorModal
           open={markdownEditorOpen}
           title={displayTitle}
@@ -862,13 +995,16 @@ function FileEditor({
             </Dropdown>
           }
           preview={
-            <div
-              ref={markdownLivePreviewRef}
-              className="markdown-live-scroll"
-              onScroll={(event) => handleMarkdownPreviewScroll(event.currentTarget)}
-            >
-              {renderMarkdownPreview("markdown-live-preview")}
-            </div>
+            <Dropdown menu={{ items: makeTableMenu(true) }} trigger={["contextMenu"]}>
+              <div
+                ref={markdownLivePreviewRef}
+                className="markdown-live-scroll"
+                onContextMenu={handlePreviewContextMenu}
+                onScroll={(event) => handleMarkdownPreviewScroll(event.currentTarget)}
+              >
+                {renderMarkdownPreview("markdown-live-preview")}
+              </div>
+            </Dropdown>
           }
         />
       </div>
@@ -917,7 +1053,7 @@ function FileEditor({
   return (
     <div className="file-view" data-tab-id={tab.id} style={{ ["--file-font-size" as string]: `${fontSize}px` }} onWheel={handleFontSizeWheel}>
       {showTitleBar ? titleBar : null}
-      {messageContext}{references.popup}
+      {messageContext}{references.popup}{tableEditor}
       <Dropdown menu={{ items: contextMenuItems }} trigger={["contextMenu"]}>{textEditor}</Dropdown>
     </div>
   );

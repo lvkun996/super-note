@@ -16,6 +16,7 @@ export type TabNavigationItem = {
   dirty: boolean;
   pinned?: boolean;
   filePath?: string;
+  shareable: boolean;
 };
 
 type PointerDrag = {
@@ -64,6 +65,7 @@ type TabNavigationProps = {
   onOpenTabInExplorer: (tabId: string) => void;
   onCopyTabAbsolutePath: (tabId: string) => void;
   onCopyTabRelativePath: (tabId: string) => void;
+  onCopyShareCode: (tabId: string) => void;
   onAddCanvas: () => void;
   onAddText: (pane?: PaneKey) => void;
   onStartSplitResize: (dividerIndex: number, event: MouseEvent<HTMLDivElement>) => void;
@@ -102,6 +104,7 @@ function TabNavigationComponent({
   onOpenTabInExplorer,
   onCopyTabAbsolutePath,
   onCopyTabRelativePath,
+  onCopyShareCode,
   onAddCanvas,
   onAddText,
   onStartSplitResize,
@@ -288,6 +291,7 @@ function TabNavigationComponent({
       { key: "pin", label: tab?.pinned ? uiText("取消置顶") : uiText("置顶"), icon: <VerticalAlignTopOutlined />, onClick: () => onPinTab(tabId) },
       { key: "delete", label: uiText("移除"), danger: true, icon: <DeleteOutlined />, onClick: () => onCloseTab(tabId) },
       { key: "rename", label: uiText("编辑"), icon: <EditOutlined />, onClick: () => onRenameTab(tabId) },
+      ...(tab?.shareable ? [{ key: "copy-share-code", label: uiText("复制口令"), icon: <CopyOutlined />, onClick: () => onCopyShareCode(tabId) }] : []),
       {
         key: "explorer",
         label: uiText("在资源管理器打开"),
@@ -331,7 +335,7 @@ function TabNavigationComponent({
         : []),
       ] : []),
     ];
-  }, [getTabPanes, layout, onClosePane, onCloseTab, onCopyTabAbsolutePath, onCopyTabRelativePath, onOpenTabInExplorer, onPinTab, onRenameTab, onSplitTab, splitView, tabs]);
+  }, [getTabPanes, layout, onClosePane, onCloseTab, onCopyShareCode, onCopyTabAbsolutePath, onCopyTabRelativePath, onOpenTabInExplorer, onPinTab, onRenameTab, onSplitTab, splitView, tabs]);
 
   const renderCloseButton = (tab: TabNavigationItem, pane: PaneKey, isActive: boolean, closeGlobally = false) => (
     <button

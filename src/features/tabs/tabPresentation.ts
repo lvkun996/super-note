@@ -1,7 +1,7 @@
 import type { NoteTab } from "../../appTypes";
 import { getUiLanguage } from "../../../electron/uiLanguage";
 import { getTabDisplayTitle } from "./tabTitle";
-export type TabPresentation = { id: string; title: string; themeIndex: number; dirty: boolean; filePath?: string; pinned?: boolean; kind: NoteTab["kind"] };
+export type TabPresentation = { id: string; title: string; themeIndex: number; dirty: boolean; filePath?: string; pinned?: boolean; kind: NoteTab["kind"]; shareable: boolean };
 
 export function createTabPresentationCache() {
   let previous: TabPresentation[] = [];
@@ -24,11 +24,12 @@ export function createTabPresentationCache() {
       let row = byTab.get(tab);
       if (!row) {
         const title = getTabDisplayTitle(tab);
+        const shareable = tab.kind === "file" && !tab.isPreviewOnly;
         const old = byId.get(tab.id);
         row = old && old.title === title && old.kind === tab.kind && old.themeIndex === tab.themeIndex &&
-          old.dirty === tab.dirty && old.filePath === tab.filePath && old.pinned === tab.pinned
+          old.dirty === tab.dirty && old.filePath === tab.filePath && old.pinned === tab.pinned && old.shareable === shareable
           ? old
-          : { id: tab.id, title, kind: tab.kind, themeIndex: tab.themeIndex, dirty: tab.dirty, filePath: tab.filePath, pinned: tab.pinned };
+          : { id: tab.id, title, kind: tab.kind, themeIndex: tab.themeIndex, dirty: tab.dirty, filePath: tab.filePath, pinned: tab.pinned, shareable };
         byTab.set(tab, row);
       }
       if (!next && row !== previous[index]) next = previous.slice(0, index);

@@ -84,6 +84,20 @@ body .neutral-confirm-dialog .ant-modal-confirm-title + .ant-modal-confirm-conte
 body .neutral-confirm-dialog .rename-dialog p { margin: 0 0 12px; color: var(--popup-muted); font-size: calc(13px * var(--global-text-scale, 1)); }
 body .neutral-confirm-dialog .rename-dialog .ant-input { height: 36px; border-radius: 8px; }
 
+.note-share-dialog textarea { margin-top: 10px; resize: vertical; }
+.note-share-dialog-tools { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.note-share-dialog-tools [role="alert"] { color: #d92d20; overflow-wrap: anywhere; }
+body:has(.app-shell.dark-mode) .note-share-dialog-tools [role="alert"] { color: #ff9691; }
+.text-table-dimensions { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
+.text-table-dimensions label { display: flex; align-items: center; gap: 6px; }
+.text-table-dimensions .ant-input-number { width: 64px; }
+.text-table-grid-scroll { margin-top: 10px; max-height: min(48vh, 400px); overflow: auto; }
+.text-table-grid { width: 100%; border-collapse: collapse; }
+.text-table-grid td { min-width: 96px; padding: 2px; border: 1px solid var(--popup-border); }
+.text-table-grid-header td { background: var(--popup-hover); }
+.text-table-grid .ant-input { border-color: transparent; background: transparent; }
+.text-table-grid .ant-input:focus { border-color: #1677ff; }
+
 body .ant-dropdown .ant-dropdown-menu-item,
 body .ant-dropdown .ant-dropdown-menu-submenu-title { color: var(--popup-text); font-size: calc(13px * var(--global-text-scale, 1)); }
 body .ant-dropdown .ant-dropdown-menu-item:hover,

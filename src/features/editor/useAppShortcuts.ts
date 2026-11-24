@@ -10,6 +10,7 @@ type AppShortcutsOptions = {
   quickOpenOpen: boolean;
   searchOpen: boolean;
   settingsOpen: boolean;
+  shareCodeOpen: boolean;
   searchScope: "current" | "all";
   canvasPluginEnabled: boolean;
   selectedItem: SelectedItem;
@@ -40,6 +41,7 @@ export function useAppShortcuts({
   quickOpenOpen,
   searchOpen,
   settingsOpen,
+  shareCodeOpen,
   searchScope,
   canvasPluginEnabled,
   selectedItem,
@@ -65,7 +67,7 @@ export function useAppShortcuts({
 }: AppShortcutsOptions) {
   const handleGlobalKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || shareCodeOpen) return;
       if (event.key === "Escape" && quickOpenOpen) {
         event.preventDefault();
         closeQuickOpen();
@@ -78,6 +80,7 @@ export function useAppShortcuts({
       }
 
       const activeElement = document.activeElement;
+      if (activeElement?.closest(".text-table-dialog")) return;
       const isTyping = activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLInputElement;
       const editingFile = activeElement instanceof HTMLTextAreaElement && activeElement.classList.contains("file-editor");
 
@@ -187,6 +190,7 @@ export function useAppShortcuts({
       settings.shortcuts,
       settings.tabLayout,
       settingsOpen,
+      shareCodeOpen,
       toggleSidebar,
       toggleTabLayout,
       undo,

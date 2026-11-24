@@ -215,6 +215,11 @@ export async function readClipboardText() {
   return navigator.clipboard?.readText?.() ?? "";
 }
 
+export async function readTableClipboard() {
+  if (window.superNote?.readTableClipboard) return window.superNote.readTableClipboard();
+  return { text: await readClipboardText(), html: "" };
+}
+
 export async function writeClipboardText(text: string) {
   if (window.superNote?.writeClipboardText) {
     await window.superNote.writeClipboardText(text);
