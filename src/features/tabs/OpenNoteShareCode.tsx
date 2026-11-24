@@ -6,7 +6,11 @@ import type { NoteShareResult, SharedTextNote } from "../../../electron/noteShar
 import { readClipboardText } from "../editor/editorUtils";
 
 export function noteShareError(result: NoteShareResult) {
-  if (result.reason === "code-too-long") return uiText("口令最多 {0} 个字符，请缩短正文后重新生成", [result.maxLength]);
+  if (result.reason === "code-too-long") {
+    return result.actualLength === undefined
+      ? uiText("口令超过 {0} 个字符，请向发送方索取拆分后的口令", [result.maxLength])
+      : uiText("压缩后口令有 {0} 个字符，上限为 {1}，请拆分正文后再复制", [result.actualLength, result.maxLength]);
+  }
   if (result.reason === "too-large") return uiText("文本过大，口令最多支持 4 MB 的数据");
   if (result.reason === "unsupported") return uiText("此口令版本暂不支持");
   return uiText("口令无效或不完整");

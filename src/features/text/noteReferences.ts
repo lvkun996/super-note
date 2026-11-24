@@ -1,6 +1,7 @@
 export type NoteReferenceTarget = { id: string; title: string; kind: "file" | "canvas" };
 const NOTE_URL = /^super-note:\/\/note\/([^/?#]+)$/;
-const REFERENCE = /\[([^\]\n]*(?:\\\][^\]\n]*)*)\]\((super-note:\/\/note\/[^\s)]+)\)/g;
+const NOTE_LINK_START = "](super-note://note/";
+const WHITESPACE = /\s/;
 
 export function noteIdFromUrl(url: string) {
   const match = NOTE_URL.exec(url);
@@ -14,10 +15,42 @@ export function createNoteReference(target: NoteReferenceTarget) {
 }
 
 export function getNoteReferences(content: string) {
-  return Array.from(content.matchAll(REFERENCE)).flatMap(match => {
-    const id = noteIdFromUrl(match[2]);
-    return id ? [{ id, title: match[1].replace(/\\([\\\[\]])/g, "$1"), start: match.index!, end: match.index! + match[0].length }] : [];
-  });
+  const lastMarker = content.lastIndexOf(NOTE_LINK_START);
+  if (lastMarker < 0) return [];
+
+  const references: { id: string; title: string; start: number; end: number }[] = [];
+  let opening = -1;
+  let urlEnd = -1;
+  // Retain the first opening bracket in a title instead of retrying a
+  // backtracking regex from every bracket in a long malformed reference.
+  for (let index = 0; index <= lastMarker; index += 1) {
+    const character = content[index];
+    if (character === "\n") opening = -1;
+    if (character === "[" && opening < 0) opening = index;
+    if (character !== "]" || opening < 0) continue;
+
+    if (content.startsWith(NOTE_LINK_START, index)) {
+      const idStart = index + NOTE_LINK_START.length;
+      // Malformed escaped markers can fall inside the last scanned URL.
+      // Reuse its boundary rather than looking for the same terminator again.
+      if (idStart > urlEnd) {
+        urlEnd = idStart;
+        while (urlEnd < content.length && content[urlEnd] !== ")" && !WHITESPACE.test(content[urlEnd])) urlEnd += 1;
+      }
+      if (urlEnd > idStart && content[urlEnd] === ")") {
+        const id = noteIdFromUrl(content.slice(index + 2, urlEnd));
+        if (id) {
+          const title = content.slice(opening + 1, index).replace(/\\([\\\[\]])/g, "$1");
+          references.push({ id, title, start: opening, end: urlEnd + 1 });
+        }
+        opening = -1;
+        index = urlEnd;
+        continue;
+      }
+    }
+    if (content[index - 1] !== "\\") opening = -1;
+  }
+  return references;
 }
 
 export function getNoteReferenceQuery(content: string, start: number, end: number) {

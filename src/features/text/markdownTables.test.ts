@@ -24,6 +24,15 @@ describe("document tables", () => {
     expect(findMarkdownTables(edit.content)).toHaveLength(1);
   });
 
+  it("keeps valid bare separator rows and ignores ordinary pipe-delimited logs", () => {
+    const log = "INFO | task finished | id=42\n".repeat(100);
+    expect(findMarkdownTables(log)).toEqual([]);
+    const table = findMarkdownTables(log + "\n| Name |\n---\n| First |\n| Last |")[0];
+    expect(table.rows).toEqual(["| Name |", "| First |", "| Last |"]);
+    expect(rowAtOffset(table, table.rowStarts[2] - 1)).toBe(1);
+    expect(rowAtOffset(table, table.rowStarts[2])).toBe(2);
+  });
+
   it("converts TSV including Excel-style quoted cells and preserves literal Markdown punctuation", () => {
     const markdown = readPastedTable('名称\t值\r\n"a|b"\t"多行\r\n**内容**"\r\n');
     const html = renderMarkdownContent(markdown);

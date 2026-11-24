@@ -25,6 +25,17 @@ describe("note references", () => {
     expect(filterNoteTargets([{ id: "a", title: "Alpha", kind: "file" }, { id: "b", title: "ALPHA board", kind: "canvas" }], "a", "alpha").map(note => note.id)).toEqual(["b"]);
   });
 
+  it("finds references after long malformed bracket text and keeps their offsets", () => {
+    const prefix = "[".repeat(24_000) + "\n";
+    const first = String.raw`[before\] end](super-note://note/ok)`;
+    const between = "[bad](super-note://note/%bad) [broken](super-note://note/has spaces) ";
+    const last = "[](super-note://note/second)";
+    expect(getNoteReferences(prefix + first + between + last)).toEqual([
+      { id: "ok", title: "before] end", start: prefix.length, end: prefix.length + first.length },
+      { id: "second", title: "", start: prefix.length + first.length + between.length, end: prefix.length + first.length + between.length + last.length },
+    ]);
+  });
+
   it("stops reading targets once the visible result limit is filled", () => {
     let visits = 0;
     const targets = Array.from({ length: 10000 }, (_, index) => ({

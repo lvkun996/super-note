@@ -3,7 +3,7 @@ import { uiText } from "../../../electron/uiLanguage";
 import { AimOutlined, CloseOutlined, CodeOutlined, CopyOutlined, EditOutlined, EllipsisOutlined, ScissorOutlined, SnippetsOutlined, TableOutlined } from "@ant-design/icons";
 import { Button, Dropdown, Tooltip, message } from "antd";
 import type { MenuProps } from "antd";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from "react";
 import type { FileTab, FileViewState, ProgrammerAction, TextAnchor, TextSearchTarget, TextSelection } from "../../appTypes";
 import {
@@ -31,11 +31,12 @@ import { useNoteReferencePicker } from "./useNoteReferencePicker";
 import { PlainTextMirror } from "./PlainTextMirror";
 import { useMarkdownRender } from "./useMarkdownRender";
 import { buildTableInsertion, buildTableRowEdit, findMarkdownTables, readPastedTable, rowAtOffset, type MarkdownTable } from "./markdownTables";
-import { TextTableDialog, MAX_VISUAL_TABLE_CELLS } from "./TextTableDialog";
 
 const EMPTY_SELECTION: TextSelection = { start: 0, end: 0 };
 const EMPTY_ANCHORS: TextAnchor[] = [];
 const EMPTY_NOTE_TARGETS: NoteReferenceTarget[] = [];
+const MAX_VISUAL_TABLE_CELLS = 500;
+const TextTableDialog = lazy(() => import("./TextTableDialog").then(({ TextTableDialog }) => ({ default: TextTableDialog })));
 
 type FileViewProps = {
   tab: FileTab;
@@ -128,6 +129,8 @@ function FileEditor({
   const [selection, setSelection] = useState<TextSelection>(EMPTY_SELECTION);
   const [tableTarget, setTableTarget] = useState<{ content: string; table: MarkdownTable; row: number } | null>(null);
   const [tableDialog, setTableDialog] = useState<{ content: string; selection: TextSelection; table?: MarkdownTable } | null>(null);
+  const tableCache = useRef<{ content: string; tables: MarkdownTable[] } | null>(null);
+  if (tableCache.current && tableCache.current.content !== tab.content) tableCache.current = null;
   const latestTab = useRef(tab);
   latestTab.current = tab;
   const pointerDown = useRef<{ x: number; y: number } | null>(null);
@@ -573,8 +576,15 @@ function FileEditor({
     }
   };
 
+  const getDocumentTables = (content: string) => {
+    if (tableCache.current?.content === content) return tableCache.current.tables;
+    const tables = findMarkdownTables(content);
+    tableCache.current = { content, tables };
+    return tables;
+  };
+
   const getTableInsertionSelection = (content: string, selection: TextSelection) => {
-    const table = findMarkdownTables(content).find(({ start, end }) =>
+    const table = getDocumentTables(content).find(({ start, end }) =>
       (selection.start > start && selection.start <= end) || (selection.end > start && selection.end < end));
     return table ? { start: table.end, end: table.end } : selection;
   };
@@ -648,7 +658,7 @@ function FileEditor({
       return;
     }
     const index = Array.from(tableElement.parentElement.querySelectorAll(":scope > table")).indexOf(tableElement);
-    const table = findMarkdownTables(tab.content)[index];
+    const table = getDocumentTables(tab.content)[index];
     setTableTarget(table && row.rowIndex < table.rows.length ? { content: tab.content, table, row: row.rowIndex } : null);
   };
 
@@ -785,7 +795,7 @@ function FileEditor({
     onContextMenu: (event: ReactMouseEvent<HTMLTextAreaElement>) => {
       const editor = event.currentTarget;
       syncSelection(editor);
-      const tables = findMarkdownTables(editor.value);
+      const tables = getDocumentTables(editor.value);
       if (!tables.length) { setTableTarget(null); return; }
       const offset = event.clientX || event.clientY
         ? getTextOffsetAtPoint(editor, highlightRef.current, event.clientX, event.clientY) ?? editor.selectionStart
@@ -890,21 +900,23 @@ function FileEditor({
 
   const renderedMarkdown = markdownRender?.blocks ?? null;
   const tableEditor = tableDialog && (
-    <TextTableDialog
-      table={tableDialog.table}
-      onCancel={() => setTableDialog(null)}
-      onSave={(source) => {
-        const { content, selection, table } = tableDialog;
-        setTableDialog(null);
-        if (content !== tab.content) {
-          messageApi.warning(uiText("正文已变化，请重新打开表格"));
-          return;
-        }
-        applyTableEdit(table
-          ? { content: content.slice(0, selection.start) + source + content.slice(selection.end), caret: selection.start + source.length }
-          : buildTableInsertion(content, selection, source));
-      }}
-    />
+    <Suspense fallback={null}>
+      <TextTableDialog
+        table={tableDialog.table}
+        onCancel={() => setTableDialog(null)}
+        onSave={(source) => {
+          const { content, selection, table } = tableDialog;
+          setTableDialog(null);
+          if (content !== tab.content) {
+            messageApi.warning(uiText("正文已变化，请重新打开表格"));
+            return;
+          }
+          applyTableEdit(table
+            ? { content: content.slice(0, selection.start) + source + content.slice(selection.end), caret: selection.start + source.length }
+            : buildTableInsertion(content, selection, source));
+        }}
+      />
+    </Suspense>
   );
   const renderMarkdownPreview = (className = "") =>
     tab.content.trim() && renderedMarkdown === null ? (

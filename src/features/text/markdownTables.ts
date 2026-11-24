@@ -2,7 +2,8 @@ import MarkdownIt from "markdown-it";
 import type { TextSelection } from "../../appTypes";
 import { normalizeTextLineEndings } from "./textLineEndings";
 
-const parser = new MarkdownIt();
+let parser: MarkdownIt | undefined;
+const TABLE_SEPARATOR_LINE = /\n[ \t]*[|:\-][ \t|:\-]*(?=\r?\n|$)/;
 export const MAX_TABLE_CELLS = 100_000;
 
 export type MarkdownTable = {
@@ -15,33 +16,42 @@ export type MarkdownTable = {
 };
 
 export function findMarkdownTables(content: string): MarkdownTable[] {
-  if (!content.includes("|")) return [];
+  // A pipe also occurs in logs, source code, and prose. Skip parsing until
+  // the document contains a line that could actually be a table separator.
+  if (!content.includes("|") || !TABLE_SEPARATOR_LINE.test(content)) return [];
+  const tableParser = parser ??= new MarkdownIt();
+  const tokens: ReturnType<typeof tableParser.parse> = [];
+  tableParser.block.parse(content, tableParser, {}, tokens);
+  const ranges = tokens.flatMap((token) => token.type === "table_open" && token.level === 0 && token.map ? [token.map] : []);
+  if (!ranges.length) return [];
+
   const lines = content.split("\n");
   const offsets = [0];
   for (const line of lines) offsets.push(offsets[offsets.length - 1] + line.length + 1);
 
-  const tokens: ReturnType<typeof parser.parse> = [];
-  parser.block.parse(content, parser, {}, tokens);
-  return tokens.flatMap((token) => {
-    if (token.type !== "table_open" || token.level !== 0 || !token.map) return [];
-    const [start, end] = token.map;
+  return ranges.map(([start, end]) => {
     const separator = lines[start + 1];
     const rowStarts = [offsets[start], ...offsets.slice(start + 2, end)];
-    return [{
+    return {
       start: offsets[start],
       end: offsets[end] - 1,
       rowStarts,
       rows: [lines[start], ...lines.slice(start + 2, end)],
       columns: separator.trim().split("|").filter((part) => part.trim()).length,
       separator,
-    }];
+    };
   });
 }
 
 export function rowAtOffset(table: MarkdownTable, offset: number) {
-  let row = 0;
-  while (row + 1 < table.rowStarts.length && table.rowStarts[row + 1] <= offset) row += 1;
-  return row;
+  let low = 0;
+  let high = table.rowStarts.length;
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2);
+    if (table.rowStarts[middle] <= offset) low = middle;
+    else high = middle;
+  }
+  return low;
 }
 
 export function readMarkdownRow(line: string) {

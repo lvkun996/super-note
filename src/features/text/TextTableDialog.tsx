@@ -3,7 +3,6 @@ import { useState } from "react";
 import { uiText } from "../../../electron/uiLanguage";
 import { formatMarkdownRow, formatMarkdownTable, readMarkdownRow, type MarkdownTable } from "./markdownTables";
 
-export const MAX_VISUAL_TABLE_CELLS = 500;
 const MAX_NEW_ROWS = 25;
 const MAX_NEW_COLUMNS = 20;
 

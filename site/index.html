@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Super Note 是一款为 Windows 打造的多栏桌面笔记工具，让文字、画板和搜索保持在同一个工作空间里。" />
+    <meta name="description" content="Super Note 是一款 Windows 多栏桌面笔记工具，支持纯文本、Markdown、表格编辑和离线口令分享。" />
     <meta name="theme-color" content="#f2f2f7" />
     <title>Super Note — 把想法放到一张桌面上</title>
     <link rel="icon" href="./assets/app-icon.png" />
@@ -28,7 +28,7 @@
           <span>Super Note</span>
         </a>
         <nav class="site-nav" aria-label="主要导航">
-          <a href="#features">界面</a>
+          <a href="#features">功能</a>
           <a href="#updates">更新</a>
           <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换到夜间模式">
             <svg class="theme-icon theme-icon-sun" aria-hidden="true" viewBox="0 0 24 24">
@@ -39,7 +39,7 @@
               <path d="M20.2 15.2A8.6 8.6 0 0 1 8.8 3.8 8.6 8.6 0 1 0 20.2 15.2Z"></path>
             </svg>
           </button>
-          <a class="download-link" href="https://github.com/lvkun996/super-note/releases/download/v0.1.44/Super.Note.Setup.0.1.44.exe">下载</a>
+          <a class="download-link" href="https://github.com/lvkun996/super-note/releases/download/v0.1.45/Super.Note.Setup.0.1.45.exe">下载</a>
         </nav>
       </div>
     </header>
@@ -48,12 +48,12 @@
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-layout">
           <div class="hero-copy">
-            <p class="hero-version-badge">Super Note <span>0.1.44</span></p>
+            <p class="hero-version-badge">Super Note <span>0.1.45</span></p>
             <p class="eyebrow">Windows 桌面笔记</p>
             <h1 id="hero-title">打开就写，<br /><span>多栏并排处理</span></h1>
-            <p class="hero-description">在同一个工作区编辑纯文本、预览 Markdown，也能打开画板和思维导图。全局文字缩放让菜单和正文都能调到顺眼的大小。</p>
+            <p class="hero-description">在同一个工作区并排编辑纯文本、Markdown 和表格，也能打开画板和思维导图。需要把笔记发给别人时，复制一条离线口令即可分享。</p>
             <div class="hero-actions" aria-label="下载与了解">
-              <a class="primary-button" href="https://github.com/lvkun996/super-note/releases/download/v0.1.44/Super.Note.Setup.0.1.44.exe">下载 Windows 10 / 11</a>
+              <a class="primary-button" href="https://github.com/lvkun996/super-note/releases/download/v0.1.45/Super.Note.Setup.0.1.45.exe">下载 Windows 10 / 11</a>
               <a class="text-link" href="#features">了解 Super Note <span aria-hidden="true">↘</span></a>
             </div>
             <p class="release-note">适用 Windows 10 / 11 · 免费使用</p>
@@ -70,26 +70,23 @@
 
       <section class="feature-section" id="features" aria-labelledby="features-title">
         <div class="section-heading">
-          <p class="eyebrow">界面与操作</p>
-          <h2 id="features-title">看得懂，也用得顺</h2>
-          <p>常用操作放在看得见的位置，复杂能力收进需要时才出现的菜单。</p>
+          <h2 id="features-title">编辑与分享</h2>
         </div>
         <div class="feature-grid">
           <article class="feature-card">
-            <p class="feature-kicker">TEXT</p>
-            <p class="feature-index">01</p>
-            <h3>纯文本直接编辑</h3>
-            <p>打开笔记就可以输入。正文中的关联笔记支持 Ctrl+单击跳转。</p>
+            <h3>纯文本与 Markdown</h3>
+            <p>打开纯文本就能写，编辑 Markdown 时可实时对照源码和预览。按住 Ctrl 单击正文中的关联笔记即可跳转。</p>
           </article>
           <article class="feature-card">
-            <p class="feature-kicker">MARKDOWN</p>
-            <p class="feature-index">02</p>
-            <h3>预览与编辑分开</h3>
-            <p>默认直接阅读渲染结果；点击标题栏右侧的编辑图标，在弹窗中实时对照源码和预览。</p>
+            <h3>表格编辑</h3>
+            <p>在纯文本或 Markdown 中右键新建表格，也可以直接从 Excel 或网页粘贴。右键单元格可插入空行、把当前行复制到下方，或复制整张表格。</p>
           </article>
           <article class="feature-card">
-            <p class="feature-kicker">APPEARANCE</p>
-            <p class="feature-index">03</p>
+            <h3>离线口令</h3>
+            <p>右键文本标签，选择「复制口令」。对方在「文件 → 打开口令」粘贴，即可离线打开带有原有标题和正文的新标签。单条口令最多 1,024 个字符。</p>
+            <p>v0.1.45 的口令格式更紧凑。一份包含中英文和表格的测试笔记，口令从 1,288 字符缩到 549 字符。接收方需使用 v0.1.45 或更新版本打开新口令。</p>
+          </article>
+          <article class="feature-card">
             <h3>全局文字缩放</h3>
             <p>在基础设置中调整 50%–200% 的文字比例，立即生效，重启后保留。</p>
           </article>
@@ -117,6 +114,12 @@
             <ol class="update-timeline">
             <li class="update-item update-item-current">
               <article><details open>
+                <summary><div class="update-meta"><strong>v0.1.45</strong><time datetime="2026-11-24">2026.11.24</time></div><h3>更短的离线口令与编辑性能优化</h3><p class="update-summary">同样的口令长度能容纳更多正文，长文本的引用识别也更快。</p></summary>
+                <ul class="update-details"><li>采用更紧凑的无损口令格式，单条上限为 1,024 个字符，并继续支持打开旧口令。</li><li>优化长文本的笔记引用扫描，复用当前正文的表格解析结果。表格编辑窗口在使用时加载。</li><li>官网在桌面宽屏恢复左文右图，新增首屏和滚动动效，并适配系统的减少动态效果设置。</li></ul>
+              </details></article>
+            </li>
+            <li class="update-item">
+              <article><details>
                 <summary><div class="update-meta"><strong>v0.1.44</strong><time datetime="2026-11-24">2026.11.24</time></div><h3>表格编辑与离线口令</h3><p class="update-summary">在文本中编辑表格，用口令离线分享整个文本标签。</p></summary>
                 <ul class="update-details"><li>右键新建、编辑和复制表格，支持插入行或将当前行复制到下方。</li><li>从 Excel、网页和 Markdown 粘贴表格时保留单元格文字和行列。</li><li>文本标签可复制离线口令，接收方通过「文件 → 打开口令」打开新标签。单条口令最多 1,024 个字符。</li></ul>
               </details></article>
@@ -542,8 +545,8 @@
         <div class="download-card">
           <p class="eyebrow">准备开始</p>
           <h2 id="download-title">给想法一个更大的空间</h2>
-          <a class="primary-button" href="https://github.com/lvkun996/super-note/releases/download/v0.1.44/Super.Note.Setup.0.1.44.exe">下载 Super Note</a>
-          <p class="download-meta">Windows 10 / 11 · v0.1.44 · <a href="https://github.com/lvkun996/super-note/releases">查看所有版本</a></p>
+          <a class="primary-button" href="https://github.com/lvkun996/super-note/releases/download/v0.1.45/Super.Note.Setup.0.1.45.exe">下载 Super Note</a>
+          <p class="download-meta">Windows 10 / 11 · v0.1.45 · <a href="https://github.com/lvkun996/super-note/releases">查看所有版本</a></p>
         </div>
       </section>
     </main>
@@ -571,6 +574,21 @@
         }
         applyTheme(nextTheme);
       });
+
+      if ("IntersectionObserver" in window && window.matchMedia("(prefers-reduced-motion: no-preference)").matches) {
+        const observer = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            entry.target.classList.add("scroll-entrance");
+            observer.unobserve(entry.target);
+          }
+        });
+
+        const sections = document.querySelectorAll(".feature-section .section-heading, .feature-card, .focus-panel, .updates-heading, .download-card");
+        for (const section of sections) {
+          if (section.getBoundingClientRect().top >= window.innerHeight) observer.observe(section);
+        }
+      }
     </script>
 
     <footer>

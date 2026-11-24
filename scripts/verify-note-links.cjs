@@ -75,17 +75,13 @@ async function verify() {
     if (markdown) {
       await waitFor("document.querySelector('.markdown-live-preview a[href^=\"super-note:\"]')");
       await evaluate("[...document.querySelectorAll('.markdown-editor-modal button')].find(b=>b.textContent.split(' ').join('')==='完成').click()");
+      await waitFor("document.querySelector('.file-view a[href^=\"super-note:\"]')");
+      await evaluate("document.querySelector('.file-view a[href^=\"super-note:\"]').click()");
     } else {
-      await evaluate("document.querySelector('.file-title-edit').click()");
-      await waitFor("document.querySelector('.note-reference-text a')");
-      assert.equal(await evaluate("document.querySelector('.note-reference-text').textContent"), "前文 second");
-      await evaluate("document.querySelector('.note-reference-text').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))");
-      await waitFor("document.querySelector('.file-editor')");
       assert.equal(await evaluate("document.querySelector('.file-editor').value"), "前文 [second](super-note://note/second)");
-      await evaluate("document.querySelector('.file-title-edit').click()");
+      await waitFor("document.querySelector('.file-highlight .text-http-link')");
+      await clickPath(["control"]);
     }
-    await waitFor("document.querySelector('.file-view a[href^=\"super-note:\"]')");
-    await evaluate("document.querySelector('.file-view a[href^=\"super-note:\"]').click()");
     await waitFor("document.querySelector('.file-view[data-tab-id=second]')");
   }
   await load(String.raw`路径 D:\code\zd\front\h5\web\upload.py 结束`);
